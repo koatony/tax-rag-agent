@@ -1,0 +1,225 @@
+{
+  "form_id": "Schedule_A",
+  "description": "IRS Schedule A (Form 1040) V1 Schema",
+  "inputs": [
+    {
+      "id": "taxpayer_name",
+      "type": "string",
+      "description": "Taxpayer Name"
+    },
+    {
+      "id": "taxpayer_ssn",
+      "type": "string",
+      "description": "Taxpayer SSN"
+    },
+    {
+      "id": "taxpayer_date_of_birth",
+      "type": "string",
+      "description": "Taxpayer Date of Birth (YYYY-MM-DD)"
+    },
+    {
+      "id": "taxpayer_blind",
+      "type": "boolean",
+      "description": "Is Taxpayer legally blind (true/false)"
+    },
+    {
+      "id": "spouse_date_of_birth",
+      "type": "string",
+      "description": "Spouse Date of Birth (YYYY-MM-DD, optional)"
+    },
+    {
+      "id": "spouse_blind",
+      "type": "boolean",
+      "description": "Is Spouse legally blind (true/false, optional)"
+    },
+    {
+      "id": "tax_year",
+      "type": "int",
+      "default": 2025,
+      "description": "Tax Year"
+    },
+    {
+      "id": "filing_status",
+      "type": "string",
+      "description": "Filing Status (SINGLE, MFJ, MFS, HOH, QSS)"
+    },
+    {
+      "id": "adjusted_gross_income",
+      "type": "float",
+      "default": 0.0,
+      "description": "Adjusted Gross Income (AGI)"
+    },
+    {
+      "id": "medical_items",
+      "type": "array",
+      "description": "Medical Expense Items. Each item has: taxpayer_paid_amount (float), reimbursement_amount (float), paid_by_hsa_msa_fsa_hra_cafeteria_plan_amount (float), expense_category (string: MEDICAL, DENTAL, PRESCRIPTION_DRUGS, etc.), expense_person (string: TAXPAYER, SPOUSE, DEPENDENT), paid_in_tax_year (boolean)."
+    },
+    {
+      "id": "tax_items",
+      "type": "array",
+      "description": "Tax Payment Items. Each item has: amount_paid (float), tax_category (string: STATE_LOCAL_INCOME_TAX, GENERAL_SALES_TAX, PERSONAL_REAL_ESTATE_TAX, PERSONAL_PROPERTY_TAX, FEDERAL_OR_NONDEDUCTIBLE_TAX, BUSINESS_OR_RENTAL_TAX), description (string), paid_in_tax_year (boolean), personal_use_confirmed (boolean), actual_paid_to_taxing_authority_confirmed (boolean; set to false if the payment is only to an escrow account, such as Form 1098 Box 10, without confirmation of actual payment to the taxing authority), value_based_and_annual_confirmed (boolean)."
+    },
+    {
+      "id": "line_5a_election",
+      "type": "string",
+      "description": "Line 5a Election (INCOME_TAX, GENERAL_SALES_TAX, null)"
+    },
+    {
+      "id": "mortgage_interest_items",
+      "type": "array",
+      "description": "Mortgage Interest Items. Each item has: form_1098_box_1_mortgage_interest (float), deductible_points_reported_on_1098 (float), simple_mortgage_status (string: CONFIRMED_SIMPLE, UNKNOWN), paid_in_tax_year (boolean)."
+    },
+    {
+      "id": "cash_charity_items",
+      "type": "array",
+      "description": "Cash Charity Items. Each item has: gross_contribution_amount (float), organization_name (string), paid_in_tax_year (boolean), qualified_organization_status (string: VERIFIED, UNKNOWN), contribution_date (string, e.g. YYYY-MM-DD), goods_or_services_value (float), bank_or_written_record_available (boolean), contemporaneous_acknowledgment_received (boolean)."
+    },
+    {
+      "id": "standard_deduction_reference",
+      "type": "object",
+      "description": "Standard Deduction Reference. Properties: standard_deduction_amount (float, optional), must_itemize_due_to_mfs_spouse (boolean, optional), elect_itemize_even_if_less (boolean, optional)."
+    },
+    {
+      "id": "special_case_flags",
+      "type": "object",
+      "description": "Special Case Flags. Properties: has_marketplace_medical_premium (boolean), has_ltc_premium (boolean)."
+    }
+  ],
+  "formulas": [
+    {
+      "id": "line_1_medical_and_dental_expenses",
+      "expr": "line_1",
+      "description": "Medical and dental expenses"
+    },
+    {
+      "id": "line_2_agi",
+      "expr": "line_2",
+      "description": "Adjusted gross income"
+    },
+    {
+      "id": "line_3_medical_threshold",
+      "expr": "line_3",
+      "description": "7.5% of AGI threshold"
+    },
+    {
+      "id": "line_4_deductible_medical_expenses",
+      "expr": "line_4",
+      "description": "Deductible medical expenses"
+    },
+    {
+      "id": "line_5a_amount",
+      "expr": "line_5a",
+      "description": "State and local taxes"
+    },
+    {
+      "id": "line_5a_sales_tax_checkbox",
+      "expr": "sales_tax_checkbox",
+      "description": "State and local general sales taxes checkbox"
+    },
+    {
+      "id": "line_5b_real_estate_taxes",
+      "expr": "line_5b",
+      "description": "Real estate taxes"
+    },
+    {
+      "id": "line_5c_personal_property_taxes",
+      "expr": "line_5c",
+      "description": "Personal property taxes"
+    },
+    {
+      "id": "line_5d_salt_before_limit",
+      "expr": "line_5d",
+      "description": "Total SALT taxes before limit"
+    },
+    {
+      "id": "line_5e_salt_deduction",
+      "expr": "line_5e",
+      "description": "SALT deduction after cap"
+    },
+    {
+      "id": "line_6_other_taxes",
+      "expr": "line_6",
+      "description": "Other taxes"
+    },
+    {
+      "id": "line_7_total_taxes",
+      "expr": "line_7",
+      "description": "Total taxes paid"
+    },
+    {
+      "id": "line_8_qualifying_proceeds_checkbox",
+      "expr": "false",
+      "description": "Checkbox for mortgage proceeds limit"
+    },
+    {
+      "id": "line_8a_home_mortgage_interest",
+      "expr": "line_8a",
+      "description": "Home mortgage interest and points reported on Form 1098"
+    },
+    {
+      "id": "line_8b_non_1098_interest",
+      "expr": "line_8b",
+      "description": "Home mortgage interest not reported on Form 1098"
+    },
+    {
+      "id": "line_8c_non_1098_points",
+      "expr": "line_8c",
+      "description": "Points not reported on Form 1098"
+    },
+    {
+      "id": "line_8e_total_mortgage_interest",
+      "expr": "line_8e",
+      "description": "Total home mortgage interest"
+    },
+    {
+      "id": "line_9_investment_interest",
+      "expr": "line_9",
+      "description": "Investment interest"
+    },
+    {
+      "id": "line_10_total_interest_paid",
+      "expr": "line_10",
+      "description": "Total interest paid"
+    },
+    {
+      "id": "line_11_cash_contributions",
+      "expr": "line_11",
+      "description": "Gifts by cash or check"
+    },
+    {
+      "id": "line_12_noncash_contributions",
+      "expr": "line_12",
+      "description": "Gifts other than by cash or check"
+    },
+    {
+      "id": "line_13_charity_carryover",
+      "expr": "line_13",
+      "description": "Carryover from prior year"
+    },
+    {
+      "id": "line_14_total_charity",
+      "expr": "line_14",
+      "description": "Total charitable contributions"
+    },
+    {
+      "id": "line_15_casualty_theft_loss",
+      "expr": "line_15",
+      "description": "Casualty and theft loss"
+    },
+    {
+      "id": "line_16_other_itemized_deductions",
+      "expr": "line_16",
+      "description": "Other itemized deductions"
+    },
+    {
+      "id": "line_17_total_itemized_deductions",
+      "expr": "line_17",
+      "description": "Total itemized deductions"
+    },
+    {
+      "id": "line_18_elect_itemize_surface",
+      "expr": "line_18_surface",
+      "description": "Elect to itemize checkbox (2025)"
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "form_id": "Schedule_B",
+  "tax_year": 2025,
+  "description": "IRS Schedule B (Form 1040) — V1 一般案件填表器規格",
+  "inputs": [
+    {
+      "id": "taxpayer_name",
+      "type": "string",
+      "description": "Name: 申報人法定姓名"
+    },
+    {
+      "id": "taxpayer_ssn",
+      "type": "string",
+      "description": "SSN: 社會安全號碼"
+    },
+    {
+      "id": "tax_year",
+      "type": "int",
+      "default": 2024,
+      "description": "Tax Year: 申報之稅務年度"
+    },
+    {
+      "id": "interest_items",
+      "type": "array",
+      "description": "一般利息明細。結構包含 item_id, source_statement_id, statement_issuer_name (string | null), source_document_type, source_box, payer_name, payer_reported_amount (Decimal), tax_character (TAXABLE_INTEREST | TAX_EXEMPT_INTEREST | UNKNOWN), is_series_ee_or_i_interest."
+    },
+    {
+      "id": "dividend_items",
+      "type": "array",
+      "description": "一般股利明細。結構包含 item_id, source_statement_id, statement_issuer_name (string | null), source_document_type, payer_name, ordinary_dividends (Decimal), qualified_dividends (Decimal), exempt_interest_dividends (Decimal)."
+    },
+    {
+      "id": "form_8815",
+      "type": "object",
+      "description": "Form 8815 跨表引用項目。結構包含 is_completed, line_14_excludable_interest (Decimal), eligible_series_ee_i_interest_included_in_line_2 (Decimal)."
+    },
+    {
+      "id": "foreign_account_q1",
+      "type": "boolean",
+      "description": "Part III Line 7a (1): 是否在海外擁有金融帳戶權限或利益"
+    },
+    {
+      "id": "fbar_q2",
+      "type": "boolean",
+      "description": "Part III Line 7a (2): 是否被要求申報 FBAR"
+    },
+    {
+      "id": "foreign_countries",
+      "type": "array",
+      "description": "Part III Line 7b: FBAR 國家名稱列表"
+    },
+    {
+      "id": "foreign_trust_q8",
+      "type": "boolean",
+      "description": "Part III Line 8: 是否涉及海外信託分配或為 grantor/transferor"
+    },
+    {
+      "id": "special_case_flags",
+      "type": "object",
+      "description": "V1 特殊案件偵測旗標。包含 has_nominee_distribution, has_accrued_interest, has_oid, has_abp_adjustment, has_market_discount, has_seller_financed_mortgage, has_form_8814, has_tax_exempt_bond_premium, has_contingent_payment_debt."
+    },
+    {
+      "id": "market_discount_items",
+      "type": "array",
+      "description": "Form 1099-B/Form 8949 中包含 accrued market discount 的交易明細。結構包含 item_id, payer_name, proceeds (Decimal), cost_basis (Decimal), accrued_market_discount (Decimal)."
+    }
+  ],
+  "formulas": [
+    {
+      "id": "processed_interest_items",
+      "expr": "process_interest_items(interest_items, tax_year) + process_market_discount_items(market_discount_items)",
+      "description": "整理利息與折價明細，排除免稅項目"
+    },
+    {
+      "id": "processed_dividend_items",
+      "expr": "process_dividend_items(dividend_items, tax_year)",
+      "description": "整理股利明細，校驗合格與普通股利"
+    },
+    {
+      "id": "line_1_payer_entries",
+      "expr": "aggregate_interest_entries(processed_interest_items)",
+      "description": "Schedule B Line 1 付款人列表"
+    },
+    {
+      "id": "interest_subtotal",
+      "expr": "sum_decimal(entry['payer_reported_amount'] for entry in line_1_payer_entries)",
+      "description": "利息合計 (Subtotal before adjustments)"
+    },
+    {
+      "id": "line_2_total_interest",
+      "expr": "interest_subtotal",
+      "description": "Schedule B Line 2: 總額 (V1 無 nominee/accrued/oid/abp 調整，直接等於 subtotal)"
+    },
+    {
+      "id": "line_3_excludable_savings_bond_interest",
+      "expr": "Decimal(str(form_8815['line_14_excludable_interest'])) if (form_8815 is not None and form_8815.get('is_completed') is True and form_8815.get('line_14_excludable_interest') is not None) else Decimal('0.00')",
+      "description": "Schedule B Line 3: 美國儲蓄債券免稅排除額"
+    },
+    {
+      "id": "line_4_raw_calculation",
+      "expr": "line_2_total_interest - line_3_excludable_savings_bond_interest",
+      "description": "Schedule B Line 4: 最終應稅利息原始計算值"
+    },
+    {
+      "id": "line_4_surface_value",
+      "expr": "line_4_raw_calculation if line_4_raw_calculation >= Decimal('0.00') else None",
+      "description": "Schedule B Line 4: 最終應稅利息表面填寫值"
+    },
+    {
+      "id": "line_5_payer_entries",
+      "expr": "aggregate_dividend_entries(processed_dividend_items)",
+      "description": "Schedule B Line 5 普通股利付款人列表"
+    },
+    {
+      "id": "dividend_subtotal",
+      "expr": "sum_decimal(entry['payer_reported_amount'] for entry in line_5_payer_entries)",
+      "description": "普通股利小計"
+    },
+    {
+      "id": "line_6_total_ordinary_dividends",
+      "expr": "dividend_subtotal",
+      "description": "Schedule B Line 6: 最終普通股利總所得"
+    },
+    {
+      "id": "total_tax_exempt_interest",
+      "expr": "sum_decimal(item.get('payer_reported_amount', Decimal('0.00')) for item in processed_interest_items if item.get('tax_character') == 'TAX_EXEMPT_INTEREST')",
+      "description": "免稅利息合計"
+    },
+    {
+      "id": "total_qualified_dividends",
+      "expr": "sum_decimal(item.get('qualified_dividends', Decimal('0.00')) for item in processed_dividend_items)",
+      "description": "合格股利合計 (供 Form 1040 Line 3a 使用)"
+    },
+    {
+      "id": "total_exempt_interest_dividends",
+      "expr": "sum_decimal(item.get('exempt_interest_dividends', Decimal('0.00')) for item in processed_dividend_items)",
+      "description": "免稅利息股利合計 (1099-DIV Box 12)"
+    },
+    {
+      "id": "form_1040_line_2a",
+      "expr": "total_tax_exempt_interest + total_exempt_interest_dividends",
+      "description": "Form 1040 Line 2a 申報值: 包含免稅利息與免稅股利"
+    },
+    {
+      "id": "is_part_iii_required",
+      "expr": "line_4_raw_calculation > Decimal('1500.00') or line_6_total_ordinary_dividends > Decimal('1500.00') or foreign_account_q1 is True or foreign_trust_q8 is True",
+      "description": "是否強制填寫 Part III"
+    },
+    {
+      "id": "is_schedule_b_required",
+      "expr": "line_4_raw_calculation > Decimal('1500.00') or line_6_total_ordinary_dividends > Decimal('1500.00') or foreign_account_q1 is True or foreign_trust_q8 is True or line_3_excludable_savings_bond_interest > Decimal('0.00') or any_special_case(special_case_flags, interest_items, dividend_items)",
+      "description": "是否符合申報 Schedule B 之條件"
+    },
+    {
+      "id": "line_7a_q1_surface",
+      "expr": "foreign_account_q1 if is_part_iii_required else None",
+      "description": "Part III Line 7a 第一問表面值"
+    },
+    {
+      "id": "line_7a_q2_surface",
+      "expr": "fbar_q2 if (is_part_iii_required and foreign_account_q1 is True) else None",
+      "description": "Part III Line 7a 第二問表面值"
+    },
+    {
+      "id": "line_7b_surface",
+      "expr": "', '.join(foreign_countries) if (is_part_iii_required and foreign_account_q1 is True and fbar_q2 is True and foreign_countries) else None",
+      "description": "Part III Line 7b 表面值"
+    },
+    {
+      "id": "line_8_surface",
+      "expr": "foreign_trust_q8 if is_part_iii_required else None",
+      "description": "Part III Line 8 表面值"
+    }
+  ]
+}

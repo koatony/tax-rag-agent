@@ -1,0 +1,4 @@
+from .schedule_d_mapper import ScheduleDMapper
+from .form_1040_wages_mapper import Form1040WagesMapper, aggregate_form_1040_line_1a
+from .schedule_a_deduction_mapper import ScheduleADeductionMapper
+from .schedule_e_mapper import ScheduleEMapper

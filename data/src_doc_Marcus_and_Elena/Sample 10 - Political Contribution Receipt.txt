@@ -1,0 +1,5 @@
+Political Campaign Contribution Receipt
+Tax Year: 2024
+Organization: Committee to Elect John Doe
+Donor: Elena Rivera
+Amount: $250.00

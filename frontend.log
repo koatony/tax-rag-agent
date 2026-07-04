@@ -1,0 +1,78 @@
+
+Collecting usage statistics. To deactivate, set browser.gatherUsageStats to false.
+
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://140.115.54.87:8501
+  External URL: http://140.115.54.87:8501
+
+/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/google/api_core/_python_version_support.py:273: FutureWarning: You are using a Python version (3.10.12) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04). Please upgrade to the latest Python version, or at least Python 3.11, to continue receiving updates for google.api_core past that date.
+  warnings.warn(message, FutureWarning)
+/home/metaya/tax-rag-agent/Flag/analyzer_core.py:163: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+2026-06-29 18:21:51.896 The widget with key "schedule_e_text_area" was created with a default value but also had its value set via the Session State API.
+Stack (most recent call last):
+  File "/usr/lib/python3.10/threading.py", line 973, in _bootstrap
+    self._bootstrap_inner()
+  File "/usr/lib/python3.10/threading.py", line 1016, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.10/threading.py", line 953, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 379, in _run_script_thread
+    self._run_script(request.rerun_data)
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 705, in _run_script
+    ) = exec_func_with_error_handling(code_to_exec, ctx)
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/runtime/scriptrunner/exec_code.py", line 129, in exec_func_with_error_handling
+    result = func()
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 687, in code_to_exec
+    _mpa_v1(self._main_script_path)
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 166, in _mpa_v1
+    page.run()
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/navigation/page.py", line 490, in run
+    exec(code, module.__dict__)  # noqa: S102
+  File "/home/metaya/tax-rag-agent/pages/schedule_e_test.py", line 206, in <module>
+    prompt_input = st.text_area(
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/runtime/metrics_util.py", line 563, in wrapped_func
+    result = non_optional_func(*args, **kwargs)
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/elements/widgets/text_widgets.py", line 695, in text_area
+    return self._text_area(
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/elements/widgets/text_widgets.py", line 734, in _text_area
+    check_widget_policies(
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/elements/lib/policies.py", line 180, in check_widget_policies
+    check_session_state_rules(
+  File "/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/streamlit/elements/lib/policies.py", line 91, in check_session_state_rules
+    _LOGGER.warning(
+2026-06-30 08:04:44.638 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-06-30 08:04:49.726 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-06-30 08:04:50.411 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-06-30 08:04:50.849 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-06-30 08:04:51.285 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.

@@ -1,0 +1,682 @@
+Metaya TaxBot MVP Release Structure
+Table of Contents
+Epic / User Stories Breakdown​
+Epic 1 — Demo Case Foundation​
+User Story 1.1 — Load Demo Case​
+User Story 1.2 — Store Structured Case Data​
+Epic 2 — Document Intake & Upload​
+User Story 2.1 — Upload Tax Documents​
+User Story 2.2 — Preload Demo Documents​
+Epic 3 — Document Classification​
+User Story 3.1 — Classify W-2​
+User Story 3.2 — Classify QuickBooks P&L​
+User Story 3.3 — Classify Form 1098​
+User Story 3.4 — Classify Receipt Bundle​
+User Story 3.5 — Classify Prior-Year Return​
+Epic 4 — Data Extraction​
+User Story 4.1 — Extract W-2 Data​
+User Story 4.2 — Extract Schedule C Business Data​
+User Story 4.3 — Extract Schedule A Deduction Data​
+User Story 4.4 — Extract Schedule D Carryover​
+User Story 4.5 — Extract Schedule E Rental Data​
+Epic 5 — Tax Form Mapping​
+User Story 5.1 — Map Wages to Form 1040​
+User Story 5.2 — Map Business Data to Schedule C​
+User Story 5.3 — Map Itemized Deductions to Schedule A​
+User Story 5.4 — Map Rental Data to Schedule E​
+Epic 6 — Rule-Based Flag Engine​
+User Story 6.1 — Flag Non-Deductible Fine​
+User Story 6.2 — Flag Political Contribution​
+User Story 6.3 — Flag Meals & Entertainment​
+User Story 6.4 — Flag Mixed Business / Personal Travel​
+User Story 6.5 — Flag Missing Rental Depreciation​
+User Story 6.6 — Flag IRA Deductibility Review​
+
+3
+3
+3
+3
+3
+4
+4
+4
+4
+4
+5
+5
+5
+6
+6
+6
+6
+6
+7
+7
+7
+7
+8
+8
+8
+8
+8
+9
+9
+9
+9
+
+Epic 7 — Missing Document Detection​
+User Story 7.1 — Generate Rental Depreciation Missing Items​
+User Story 7.2 — Generate Travel Support Missing Items​
+User Story 7.3 — Generate Deduction Support Missing Items​
+Epic 8 — CPA Review Dashboard​
+User Story 8.1 — View Review Summary​
+User Story 8.2 — Risk-Level Sorting​
+User Story 8.3 — CPA Action Items​
+Epic 9 — Tax Optimization Assistant​
+User Story 9.1 — Submit Optimization Query​
+User Story 9.2 — Identify IRA Strategy Review​
+User Story 9.3 — Identify Self-Employment Tax Deduction​
+User Story 9.4 — Identify Rental Depreciation Catch-Up​
+Epic 10 — Teaching Mode​
+User Story 10.1 — Step-by-Step Classroom Flow​
+User Story 10.2 — Explain AI vs CPA Judgment​
+User Story 10.3 — Show Reflection Questions​
+Epic 11 — Source Traceability​
+User Story 11.1 — Show Source Document​
+User Story 11.2 — Highlight Review Confidence​
+Epic 12 — Export & Reporting​
+User Story 12.1 — Export JSON​
+User Story 12.2 — Export CPA Review Report​
+User Story 12.3 — Export Teaching Summary​
+Recommended Release Plan​
+Release 0.1 — Demo Case & Static Workflow​
+Release 0.2 — Classification & Extraction​
+Release 0.3 — Rule Engine & CPA Review​
+Release 0.4 — Tax Insights / Optimization Assistant​
+Release 0.5 — Export & QA Package​
+Priority Ranking​
+P0 — Must Have for MVP​
+P1 — Important​
+P2 — Later​
+MVP Engineering Focus​
+
+10
+10
+10
+10
+11
+11
+11
+11
+11
+12
+12
+12
+12
+13
+13
+13
+13
+13
+14
+14
+14
+14
+14
+15
+15
+15
+15
+16
+16
+17
+17
+17
+17
+18
+18
+
+Summary
+以下是 Metaya TaxBot MVP Epic / User Stories Release Planning 版本，可直接供工程團
+隊計畫 sprint 使用。基礎需求來自 De Anza College 的 Rivera tax case study：document
+intake → classification → extraction → flags → CPA review → optimization workflow。
+
+Epic / User Stories Breakdown
+Epic 1 — Demo Case Foundation
+建立 Rivera 教學案例的標準資料集。
+
+User Story 1.1 — Load Demo Case [M]
+As an instructor, I want to load the Marcus & Elena Rivera demo case so that I can
+start the classroom demo immediately.
+Acceptance Criteria
+●​ System includes one-click “Load Rivera Case”
+●​ Case profile includes filing status, dependents, business, rental property
+●​ Case data matches De Anza teaching scenario
+
+User Story 1.2 — Store Structured Case Data [M]
+As an engineer, I want the case stored in structured JSON so that all modules can
+consume the same source of truth.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+
+Client profile JSON exists
+Document metadata JSON exists
+Expected extraction output exists
+Expected flags and missing documents exist
+
+Epic 2 — Document Intake & Upload
+
+支援文件上傳、預載與顯示。
+
+User Story 2.1 — Upload Tax Documents [L]
+As a user, I want to upload tax documents so that TaxBot can process them.
+Acceptance Criteria
+●​ User can upload PDF, image, DOCX, CSV, XLSX
+●​ Uploaded files appear in document list
+●​ Each file has status: Uploaded / Processing / Completed / Failed
+
+User Story 2.2 — Preload Demo Documents [S]
+As an instructor, I want demo documents preloaded so that I do not need to upload
+files during class.
+Acceptance Criteria
+●​ Demo file set appears automatically after loading Rivera case
+●​ Files include W-2, QuickBooks P&L, 1098, rental records, receipt bundle,
+prior-year return
+
+Epic 3 — Document Classification
+自動判斷文件類型，並 route 到對應 tax form。
+
+User Story 3.1 — Classify W-2 [S]
+As a preparer, I want TaxBot to identify W-2 documents so that wages can be
+mapped to Form 1040.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+
+Marcus W-2 classified as W-2
+Elena W-2 classified as W-2
+Mapping shows Form 1040 Line 1a
+Confidence score displayed
+
+User Story 3.2 — Classify QuickBooks P&L [S]
+
+As a preparer, I want TaxBot to identify business income statements so that business
+data can map to Schedule C.
+Acceptance Criteria
+●​ QuickBooks P&L classified as business income statement
+●​ Mapped to Schedule C
+●​ Business name detected as Creature Comforts
+
+User Story 3.3 — Classify Form 1098 [S]
+As a preparer, I want TaxBot to identify Form 1098 so that mortgage interest can be
+mapped correctly.
+Acceptance Criteria
+●​ 1098 classified correctly
+●​ Mortgage interest extracted
+●​ System distinguishes home mortgage interest vs rental property interest
+when source context exists
+
+User Story 3.4 — Classify Receipt Bundle [L]
+As a preparer, I want TaxBot to identify mixed receipt bundles so that questionable
+expenses are routed to review.
+Acceptance Criteria
+●​ Meals, entertainment, travel, fine, and donation receipts are grouped
+●​ Receipt bundle marked “Needs Review”
+●​ Routed to CPA review queue
+
+User Story 3.5 — Classify Prior-Year Return [M]
+As a preparer, I want TaxBot to identify prior-year tax return data so that carryovers
+and depreciation history can be checked.
+Acceptance Criteria
+●​ Prior-year return classified correctly
+●​ Capital loss carryover detected
+●​ Prior depreciation schedule checked
+
+Epic 4 — Data Extraction
+從文件中擷取 MVP 必需欄位。
+
+User Story 4.1 — Extract W-2 Data [S]
+As a preparer, I want TaxBot to extract wages and withholdings from W-2s.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+
+Marcus wages extracted: $46,000
+Elena wages extracted: $54,000
+Values mapped to Form 1040 Line 1a
+Source document shown
+
+User Story 4.2 — Extract Schedule C Business Data [S]
+As a preparer, I want TaxBot to extract business revenue and expenses.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+●​
+
+Gross revenue extracted: $191,400
+Business name extracted: Creature Comforts
+Meals & entertainment total extracted: $1,800
+City fine extracted: $300
+Travel expense marked for review
+
+User Story 4.3 — Extract Schedule A Deduction Data [S]
+As a preparer, I want TaxBot to extract itemized deduction data.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+
+Church donation extracted: $5,400
+Mortgage interest extracted: $9,800
+Real estate tax extracted: $2,600
+Political contribution extracted: $250 and marked non-deductible
+
+User Story 4.4 — Extract Schedule D Carryover [S]
+
+As a preparer, I want TaxBot to extract capital loss carryover from prior-year return.
+Acceptance Criteria
+●​ Long-term capital loss carryover extracted: $990
+●​ Value mapped to Schedule D
+●​ Source shown as prior-year return
+
+User Story 4.5 — Extract Schedule E Rental Data [S]
+As a preparer, I want TaxBot to extract rental income and expenses.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+●​
+●​
+
+Rental income extracted: $16,650
+Insurance extracted: $900
+Mortgage interest extracted: $4,800
+Property tax extracted: $2,400
+Miscellaneous expenses extracted: $550
+Depreciation status shown as missing / needs review
+
+Epic 5 — Tax Form Mapping
+把擷取資料對應到 Form 1040 與 Schedules。
+
+User Story 5.1 — Map Wages to Form 1040 [S]
+As a preparer, I want W-2 wages mapped to Form 1040 so that the return summary is
+automatically populated.
+Acceptance Criteria
+●​ Marcus and Elena wages appear under Form 1040 Line 1a
+●​ Total wage income calculated as $100,000
+
+User Story 5.2 — Map Business Data to Schedule C [M]
+As a preparer, I want business data mapped to Schedule C.
+Acceptance Criteria
+
+●​ Gross revenue appears on Schedule C
+●​ Expenses appear by category
+●​ Flagged expenses are separated from accepted expenses
+
+User Story 5.3 — Map Itemized Deductions to Schedule A [M]
+As a preparer, I want deductible items mapped to Schedule A.
+Acceptance Criteria
+●​ Church donation, mortgage interest, and real estate taxes are included
+●​ Political contribution excluded
+●​ System recommends standard vs itemized comparison
+
+User Story 5.4 — Map Rental Data to Schedule E [M]
+As a preparer, I want rental data mapped to Schedule E.
+Acceptance Criteria
+●​ Rental income and expenses shown
+●​ Missing depreciation warning displayed [based on?]
+●​ CPA action required [?]
+
+Epic 6 — Rule-Based Flag Engine [Rule engine : L]
+偵測錯誤、風險與 CPA review items。
+
+User Story 6.1 — Flag Non-Deductible Fine [S]
+As a CPA, I want government fines flagged so that they are not deducted incorrectly.
+Acceptance Criteria
+●​ $300 city fine flagged
+●​ Output says “Non-deductible”
+●​ Risk level: High
+
+User Story 6.2 — Flag Political Contribution [S]
+
+As a CPA, I want political contributions flagged as non-deductible.
+Acceptance Criteria
+●​ $250 political contribution flagged
+●​ Excluded from Schedule A deduction total
+●​ Explanation provided
+
+User Story 6.3 — Flag Meals & Entertainment [S]
+As a CPA, I want mixed meals and entertainment expenses flagged.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+
+Season tickets flagged as non-deductible entertainment
+Business meals marked 50% deductible
+Holiday party marked review / potentially deductible
+Overtime meals marked confirm purpose
+
+User Story 6.4 — Flag Mixed Business / Personal Travel [S]
+As a CPA, I want mixed-use travel flagged so that I can allocate business and
+personal expenses.
+Acceptance Criteria
+●​ Las Vegas conference trip flagged
+●​ Business days and personal days displayed
+●​ System requests conference agenda and itinerary
+
+User Story 6.5 — Flag Missing Rental Depreciation [S]
+As a CPA, I want TaxBot to flag missing depreciation schedules.
+Acceptance Criteria
+●​ System detects no prior depreciation schedule
+●​ Flag says “Potential missed depreciation”
+●​ CPA action: determine basis and consider Form 3115
+
+User Story 6.6 — Flag IRA Deductibility Review [SM]
+As a CPA, I want IRA contributions flagged for phase-out review.
+
+Acceptance Criteria
+●​ Marcus IRA contribution $7,000 detected
+●​ System explains AGI phase-out review needed
+●​ CPA final calculation required
+
+Epic 7 — Missing Document Detection [KG: L]
+自動產生補件清單。
+
+User Story 7.1 — Generate Rental Depreciation Missing Items [S]
+As a CPA, I want TaxBot to request missing rental depreciation documents.
+Acceptance Criteria
+●​ System requests rental purchase document
+●​ System requests land/building allocation
+●​ System requests prior depreciation schedule
+
+User Story 7.2 — Generate Travel Support Missing Items [S]
+As a CPA, I want TaxBot to request documents for mixed travel.
+Acceptance Criteria
+●​ System requests conference agenda
+●​ System requests travel itinerary
+●​ System requests business purpose documentation
+
+User Story 7.3 — Generate Deduction Support Missing Items [SM]
+As a CPA, I want TaxBot to request substantiation for deductions.
+Acceptance Criteria
+●​ System requests charitable acknowledgment
+●​ System requests receipt purpose notes
+●​ System requests IRA workplace plan coverage information
+
+Epic 8 — CPA Review Dashboard
+建立 CPA 可快速審核的工作台。
+
+User Story 8.1 — View Review Summary [L]
+As a CPA, I want a summary of extracted data, flags, and missing items.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+
+Dashboard shows extracted data
+Dashboard shows tax form mapping
+Dashboard shows review flags
+Dashboard shows missing documents
+
+User Story 8.2 — Risk-Level Sorting [S]
+As a CPA, I want flags sorted by risk level.
+Acceptance Criteria
+●​ High / Medium / Low risk displayed
+●​ High-risk items appear first
+●​ User can filter by risk level
+
+User Story 8.3 — CPA Action Items [need definitions]
+As a CPA, I want each flag to include a recommended action.
+Acceptance Criteria
+●​ Each flag includes “AI finding”
+●​ Each flag includes “Why it matters”
+●​ Each flag includes “CPA action required”
+
+Epic 9 — Tax Optimization Assistant [based on LLM?]
+建立 MVP 版 AI guidance / Tax Insights 功能。
+
+User Story 9.1 — Submit Optimization Query
+As a preparer, I want to ask TaxBot for optimization opportunities.
+Acceptance Criteria
+●​ User can enter query
+●​ System responds based on Rivera case
+●​ Response includes review items and optimization opportunities
+
+User Story 9.2 — Identify IRA Strategy Review
+As a CPA, I want TaxBot to explain IRA deductibility considerations.
+Acceptance Criteria
+●​ System explains Traditional IRA phase-out
+●​ System mentions Roth vs Traditional comparison
+●​ CPA judgment required
+
+User Story 9.3 — Identify Self-Employment Tax Deduction
+As a CPA, I want TaxBot to explain self-employment tax deduction.
+Acceptance Criteria
+●​ System detects Schedule C activity
+●​ System explains one-half SE tax deduction
+●​ Marked as automatic after Schedule C finalized
+
+User Story 9.4 — Identify Rental Depreciation Catch-Up
+As a CPA, I want TaxBot to identify rental depreciation catch-up opportunity.
+Acceptance Criteria
+●​ System explains 27.5-year residential rental depreciation
+●​ System flags missing prior-year depreciation
+●​ System suggests CPA review for Form 3115
+
+Epic 10 — Teaching Mode
+支援 De Anza classroom demo。
+
+User Story 10.1 — Step-by-Step Classroom Flow [ML]
+As an instructor, I want a guided demo mode.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+●​
+●​
+●​
+●​
+
+Step 1: Client scenario
+Step 2: Document intake
+Step 3: Data extraction
+Step 4: Tax mapping
+Step 5: Flags
+Step 6: CPA review
+Step 7: Optimization query
+Step 8: Reflection questions
+
+User Story 10.2 — Explain AI vs CPA Judgment [need definitions]
+As an instructor, I want TaxBot to explain what AI can and cannot decide.
+Acceptance Criteria
+●​ Each flag includes “AI can identify”
+●​ Each flag includes “CPA must determine”
+●​ Explanation written in student-friendly language
+
+User Story 10.3 — Show Reflection Questions [static text? S]
+As an instructor, I want reflection questions shown at the end of the demo.
+Acceptance Criteria
+●​ Five reflection questions displayed
+●​ Questions match Rivera case learning objectives
+●​ Instructor can copy questions
+
+Epic 11 — Source Traceability [foundation L]
+
+每一個擷取欄位都要能追溯來源。
+
+User Story 11.1 — Show Source Document [M]
+As a CPA, I want each extracted field linked to a source document.
+Acceptance Criteria
+●​ Each extracted value shows source file
+●​ Source document type shown
+●​ Confidence score shown
+
+User Story 11.2 — Highlight Review Confidence [S]
+As a CPA, I want low-confidence fields marked clearly.
+Acceptance Criteria
+●​ Confidence score below threshold triggers review
+●​ Low-confidence fields visually marked
+●​ CPA can manually override
+
+Epic 12 — Export & Reporting
+輸出給 CPA、教授、工程 QA 使用。
+
+User Story 12.1 — Export JSON [S]
+As an engineer, I want structured JSON output.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+●​
+
+JSON includes client profile
+JSON includes extracted data
+JSON includes mapping
+JSON includes flags
+JSON includes missing documents
+
+User Story 12.2 — Export CPA Review Report [M]
+
+As a CPA, I want a review report.
+Acceptance Criteria
+●​
+●​
+●​
+●​
+
+Report includes summary
+Report includes high-risk flags
+Report includes missing documents
+Report includes CPA action items
+
+User Story 12.3 — Export Teaching Summary [need definitions]
+As an instructor, I want a classroom summary.
+Acceptance Criteria
+●​ Summary includes workflow steps
+●​ Summary includes AI vs CPA judgment examples
+●​ Summary includes reflection questions
+
+Recommended Release Plan
+Release 0.1 — Demo Case & Static Workflow
+Goal: Prove classroom demo flow.
+Includes:
+●​ Epic 1 Demo Case Foundation
+●​ Epic 2 Preloaded Demo Documents
+●​ Epic 10 Teaching Mode basic flow
+Outcome:
+●​ Professor can walk through the Rivera case using static data.
+
+Release 0.2 — Classification & Extraction
+
+Goal: Show AI-assisted document processing.
+Includes:
+●​
+●​
+●​
+●​
+
+Epic 3 Document Classification
+Epic 4 Data Extraction
+Epic 5 Tax Mapping
+Epic 11 Source Traceability basic version
+
+Outcome:
+●​ TaxBot can classify documents and show extracted fields.
+
+Release 0.3 — Rule Engine & CPA Review
+Goal: Show Metaya’s value beyond OCR.
+Includes:
+●​ Epic 6 Tax Flag Engine
+●​ Epic 7 Missing Document Detection
+●​ Epic 8 CPA Review Dashboard
+Outcome:
+●​ TaxBot identifies non-deductible items, missing depreciation, mixed-use
+travel, and missing documents.
+
+Release 0.4 — Tax Insights / Optimization Assistant
+Goal: Add AI advisory layer for demo and CPA review.
+Includes:
+●​
+●​
+●​
+●​
+
+Epic 9 Tax Optimization Assistant
+IRA review
+SE tax deduction explanation
+Rental depreciation catch-up explanation
+
+Outcome:
+●​ User can ask TaxBot for optimization opportunities.
+
+Release 0.5 — Export & QA Package
+Goal: Make MVP usable by external partners and engineering QA.
+Includes:
+●​
+●​
+●​
+●​
+
+Epic 12 Export & Reporting
+JSON export
+CPA review report
+Teaching summary report
+
+Outcome:
+●​ MVP can be shared with De Anza, CPA partners, and internal engineering
+teams.
+
+Priority Ranking
+P0 — Must Have for MVP
+1.​ Load Rivera demo case
+2.​ Document classification
+3.​ Data extraction
+4.​ Tax form mapping
+5.​ Required flag detection
+6.​ Missing document list
+7.​ CPA review dashboard
+8.​ Teaching mode
+9.​ JSON export
+
+P1 — Important
+
+1.​ Optimization query
+2.​ Confidence score
+3.​ Source traceability
+4.​ CPA action recommendation
+5.​ Teaching summary export
+
+P2 — Later
+1.​ Real OCR pipeline for all uploaded files
+2.​ Lacerte / ProSeries export
+3.​ Multi-client management
+4.​ User authentication
+5.​ Full tax calculation engine
+6.​ State tax support
+7.​ E-file integration
+
+MVP Engineering Focus
+第一版工程團隊不要把 TaxBot 做成完整報稅軟體。
+第一版應該聚焦在：
+Tax document automation + tax review workflow + classroom demo readiness
+
+也就是：
+讀文件 → 抽資料 → 對應表格 → 找問題 → 要補件 → 給 CPA review → 支援教學展示
+
+

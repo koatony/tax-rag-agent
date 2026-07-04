@@ -1,0 +1,6 @@
+Charitable Donation Receipt
+Tax Year: 2024
+Organization: First Baptist Church of Sacramento
+Donor: Marcus & Elena Rivera
+Contribution Type: Cash
+Amount: $5,400.00

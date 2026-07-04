@@ -1,0 +1,4 @@
+from .prior_year_return_adapter import PriorYearReturnAdapter
+from .w2_adapter import W2Adapter
+from .itemized_deduction_adapter import ItemizedDeductionAdapter
+from .rental_income_and_expense_adapter import RentalIncomeAndExpenseAdapter

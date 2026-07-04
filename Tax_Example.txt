@@ -1,0 +1,473 @@
+Chapter 3 — AI Tax Preparation
+Demonstration Example for OER Book and Online Class Use
+Each example traces a client scenario through the full Metaya workflow focusing on federal tax return
+preparation: document intake → AI classification → data extraction → flags → CPA review →
+optimization.
+How to Use this Example
+You already know what a tax return is, you’ve filed one. These examples build on that starting point by
+showing what happens when a professional accountant prepares a return for someone with more
+complicated finances: a business owner, a rental property, investments, and retirement accounts. Many
+of the forms and terms below are things you would encounter if your financial life became more
+complex.
+Whenever you see a term in bold that you might not recognize, look for the blue “What does this
+mean?” box immediately below it. A full glossary is also included at the end.
+Quick Reference: Terms Used in These Examples
+The table below covers the most important terms. Detailed explanations appear throughout the
+document at each term’s first use.
+Term
+Form 1040
+W-2
+Schedule C
+
+Schedule A
+
+Schedule D
+Schedule E
+Form 1098
+
+Form 3115
+CPA
+Deductible
+Gross Revenue
+AGI (Adjusted Gross
+Income)
+Above-the-line
+deduction
+
+Plain-Language Definition
+The main federal income tax return form. Every individual filer uses
+this. You’ve already filed one.
+A form your employer sends you showing your wages and how much
+tax was withheld. You’ve received one if you’ve had a job.
+A form attached to Form 1040 for reporting business income and
+expenses. Used by sole proprietors (people who own a business on
+their own).
+A form for listing itemized deductions — specific expenses like
+mortgage interest and charitable donations — instead of taking the
+standard deduction.
+A form for reporting capital gains and losses from selling investments
+such as stocks or property.
+A form for reporting income and expenses from rental properties.
+A form your mortgage lender sends you showing how much interest
+you paid on your home loan during the year. Mortgage interest is
+often deductible.
+A form used to correct a past accounting method, such as catching
+up on depreciation that was never claimed.
+Certified Public Accountant — a licensed tax and accounting
+professional who has passed a national exam.
+An expense the IRS allows you to subtract from your taxable income,
+which lowers the amount of tax you owe.
+The total amount of money a business takes in before subtracting
+any expenses.
+Your total income minus specific above-the-line deductions. It’s the
+income figure used to calculate many tax benefits. You’ve seen this
+on your own 1040.
+A deduction you can take whether or not you itemize. It reduces your
+AGI directly.
+1
+
+Standard deduction
+vs. itemizing
+Depreciation
+Capital loss
+carryover
+Self-employment tax
+
+Phase-out
+Traditional IRA
+
+Roth IRA
+IRC (Internal
+Revenue Code)
+Depreciable basis
+
+Client portal
+
+The standard deduction is a flat amount every filer can subtract from
+income (e.g., $14,600 single in 2024). Itemizing means listing
+specific deductible expenses instead — you pick whichever is larger.
+Spreading the tax deduction for a large purchase (like a building)
+across many years, rather than deducting it all at once.
+When investment losses exceed the yearly deduction limit ($3,000),
+the leftover amount is carried forward to reduce taxes in future years.
+Social Security and Medicare taxes paid by self-employed people.
+Employees split this with their employer; self-employed individuals
+pay both halves (about 15.3% of net earnings).
+When a tax benefit is gradually reduced as your income rises above
+a certain level — it doesn’t disappear all at once, it shrinks.
+A retirement savings account where contributions may be taxdeductible now; you pay tax when you withdraw the money in
+retirement.
+A retirement savings account where contributions are made with
+after-tax dollars; withdrawals in retirement are generally tax-free.
+The official body of federal tax law. When you see a reference like
+IRC §162(f), it points to a specific rule within that law.
+The value of a property used to calculate depreciation — typically the
+purchase price minus the value of the land (land itself does not
+depreciate).
+A secure online platform where clients upload their tax documents for
+the accounting firm to access and process.
+
+Demonstration Example 1: The Pet Shop Owner
+This example is designed for students with no prior tax background. Its purpose is to show how an AIassisted intake workflow, like the one implemented by Metaya, handles a client with income from
+multiple sources and how an optimization tool then suggests deductions the preparer might not have
+caught independently.
+Client Profile: Marcus and Elena Rivera, Tax Year 2024
+Marcus and Elena Rivera live in Sacramento, CA and file their taxes jointly. They have two dependent
+children. Marcus owns a small pet supply store called Creature Comforts. Elena works as a firefighter
+for the city. Marcus handles the store’s books using accounting software and has printed an income
+statement for the year.
+Category
+
+Detail
+
+W-2 Employment
+(Marcus)
+
+Marcus earns $46,000/year from wages
+he pays himself through the store. Taxes
+are withheld.
+Elena earns $54,000/year as a city
+firefighter. Taxes are withheld each
+paycheck.
+Creature Comforts gross revenue:
+$191,400. Operating expenses include
+inventory, staff wages, utilities, and
+insurance.
+Business travel meals: $550 | Employee
+holiday party: $400 | Overtime meals for
+
+W-2 Employment
+(Elena)
+Pet Store Business
+Income
+
+Meals &
+Entertainment
+
+Source Document /
+Schedule
+W-2 → Form 1040, Line 1a
+W-2 → Form 1040, Line 1a
+QuickBooks P&L →
+Schedule C
+Receipts → Schedule C
+(subject to review)
+2
+
+Business Travel
+
+Miscellaneous
+Business Expense
+Deductions Paid
+
+Capital Loss
+Carryover
+Rental Property
+
+staff: $150 | Season tickets to local minor
+league team: $700. Total: $1,800.
+Marcus attended a national pet retail
+conference for 2 days (airfare $500,
+lodging $200/night). He also spent 3
+additional days sightseeing. Total trip
+cost included in expenses.
+$300 fine paid to the city for failure to
+post a required business license.
+Church donations with written
+acknowledgment: $5,400 | Real estate
+taxes on home: $2,600 | Mortgage
+interest: $9,800 (Form 1098) | Political
+campaign contribution: $250 | IRA
+contribution (Marcus): $7,000
+Marcus has a long-term capital loss
+carryover of $990 from the prior tax
+year.
+The Riveras own a condo used as a
+rental. Rental income: $16,650.
+Expenses: insurance $900, interest
+$4,800, property taxes $2,400, misc.
+expenses $550. Depreciation not
+claimed in prior years.
+
+Receipts → Schedule C
+(partial deduction)
+
+Receipt → NOT deductible
+1098, receipts → Schedule
+A / Form 1040
+
+Prior year return →
+Schedule D
+Rent records, 1098 →
+Schedule E
+
+What does this mean?
+Schedule C is a tax form attached to your main Form 1040 that reports income and
+expenses from a business you own. Think of it as a profit-and-loss summary written in the
+IRS’s language. Marcus files a Schedule C because he owns Creature Comforts as a sole
+proprietor — meaning he owns it personally rather than through a corporation.
+Gross revenue is the total money the business brought in before subtracting any expenses.
+Marcus’s gross revenue ($191,400) is not his profit — the store’s actual taxable income will
+be much lower once expenses are deducted.
+Schedule E (rental property) and Schedule D (investments) work the same way — they are
+separate pages attached to the same Form 1040, each dedicated to a different type of
+income.
+
+What does this mean?
+Form 1098 is a form your mortgage lender mails to you each January. It shows how much
+interest you paid on your home loan during the year. Mortgage interest is often deductible, so
+the IRS requires lenders to report it.
+Capital loss carryover: If you sell an investment (like stock) for less than you paid, that’s a
+capital loss. The tax code lets you deduct up to $3,000 of losses per year against your
+regular income. If your losses exceed that limit, the remainder “carries over” automatically to
+next year’s return. Marcus has $990 left over from a prior year — it now reduces this year’s
+taxable income.
+
+3
+
+What does this mean?
+Depreciation: When a business or landlord buys a long-lasting asset — like a building or
+major equipment — they generally cannot deduct the full cost in the year of purchase.
+Instead, the IRS requires them to spread that cost over many years. For residential rental
+property, the deduction is spread over 27.5 years. The Riveras’ rental condo qualifies, but
+they never claimed this deduction in prior years — meaning they’ve been paying more tax
+than necessary.
+
+Metaya Workflow: What the AI Does
+When Marcus and Elena upload their documents to the firm’s client portal which is a secure online
+platform where clients share files with their accounting firm. Metaya’s AI-assisted intake begins
+processing immediately. The following steps occur before a preparer manually touches the file.
+Step 1 — Document Intake and Classification
+• The system identifies both W-2s, the QuickBooks income statement, the Form 1098 (mortgage
+interest), the rental income records, and the receipt bundle for meals and entertainment.
+•
+•
+
+Each file is classified by type and routed to the correct tax schedule automatically.
+Prior-year comparison: The system compares the document set against the prior year return
+and flags that no rental depreciation schedule exists in the prior file, suggesting unclaimed
+depreciation. This is something a preparer doing manual data entry would likely miss.
+
+Step 2 — Data Extraction and Return Population
+•
+
+Both W-2s are read and wages, withholding, and benefit amounts are extracted and mapped to
+Form 1040, Line 1a. No manual entry is required.
+
+•
+
+The QuickBooks income statement is parsed and revenue and operating expense totals are
+mapped to Schedule C — the business income form.
+The 1098 mortgage interest figure ($9,800) is extracted and populated on Schedule A — the
+itemized deductions form. The amount is cross-checked against the prior year figure and
+flagged if it differs significantly.
+The capital loss carryover of $990 is located in the prior year return and automatically applied
+to the current year Schedule D (the investment gains and losses form).
+
+•
+
+•
+•
+
+Rental income and expense figures are extracted from the uploaded records and mapped to
+Schedule E (the rental income form).
+
+Step 3 — Flags Raised for Preparer Review
+The following items cannot be resolved by the AI alone. They are flagged for the preparer with a
+summary note explaining why each requires professional judgment.
+Flag
+
+Why the AI Cannot Decide
+
+Meals & entertainment
+receipt bundle
+
+The AI identifies a mixed bundle
+with both deductible and nondeductible items. It cannot
+determine business purpose
+from a receipt alone.
+
+What the CPA Must
+Determine
+Season tickets ($700):
+entertainment, not deductible.
+Business travel meals ($550):
+50% deductible. Holiday party
+($400): deductible. Overtime
+meals ($150): confirm purpose.
+4
+
+Las Vegas conference
+trip
+
+City fine ($300)
+
+Total trip cost is in the expense
+records but the trip included
+both business days (conference)
+and personal days (sightseeing).
+The AI flags the split but cannot
+allocate it.
+The AI identifies the payment as
+a fine to a government agency,
+which falls under IRC §162(f).
+
+Political contribution
+($250)
+
+The AI classifies this as a
+political donation, which does
+not meet the criteria for a
+charitable deduction.
+
+Rental property
+depreciation
+
+No depreciation schedule
+found in prior year file. AI flags
+two years of potentially
+unclaimed depreciation.
+
+2 business days: airfare + 2
+nights lodging deductible. 3
+personal days: not deductible.
+CPA must allocate by day ratio.
+
+Fines paid to government
+bodies are never deductible as
+business expenses, regardless
+of the reason.
+Political contributions are not
+deductible. Church donations
+($5,400) with written
+acknowledgment are
+deductible.
+CPA must determine
+depreciable basis and decide
+whether to file Form 3115
+(change of accounting method)
+or amend prior returns.
+
+What does this mean?
+IRC §162(f): “IRC” stands for Internal Revenue Code — the complete set of U.S. federal tax
+laws written by Congress. The § symbol means “section.” So IRC §162(f) is Section 162(f) of
+the tax code, which specifically prohibits deducting fines paid to government agencies as
+business expenses. When a CPA cites an IRC section, they are pointing to the exact law that
+justifies a decision.
+Depreciable basis: The value you use as your starting point for calculating depreciation. For
+a rental property, it’s generally the purchase price of the building minus the value of the land.
+Land is excluded because it does not wear out over time the way a building does.
+
+What does this mean?
+Form 3115 (Change in Accounting Method): If a landlord forgot to claim depreciation for
+several years, they have two options: (1) amend each prior-year return individually, or (2) file
+Form 3115, which lets them catch up on all missed depreciation at once on the current-year
+return. Most CPAs prefer Form 3115 because it is faster and less disruptive than reopening
+multiple past returns.
+Step 4 — Optimization Opportunities (Tax Bot Query)
+After the return is assembled, the preparer submits an optimization query to the AI research tool. The
+following table shows what the AI identifies and what still requires professional judgment.
+Opportunity
+
+What the AI Explains
+
+IRA deductibility
+check
+
+Marcus contributed $7,000 to a
+traditional IRA. Deductibility
+phases out based on AGI and
+workplace plan coverage. At
+
+What Requires Professional
+Judgment
+CPA calculates phase-out based
+on final AGI and advises whether
+the traditional IRA deduction is
+preferable to a Roth contribution.
+5
+
+Self-employment tax
+deduction
+
+Rental depreciation
+catch-up (Form 3115)
+
+combined income levels, only a
+partial deduction may apply.
+Marcus owes self-employment
+tax on net Schedule C earnings.
+One-half of this amount is
+deductible above the line on
+Form 1040, reducing adjusted
+gross income
+Residential rental property is
+depreciated over 27.5 years.
+Two prior years of unclaimed
+depreciation are recoverable
+using Form 3115.
+
+Calculated automatically once
+Schedule C is finalized. No
+additional client documentation
+needed.
+CPA determines the property’s
+depreciable basis (purchase
+price minus land value) and
+advises on the best recovery
+method.
+
+What does this mean?
+AGI (Adjusted Gross Income): Your total income for the year minus specific “above-theline” deductions. You’ve seen this on your own Form 1040 — it’s the number on Line 11. AGI
+matters because many tax benefits (like IRA deductions and certain credits) are reduced or
+eliminated once your AGI exceeds a threshold.
+Phase-out: Some tax benefits don’t have a hard cut-off. Instead they gradually shrink as
+your income rises. For example, the IRA deduction begins phasing out for married filers at a
+certain AGI level and disappears completely above a higher threshold. The AI flags this
+because the exact math depends on where the Riveras’ AGI lands after the return is
+complete.
+Self-employment tax: When you work as an employee, your employer pays half of your
+Social Security and Medicare taxes. When you’re self-employed — as Marcus is with his
+store — you pay both halves yourself, totaling about 15.3% of your net business income. To
+partially offset this extra burden, the IRS lets you deduct half of the self-employment tax
+above the line, meaning it reduces your AGI before you even get to itemized or standard
+deductions.
+
+What does this mean?
+Traditional IRA vs. Roth IRA: Both are individual retirement accounts that grow taxadvantaged. The difference is timing. With a traditional IRA, you may deduct your
+contribution now and pay taxes when you withdraw in retirement. With a Roth IRA, you
+contribute after-tax dollars now and pay nothing when you withdraw. Which is better depends
+on whether your tax rate is higher now or in retirement — a judgment call the CPA helps the
+client think through.
+Above-the-line deduction: A deduction you can take regardless of whether you itemize or
+take the standard deduction. Because it reduces your AGI, it’s particularly valuable — a
+lower AGI can unlock other benefits like larger IRA deductions and certain credits.
+
+Reflection Questions
+1. The AI flagged that the meals and entertainment bundle contained both deductible and nondeductible items, but it did not decide which was which. What does this tell you about the
+difference between data processing and professional judgment?
+2. The $300 fine was listed under business expenses in the QuickBooks report. Why did Metaya
+flag it rather than simply include it on Schedule C?
+6
+
+3. The rental property had no depreciation claimed in the prior two years. What is the risk to the
+Riveras if this goes uncorrected, and what does it say about the value of Metaya’s prior-year
+comparison check?
+4. Marcus’s Las Vegas trip served both business and personal purposes. Why is this kind of
+‘mixed-use’ expense a problem that AI intake can identify but not resolve on its own?
+5. Metaya flagged the political contribution as non-deductible but did not flag the charitable
+contributions the same way. What distinguishes a tax-deductible charitable contribution from a
+political donation?
+
+Instructor note
+In this example, the AI handles the mechanical tasks which include classifying documents,
+extracting figures, and populating the schedules so the tax preparer can begin at the
+analysis stage rather than the data-entry stage. The reflection questions are designed to
+discuss the conceptual distinction between what AI automates and what requires a trained
+professional’s judgment. Students who have filed their own (simple) returns will likely
+recognize the W-2 and Form 1040 immediately, which gives them a useful anchor for
+understanding why a business owner’s return is more complex.
+
+7
+
+

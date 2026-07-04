@@ -1,0 +1,97 @@
+/home/wmlab/projects/Retrieve/kg_manager.py:23: UserWarning: 
+********************************************************************************
+RAGatouille WARNING: Future Release Notice
+--------------------------------------------
+RAGatouille version 0.0.10 will be migrating to a PyLate backend 
+instead of the current Stanford ColBERT backend.
+PyLate is a fully mature, feature-equivalent backend, that greatly facilitates compatibility.
+However, please pin version <0.0.10 if you require the Stanford ColBERT backend.
+********************************************************************************
+  from ragatouille import RAGPretrainedModel
+========================================================================
+  🔎 IRAC RAG 互動式測試工具
+========================================================================
+  Active KGs   : tax_kg_v1
+  Mode         : IRAC
+  LLM          : gemini-2.5-flash
+  Embed        : Ollama bge-m3 @ http://140.115.54.89:11434
+  Config       : BM25=ON|Stemming=ON|DualTrack=ON|StepBack=ON|HyDE=ON|KGSubgraph=ON|SourceText=ON|TableContext=OFF|RECOMP=ON|SGPruning=ON|JinaRerank=ON|MultiQuery=ON|EngAnswer=OFF|CtxStrat=ON
+========================================================================
+  輸入問題後按 Enter 執行；輸入 'quit' 或 Ctrl+C 結束。
+========================================================================
+
+⏳ 正在初始化 IRACRetriever（首次需建立向量索引，需要幾秒）...
+[KGIndex] 載入完成: 4056 節點, 5420 條邊
+✅ 初始化完成！
+
+❓ 輸入問題 > 
+🔄 正在檢索，請稍候...
+  [DEBUG] Generate Answer: force_english=False
+   ⏱ 耗時: 42.75s
+
+------------------------------------------------------------------------
+  🔍 Step 1: Query Enhancement (Multi-Query Fusion)
+------------------------------------------------------------------------
+  [Original Query ]: What is the taxability of sick pay?
+  [Step-Back (Law)]: The taxability of sick pay generally hinges on the concept of **gross income** as it replaces lost wages. It is typically taxable unless the recipient paid the premiums for the sick pay plan with **after-tax dollars**, in which case the benefits are usually excluded.
+  [HyDE (Simulated)]: ## INTERNAL REVENUE SERVICE
+## OFFICE OF CHIEF COUNSEL
+## MEMORANDUM
+
+**TO:** Revenue Agents; Tax Law Specialists; Wage & Investment Division
+**FROM:** Office of Chief Counsel, [Hypothetical Division Name]
+**DATE:** October 26, 2023
+**SUBJECT:** Taxability of Sick Pay and Related Reporting Requirements
+
+---
+
+**ISSUE**
+
+  [Path Hits] Track A (Rule): 25 | Track B (Fact): 30
+
+------------------------------------------------------------------------
+  📋 Step 2: Rule Candidates (Count: 15) (Jina-v3 Reranked) | Strat: fixed [T1:2 T2:3 T3:10]
+------------------------------------------------------------------------
+    [🔥R] [T1] [0.0484] [Src: A_ORI,A_STE,A_HYD] Sick Pay Includible in Income Rule
+            └ Rule: Sick pay is includible in income as wages, whether received from an employer or from third parties such as a welfare fund, state sickness fund, an association of employers or employees, or an insurance company. | Conditions: employee receives pay while sick or injured. | Exceptions: None stated.
+    [🔥R] [T1] [0.0484] [Src: A_ORI,A_STE,A_HYD] Railroad Sick Pay Taxation Rule
+            └ Rule: Payments received as sick pay under the Railroad Unemployment Insurance Act are taxable and must be included in income. | Conditions: An individual receives sick pay under the Act. | Exceptions: Payments for an on-the-job injury are not included in income.
+    [🔥R] [T2] [0.0500] [Src: A_ORI,A_STE,A_HYD] Sick Pay Taxability Rule
+            └ Rule: Pay received from an employer while sick or injured is part of salary or wages and must be included in income, as are benefits from various third-party funds or insurance plans paid for by the employer. | Conditions: Pay is received from an employer while sick or injured; OR benefits are received from a welfare fund; OR benefits are received from a state sickness or disability fund; OR benefits are received from an association of employers or employees; OR benefits are received from an insurance company where the employer paid for the plan. | Exceptions: If the employee paid the premiums on an accident or health insurance policy, the benefits received are not taxable.
+  ✦ [🔥R] [T2] [0.0656] [Src: A_ORI,A_STE,A_HYD,B_FAC] FECA Payments Exemption Rule
+            └ Rule: Payments received under FECA for personal injury or sickness are not taxable. | Conditions: Payment is received under FECA for personal injury or sickness. | Exceptions: Continuation of pay for up to 45 days while a claim is being decided; Pay for sick leave while a claim is being processed.
+    [🔥R] [T2] [0.0211] [Src: B_FAC] Physical Injury and Sickness Payments Rule
+            └ Rule: Payments received for personal physical injuries or physical sickness are not taxable, which includes emotional distress attributable to such injuries; however, payments for emotional distress not attributable to physical injuries or sickness are taxable. | Conditions: A payment is received for physical injury, physical sickness, or emotional distress. | Exceptions: None stated.
+  ✦ [🔥R] [T3] [0.0448] [Src: A_ORI,B_FAC] Accident and Health Plan Permanent Injury Benefits Exclusion Rule
+            └ Rule: Benefits from an employer-paid accident and health plan are not taxable. | Conditions: The benefit amount is computed with reference to the nature of the injury and not on the period of absence from work; The employer pays for the accident and health plan providing the benefits. | Exceptions: None stated.
+    [🔥R] [T3] [0.0207] [Src: B_FAC] Workers' Compensation Exemption Rule
+            └ Rule: Amounts received as workers' compensation for an occupational sickness or injury are fully exempt from tax. | Conditions: payment is for an occupational sickness or injury. | Exceptions: None stated.<SEP>Rule: Amounts received as workers' compensation for an occupational sickness or injury are fully exempt from tax. | Conditions: amounts are paid under a workers' compensation act or a similar statute. | Exceptions: The exemption does not apply to retirement plan benefits based on age, length of service, or prior contributions, even if retirement was due to an occupational sickness or injury.
+  ✦ [🔥R] [T3] [0.0459] [Src: A_ORI,B_FAC] Accident or Health Insurance Benefits Exclusion Rule
+            └ Rule: Benefits received under an accident or health insurance policy are not taxable. | Conditions: The recipient paid the policy premiums; OR the recipient's employer paid the premiums and the recipient included those premium payments in their income. | Exceptions: None stated.
+  ✦ [🔥R] [T3] [0.0528] [Src: A_ORI,A_STE,A_HYD,B_FAC] Employer-Paid Accident or Health Plan Benefits Income Inclusion Rule
+            └ Rule: Amounts received for personal injury or sickness through an employer-paid accident or health plan must be reported as income. | Conditions: The plan is paid for by the employer. | Exceptions: Amounts paid to reimburse for medical expenses incurred after the plan was established are not reported as income.
+    [🔥R] [T3] [0.0335] [Src: A_ORI] Taxation of Supplemental Unemployment Benefits Rule
+            └ Rule: Benefits from an employer-financed fund to which employees did not contribute are treated as taxable wages, are subject to income tax withholding, and must be reported on Form 1040 or 1040-SR, line 1a. | Conditions: benefits are from an employer-financed fund; employees did not contribute to the fund. | Exceptions: None stated.
+    [🔥R] [T3] [0.0174] [Src: B_FAC] Exclusion Rule for Need-Based Public Welfare Benefits
+            └ Rule: Governmental benefit payments from a public welfare fund based upon need are not included in income. | Conditions: Payment is from a governmental public welfare fund; payment is based on need. | Exceptions: Payments that are compensation for services or are obtained fraudulently must be included in income.
+  ✦ [🔥R] [T3] [0.0389] [Src: A_STE,A_HYD,B_FAC] Tax Treatment of Lost Income Payments Rule
+            └ Rule: Payments received for lost wages, lost business income, or lost profits are taxable. | Conditions: Payment is received for lost wages, business income, or profits. | Exceptions: None stated.
+    [🔥R] [T3] [0.0364] [Src: A_ORI,A_STE] Employee-Paid Accident or Health Plan Benefits Exclusion Rule
+            └ Rule: Amounts received from an accident or health plan for personal injury or sickness are not included in income. | Conditions: The employee pays the entire cost of the plan. | Exceptions: If the plan reimburses for medical expenses that were deducted in a prior year, some or all of the reimbursement may have to be included in income.
+    [🔥R] [T3] [0.0190] [Src: B_FAC] Taxable Social Security/RRB Benefits Reporting Rule
+            └ Rule: If social security or RRB benefits are taxable, the net benefits from Forms SSA-1099 and RRB-1099 must be reported on line 6a and the taxable part on line 6b of Form 1040 or 1040-SR. | Conditions: any portion of the social security or RRB benefits is taxable. | Exceptions: None stated.
+    [🔥R] [T3] [0.0218] [Src: A_STE] Cafeteria Plan Health Benefit Taxability Rule
+            └ Rule: Benefits from an accident or health insurance plan under a cafeteria plan must be included in income if the insurance premiums were not included in the recipient's income. | Conditions: The recipient is covered by an accident or health insurance plan through a cafeteria plan; the amount of the insurance premiums wasn't included in the recipient's income. | Exceptions: If the amount of the premiums was included in your income, you're considered to have paid the premiums and any benefits you receive aren't taxable.
+
+************************************************************************
+  🤖 Step 3: Final Answer
+************************************************************************
+根據所提供的資訊，病假工資的稅務處理方式如下：
+
+**一般原則：病假工資通常應計入收入並繳稅。**
+
+1.  **來自雇主或第三方支付的病假工資**：
+    *   無論是從雇主、福利基金、州疾病基金、雇主或員工協會，還是保險
+
+************************************************************************
+❓ 輸入問題 > 👋 結束測試。

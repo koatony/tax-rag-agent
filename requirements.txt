@@ -1,0 +1,16 @@
+numpy<2.0.0
+ragatouille
+langgraph>=0.2.0
+langchain>=0.2.0
+networkx>=3.0
+numpy>=1.24.0
+google-generativeai>=0.8.0
+python-dotenv>=1.0.0
+rank_bm25>=0.2.2
+httpx>=0.27.0
+fastapi>=0.110.0
+uvicorn>=0.27.0
+streamlit>=1.32.0
+neo4j>=5.0.0
+qdrant-client>=1.7.0
+json-repair>=0.30.0
