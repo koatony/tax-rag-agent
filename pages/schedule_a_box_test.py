@@ -58,10 +58,14 @@ if "test_execution_result" not in st.session_state:
     st.session_state.test_execution_result = None
 
 # --- 載入模擬資料控制按鈕 ---
-col_actions, _ = st.columns([2, 5])
-with col_actions:
-    if st.button("📥 載入 Rivera 夫婦完整實驗資料 (Sample 01~08)", use_container_width=True):
+col_btn1, col_btn2, _ = st.columns([2, 2, 3])
+with col_btn1:
+    if st.button("📥 載入 Sample 1~10（JSON）", use_container_width=True, help="載入 data/src_json_Marcus_and_Elena/ 下的 JSON 實驗資料"):
         st.session_state.rivera_input_text = schedule_a_ui_helper.load_all_rivera_samples()
+        st.rerun()
+with col_btn2:
+    if st.button("📄 載入 v2 0622（Word 原始憑證）", use_container_width=True, help="載入 Sample Data Pack v2 0622 的 .docx 文件"):
+        st.session_state.rivera_input_text = schedule_a_ui_helper.load_sample_data_pack_v2()
         st.rerun()
 
 # 顯示輸入框

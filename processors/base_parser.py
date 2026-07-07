@@ -70,11 +70,7 @@ class BaseLLMParser(ABC):
         custom_rules_list = self.get_custom_rules()
         custom_rules_str = ""
         if custom_rules_list:
-            custom_rules_str = "\n".join(
-                f"{idx + 4}. {rule}" for idx, rule in enumerate(custom_rules_list)
-            )
-            # 加個換行以利美觀
-            custom_rules_str = "\n" + custom_rules_str
+            custom_rules_str = "\n" + "\n".join(f"- {rule}" for rule in custom_rules_list)
 
         # 3. 格式化範例 JSON
         example_json_str = json.dumps(self.get_example_json(), indent=2, ensure_ascii=False)
@@ -85,7 +81,7 @@ class BaseLLMParser(ABC):
 
 【提取規範】
 1. 只需提取以下列出的「直接輸入 (Input)」欄位。不要包含任何「公式計算 (Formula)」欄位。
-2. 對於數值欄位，若沒有相關資訊，則填寫 0.00；對於布林值，若無資訊則填寫 null 或 false；對於陣列欄位，若無資訊則填寫 []。
+2. 對於數值欄位，若沒有相關資訊，則填寫 0.00；對於布林值，若無資訊則填寫 null；對於陣列欄位，若無資訊則填寫 []。
 3. 數值必須是純數值，不能包含貨幣符號 ($) 或分節逗號 (,)。{custom_rules_str}
 
 【預期提取的欄位列表】

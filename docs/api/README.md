@@ -22,9 +22,11 @@
 ### ⚙️ 系統運行配置
 * [系統配置與健康檢查 (`GET /config`, `GET /health`)](config.md) — 獲取當前運行的特徵開關、資料庫模式與服務狀態。
 
-### 🧮 互動式稅務計算 (試算)
-* [Schedule C 計算 API (`/schedule-c/*`)](schedule_c.md) — 計算自營職業利潤與支出（支援直接計算，以及文件 facts 提取後計算）。
-* [Schedule A 計算 API (`/schedule-a/*`)](schedule_a.md) — 計算逐項扣除額。
+### 🧮 互動式稅務提取並試算 (一鍵式處理)
+* [Schedule A 提取並試算 API (`POST /schedule-a/extract-and-calculate`)](schedule_a.md) — 傳入未結構化文件與納稅人檔案，提取並試算逐項扣除額。
+* [Schedule B 提取並試算 API (`POST /schedule-b/extract-and-calculate`)](schedule_b.md) — 傳入未結構化文件與納稅人檔案，提取並試算利息與普通股利。
+* [Schedule C 提取並試算 API (`POST /schedule-c/extract-and-calculate`)](schedule_c.md) — 傳入未結構化文件與納稅人檔案，提取並試算自營職業利潤與虧損。
+* [Schedule E 提取並試算 API (`POST /schedule-e/extract-and-calculate`)](schedule_e.md) — 傳入未結構化文件與納稅人檔案，提取並試算租賃房地產淨利潤與虧損。
 
 ### 📄 文件 Facts 提取與表單映射 (兩步驟處理)
 * [Schedule A 扣除額映射 (`POST /schedule-a/deductions/extract-and-map`)](schedule_a_deductions.md) — 從捐贈收據、1098 房貸表單中提取事實並映射至 Schedule A 行號。

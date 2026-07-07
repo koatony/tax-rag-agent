@@ -18,6 +18,14 @@ from schedule_a_processor import (
     extract_schedule_a_inputs_with_logs,
     calculate_schedule_a_dynamic
 )
+from schedule_b_processor import (
+    extract_schedule_b_inputs_with_logs,
+    calculate_schedule_b_dynamic
+)
+from schedule_e_processor import (
+    extract_schedule_e_inputs_with_logs,
+    calculate_schedule_e_dynamic
+)
 import concurrent.futures
 from adapter import (
     W2Adapter,
@@ -257,20 +265,24 @@ async def get_config():
     return cfg.to_dict()
 
 
-class ScheduleCCalculateRequest(BaseModel):
-    inputs: Dict[str, Any]
-
 class ScheduleCExtractRequest(BaseModel):
     taxpayer_profile: Dict[str, Any]
     uploaded_documents: List[Dict[str, Any]]
     model_name: Optional[str] = None
 
-
-class ScheduleACalculateRequest(BaseModel):
-    inputs: Dict[str, Any]
-
 class ScheduleAExtractRequest(BaseModel):
-    question: Union[str, Dict[str, Any], List[Any]]
+    taxpayer_profile: Dict[str, Any]
+    uploaded_documents: List[Dict[str, Any]]
+    model_name: Optional[str] = None
+
+class ScheduleBExtractRequest(BaseModel):
+    taxpayer_profile: Dict[str, Any]
+    uploaded_documents: List[Dict[str, Any]]
+    model_name: Optional[str] = None
+
+class ScheduleEExtractRequest(BaseModel):
+    taxpayer_profile: Dict[str, Any]
+    uploaded_documents: List[Dict[str, Any]]
     model_name: Optional[str] = None
 
 
@@ -286,22 +298,6 @@ class FlagAnalyzeRequest(BaseModel):
     think: bool = False
     source_filename: Optional[str] = "upload.json"
 
-
-
-@app.post("/schedule-c/calculate")
-async def calculate_schedule_c_only(
-    request: ScheduleCCalculateRequest, 
-    x_api_token: str = Header(None)
-):
-    await verify_token(x_api_token)
-    try:
-        final_state = calculate_schedule_c_dynamic(request.inputs)
-        return {
-            "success": True,
-            "state": final_state
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"公式計算失敗: {str(e)}")
 
 
 @app.post("/schedule-c/extract-and-calculate")
@@ -358,22 +354,6 @@ async def extract_and_calculate_schedule_c(
         raise HTTPException(status_code=500, detail=f"提取或計算失敗: {str(e)}")
 
 
-@app.post("/schedule-a/calculate")
-async def calculate_schedule_a_only(
-    request: ScheduleACalculateRequest, 
-    x_api_token: str = Header(None)
-):
-    await verify_token(x_api_token)
-    try:
-        final_state = calculate_schedule_a_dynamic(request.inputs)
-        return {
-            "success": True,
-            "state": final_state
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"公式計算失敗: {str(e)}")
-
-
 @app.post("/schedule-a/extract-and-calculate")
 async def extract_and_calculate_schedule_a(
     request: ScheduleAExtractRequest, 
@@ -381,16 +361,12 @@ async def extract_and_calculate_schedule_a(
 ):
     await verify_token(x_api_token)
     
-    taxpayer_profile, docs = resolve_extract_map_request(request)
-    
-    # 統一使用結構化的 taxpayer_profile 與 uploaded_documents 格式
     import json
     payload = {
-        "taxpayer_profile": taxpayer_profile,
-        "uploaded_documents": docs
+        "taxpayer_profile": request.taxpayer_profile,
+        "uploaded_documents": request.uploaded_documents
     }
     
-    # 將其轉換為 RAG 與 LLM 容易閱讀的文字排版格式
     doc_ctx_str = missing_form_detector.format_input_data(json.dumps(payload, ensure_ascii=False))
 
     if not doc_ctx_str.strip():
@@ -414,6 +390,110 @@ async def extract_and_calculate_schedule_a(
         )
         
         final_state = calculate_schedule_a_dynamic(extracted_inputs)
+        
+        return {
+            "success": True,
+            "state": final_state,
+            "debug_info": {
+                "model_name": model_name,
+                "prompt_log": prompt_log,
+                "raw_output": raw_output
+            }
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"提取或計算失敗: {str(e)}")
+
+
+@app.post("/schedule-b/extract-and-calculate")
+async def extract_and_calculate_schedule_b(
+    request: ScheduleBExtractRequest, 
+    x_api_token: str = Header(None)
+):
+    await verify_token(x_api_token)
+    
+    import json
+    payload = {
+        "taxpayer_profile": request.taxpayer_profile,
+        "uploaded_documents": request.uploaded_documents
+    }
+    
+    doc_ctx_str = missing_form_detector.format_input_data(json.dumps(payload, ensure_ascii=False))
+
+    if not doc_ctx_str.strip():
+        raise HTTPException(
+            status_code=400, 
+            detail="文件內容不能為空，請提供有效的 taxpayer_profile 與 uploaded_documents 內容"
+        )
+        
+    try:
+        llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
+        model_name = request.model_name
+        if not model_name:
+            if llm_provider == "ollama":
+                model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
+            else:
+                model_name = "gemini-2.5-pro"
+                
+        extracted_inputs, prompt_log, raw_output = extract_schedule_b_inputs_with_logs(
+            document_context=doc_ctx_str,
+            model_name=model_name
+        )
+        
+        final_state = calculate_schedule_b_dynamic(extracted_inputs)
+        
+        return {
+            "success": True,
+            "state": final_state,
+            "debug_info": {
+                "model_name": model_name,
+                "prompt_log": prompt_log,
+                "raw_output": raw_output
+            }
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"提取或計算失敗: {str(e)}")
+
+
+@app.post("/schedule-e/extract-and-calculate")
+async def extract_and_calculate_schedule_e(
+    request: ScheduleEExtractRequest, 
+    x_api_token: str = Header(None)
+):
+    await verify_token(x_api_token)
+    
+    import json
+    payload = {
+        "taxpayer_profile": request.taxpayer_profile,
+        "uploaded_documents": request.uploaded_documents
+    }
+    
+    doc_ctx_str = missing_form_detector.format_input_data(json.dumps(payload, ensure_ascii=False))
+
+    if not doc_ctx_str.strip():
+        raise HTTPException(
+            status_code=400, 
+            detail="文件內容不能為空，請提供有效的 taxpayer_profile 與 uploaded_documents 內容"
+        )
+        
+    try:
+        llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
+        model_name = request.model_name
+        if not model_name:
+            if llm_provider == "ollama":
+                model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
+            else:
+                model_name = "gemini-2.5-pro"
+                
+        extracted_inputs, prompt_log, raw_output = extract_schedule_e_inputs_with_logs(
+            document_context=doc_ctx_str,
+            model_name=model_name
+        )
+        
+        final_state = calculate_schedule_e_dynamic(extracted_inputs)
         
         return {
             "success": True,

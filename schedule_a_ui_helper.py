@@ -3,6 +3,8 @@ import json
 import os
 import glob
 import re
+import zipfile
+import xml.etree.ElementTree as ET
 
 def verify_login():
     """安全性：密碼驗證狀態檢查"""
@@ -107,6 +109,40 @@ def load_all_rivera_samples() -> str:
             })
             
     return json.dumps(samples_data, indent=2, ensure_ascii=False)
+
+def _extract_text_from_docx(docx_path: str) -> str:
+    """從 .docx 檔案中提取純文字"""
+    try:
+        with zipfile.ZipFile(docx_path) as z:
+            xml_content = z.read('word/document.xml')
+            root = ET.fromstring(xml_content)
+            namespaces = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+            text_elements = root.findall('.//w:t', namespaces)
+            return ' '.join([el.text for el in text_elements if el.text])
+    except Exception:
+        return ""
+
+def load_sample_data_pack_v2() -> str:
+    """輔助函式：從 Sample Data Pack v2 0622 的 .docx 原始憑證組合文字，作為 LLM 輸入"""
+    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "docs", "Sample Data Pack v2 0622", "src_data"))
+    docx_files = [
+        "Sample 01 - W-2 Marcus.docx",
+        "Sample 02 - W-2 Elena.docx",
+        "Sample 03 - Rivera 1098.docx",
+        "Sample 04 - 1099-DIV & 1099-INT & IRA & Charity.docx",
+        "Sample 05 - Rental Property Income_.docx",
+        "Sample 06 - Depreciation Information.docx",
+        "Tax Example v2 - The Pet Shop Employee and Rental Property Owner.docx"
+    ]
+    combined_texts = []
+    for f in docx_files:
+        path = os.path.join(src_dir, f)
+        if os.path.exists(path):
+            text = _extract_text_from_docx(path)
+            combined_texts.append(f"--- Document: {f} ---\n{text}\n")
+        else:
+            combined_texts.append(f"--- Document: {f} (找不到檔案) ---\n")
+    return "\n".join(combined_texts)
 
 # ─── Schedule A 特有的欄位判斷 ───────────────────────────────────────
 
