@@ -216,8 +216,8 @@ def main():
             actual_taxable_interest = float(final_state.get("line_4_surface_value", 0.0) or 0.0)
             actual_ordinary_dividends = float(final_state.get("line_6_total_ordinary_dividends", 0.0) or 0.0)
             actual_schb_required = bool(final_state.get("is_schedule_b_required", False))
-            actual_foreign_accounts = bool(final_state.get("line_7a_foreign_account_authority", False))
-            actual_foreign_trust = bool(final_state.get("line_8_foreign_trust_distribution", False))
+            actual_foreign_accounts = bool(final_state.get("line_7a_q1_surface", False))
+            actual_foreign_trust = bool(final_state.get("line_8_surface", False))
             
             # 利息/股利數值比對
             int_ok = abs(actual_taxable_interest - expected["taxable_interest"]) < 1e-9

@@ -288,7 +288,25 @@ def render_topological_chain(schema: dict, final_state: dict):
         dependencies = [var for var in variables if var in formula_deps or var in final_state]
         formula_deps[f["id"]] = dependencies
         
-    from schedule_c_processor import topological_sort
+    def topological_sort(formula_deps: dict) -> list:
+        visited = {}  # 0: unvisited, 1: visiting, 2: visited
+        order = []
+        def dfs(node):
+            if visited.get(node, 0) == 1:
+                raise ValueError(f"公式依賴檢測到循環引用: {node}")
+            if visited.get(node, 0) == 2:
+                return
+            visited[node] = 1
+            for dep in formula_deps.get(node, []):
+                if dep in formula_deps:
+                    dfs(dep)
+            visited[node] = 2
+            order.append(node)
+        for node in formula_deps:
+            if visited.get(node, 0) == 0:
+                dfs(node)
+        return order
+
     calc_order = topological_sort(formula_deps)
     
     st.code(" -> ".join(calc_order), language="text")

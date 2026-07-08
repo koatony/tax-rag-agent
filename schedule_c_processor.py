@@ -38,29 +38,6 @@ def extract_schedule_c_inputs_with_logs(
 #    - 如果在 DFS 遍歷過程中遇到一個狀態為 1 的節點，代表有「環」(Cycle)，即循環依賴，這時必須拋出異常。
 # 3. ⚠️ 面試提點：無論是否去金融業，拓撲排序與環偵測 (Cycle Detection) 都是系統設計與演算法面試的高頻重點。
 # =====================================================================
-def topological_sort(formula_deps: Dict[str, List[str]]) -> List[str]:
-    """對公式的依賴關係進行拓撲排序，保持相容性。"""
-    visited = {}
-    order = []
-    
-    def dfs(node):
-        if visited.get(node, 0) == 1:
-            raise ValueError(f"偵測到公式間存在循環依賴，無法完成計算。衝突節點: {node}")
-        if visited.get(node, 0) == 2:
-            return
-            
-        visited[node] = 1 # 標記為拜訪中 (開始探索其子節點)
-        for dep in formula_deps.get(node, []):
-            if dep in formula_deps:
-                dfs(dep)
-        visited[node] = 2 # 子節點探索完畢，標記為已拜訪
-        order.append(node) # 將該節點放入排序順序中
-        
-    for node in formula_deps:
-        if visited.get(node, 0) == 0:
-            dfs(node)
-            
-    return order
 
 # =====================================================================
 # REVIEW 重點 2: 設計模式 —— 適配器模式 (Adapter Pattern)

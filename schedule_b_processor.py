@@ -35,10 +35,7 @@ from processors.validators.schedule_b import (
 )
 from processors.calculators.schedule_b import (
     sum_decimal,
-    coalesce_decimal,
-    process_interest_items,
     process_market_discount_items,
-    process_dividend_items,
     aggregate_interest_entries,
     aggregate_dividend_entries,
     any_special_case,
@@ -64,57 +61,41 @@ def extract_schedule_b_inputs_with_logs(
     parser = ScheduleBLLMParser(model_name=model_name)
     return parser.parse(document_context)
 
-def topological_sort(formula_deps: Dict[str, List[str]]) -> List[str]:
-    """使用 DFS 演算法對公式依賴樹進行拓撲排序，排除循環引用。"""
-    visited = {}  # 0: unvisited, 1: visiting, 2: visited
-    order = []
-    
-    def dfs(node):
-        if visited.get(node, 0) == 1:
-            raise ValueError(f"公式依賴檢測到循環引用 (Cycle detected at node): {node}")
-        if visited.get(node, 0) == 2:
-            return
-            
-        visited[node] = 1  # visiting
-        for dep in formula_deps.get(node, []):
-            if dep in formula_deps:
-                dfs(dep)
-        visited[node] = 2  # visited
-        order.append(node)
-        
-    for node in formula_deps:
-        if visited.get(node, 0) == 0:
-            dfs(node)
-            
-    return order
-
 def calculate_schedule_b_dynamic(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """相容舊版接口之總入口，執行 V1 計算引擎。"""
-    # 歷史變數對齊 (相容舊名)
+    """執行 Schedule B V1 計算引擎，回傳強型別 V1 計算結果字典。"""
     inputs_copied = dict(inputs)
-    if 'foreign_accounts_interest' in inputs_copied and 'foreign_account_q1' not in inputs_copied:
-        inputs_copied['foreign_account_q1'] = inputs_copied['foreign_accounts_interest']
-    if 'foreign_trust_distribution' in inputs_copied and 'foreign_trust_q8' not in inputs_copied:
-        inputs_copied['foreign_trust_q8'] = inputs_copied['foreign_trust_distribution']
         
-    # No external defaults merging; defaults are resolved via strong-typed data models or validators.
+    # 載入外部 Form 8815 配置檔 (類似 agi config)
+    if not inputs_copied.get("form_8815"):
+        config_path = os.path.join(os.path.dirname(SCHEMA_PATH), "form_8815_config.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config_data = json.load(f)
+                if "form_8815" in config_data:
+                    inputs_copied["form_8815"] = config_data["form_8815"]
+                else:
+                    inputs_copied["form_8815"] = config_data
+            except Exception:
+                pass
         
     v1_inputs = ScheduleBInputsV1.from_dict(inputs_copied)
     res = calculate_schedule_b_v1(v1_inputs)
-    res_dict = res.to_dict()
-    
-    # 舊屬性回退相容 (對齊前端 UI/測試屬性)
-    res_dict['line_4_taxable_interest'] = res_dict.get('line_4_surface_value')
-    res_dict['needs_human_review'] = not res.can_file
-    res_dict['foreign_accounts_interest'] = res.line_7a_q1_surface if res.line_7a_q1_surface is not None else inputs_copied.get('foreign_account_q1')
-    res_dict['foreign_trust_distribution'] = res.line_8_surface if res.line_8_surface is not None else inputs_copied.get('foreign_trust_q8')
-    res_dict['line_7a_foreign_account_authority'] = res.line_7a_q1_surface
-    res_dict['line_7a_fbar_required'] = res.line_7a_q2_surface
-    res_dict['line_7b_foreign_countries'] = res.line_7b_surface
-    res_dict['line_8_foreign_trust_distribution'] = res.line_8_surface
-    res_dict['has_seller_financed_mortgage'] = not res.is_v1_supported and bool(v1_inputs.special_case_flags.has_seller_financed_mortgage)
-    res_dict['taxpayer_ssn_masked'] = res.taxpayer_ssn_masked
-    res_dict['ssn'] = res.taxpayer_ssn_masked
-    res_dict['agi'] = float(inputs_copied.get('adjusted_gross_income', 0.0))
-    
-    return res_dict
+    return res.to_dict()
+
+def extract_and_calculate_schedule_b(
+    document_context: str, 
+    model_name: str = "gemini-2.5-pro"
+) -> Dict[str, Any]:
+    """E2E 入口：從文字憑證中提取欄位，並直接執行 V1 計算引擎，回傳結果與日誌。"""
+    extracted_inputs, prompt_sent, llm_raw_out = extract_schedule_b_inputs_with_logs(
+        document_context=document_context,
+        model_name=model_name
+    )
+    final_state = calculate_schedule_b_dynamic(extracted_inputs)
+    return {
+        "extracted_inputs": extracted_inputs,
+        "final_state": final_state,
+        "prompt_sent": prompt_sent,
+        "llm_raw_out": llm_raw_out
+    }

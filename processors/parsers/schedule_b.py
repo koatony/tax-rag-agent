@@ -28,8 +28,6 @@ class ScheduleBLLMParser(BaseLLMParser):
     "tax_year": 2025,
     "interest_items": [
         {
-            "item_id": "item1",
-            "source_statement_id": None,
             "statement_issuer_name": None,
             "source_document_type": "1099-INT",
             "source_box": "1",
@@ -41,8 +39,6 @@ class ScheduleBLLMParser(BaseLLMParser):
     ],
     "dividend_items": [
         {
-            "item_id": "div1",
-            "source_statement_id": None,
             "statement_issuer_name": None,
             "source_document_type": "1099-DIV",
             "payer_name": "Vanguard Services",
@@ -53,14 +49,12 @@ class ScheduleBLLMParser(BaseLLMParser):
     ],
     "market_discount_items": [
         {
-            "item_id": "md1",
             "payer_name": "Chase Brokerage",
             "proceeds": 8000.00,
             "cost_basis": 7900.00,
             "accrued_market_discount": 200.00
         }
     ],
-    "form_8815": None,
     "foreign_account_q1": False,
     "fbar_q2": False,
     "foreign_countries": [],

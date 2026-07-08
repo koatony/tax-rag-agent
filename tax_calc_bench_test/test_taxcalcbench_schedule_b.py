@@ -97,8 +97,8 @@ def run_test():
     expected_data = {
         "line_2_total_interest": expected_total_interest,
         "line_4_surface_value": expected_total_interest,
-        "line_7a_foreign_account_authority": expected_foreign_accounts,
-        "line_8_foreign_trust_distribution": expected_foreign_trust,
+        "line_7a_q1_surface": expected_foreign_accounts,
+        "line_8_surface": expected_foreign_trust,
         "is_schedule_b_required": expected_schedule_b_required
     }
     

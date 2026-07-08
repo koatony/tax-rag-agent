@@ -54,30 +54,11 @@ class InterestItemV1:
         
         # 稅務特徵分類 (TAXABLE_INTEREST 應稅利息 vs TAX_EXEMPT_INTEREST 免稅利息)
         self.tax_character = kwargs.get("tax_character")
-        if not self.tax_character:
-            is_exempt = bool(kwargs.get("is_tax_exempt", False)) or bool(kwargs.get("is_exempt", False))
-            box_code = kwargs.get("box_code")
-            # 根據免稅旗標或 Box 8 (免稅利息) 來推導其稅務分類
-            if is_exempt or box_code == "Box 8":
-                self.tax_character = "TAX_EXEMPT_INTEREST"
-            else:
-                self.tax_character = "TAXABLE_INTEREST"
+        if self.tax_character not in ("TAXABLE_INTEREST", "TAX_EXEMPT_INTEREST"):
+            self.tax_character = "UNKNOWN"
                 
         # 填表所需的特殊欄位與調整項目
         self.is_series_ee_or_i_interest = bool(kwargs.get("is_series_ee_or_i_interest", False))
-        self.nominee_amount = Decimal(str(kwargs.get("nominee_amount", "0.00")))
-        self.accrued_interest = Decimal(str(kwargs.get("accrued_interest", "0.00")))
-        self.is_seller_financed = bool(kwargs.get("is_seller_financed", False))
-        
-        # OID 調整金額 (Original Issue Discount，原始折價發行)
-        self.oid_broker_adjustment_amount = Decimal(str(kwargs.get("oid_broker_adjustment_amount", "0.00")))
-        self.oid_taxpayer_computed_adjustment = Decimal(str(kwargs.get("oid_taxpayer_computed_adjustment", "0.00")))
-        self.oid_adjustment = Decimal(str(kwargs.get("oid_adjustment", "0.00")))
-        
-        # ABP 調整金額 (Amortizable Bond Premium，可攤銷債券溢價)
-        self.abp_broker_adjustment_amount = Decimal(str(kwargs.get("abp_broker_adjustment_amount", "0.00")))
-        self.abp_taxpayer_computed_adjustment = Decimal(str(kwargs.get("abp_taxpayer_computed_adjustment", "0.00")))
-        self.bond_premium_adjustment = Decimal(str(kwargs.get("bond_premium_adjustment", "0.00")))
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -95,15 +76,6 @@ class InterestItemV1:
             "reported_amount": float(self.payer_reported_amount),
             "tax_character": self.tax_character,
             "is_series_ee_or_i_interest": self.is_series_ee_or_i_interest,
-            "nominee_amount": float(self.nominee_amount),
-            "accrued_interest": float(self.accrued_interest),
-            "is_seller_financed": self.is_seller_financed,
-            "oid_broker_adjustment_amount": float(self.oid_broker_adjustment_amount),
-            "oid_taxpayer_computed_adjustment": float(self.oid_taxpayer_computed_adjustment),
-            "oid_adjustment": float(self.oid_adjustment),
-            "abp_broker_adjustment_amount": float(self.abp_broker_adjustment_amount),
-            "abp_taxpayer_computed_adjustment": float(self.abp_taxpayer_computed_adjustment),
-            "bond_premium_adjustment": float(self.bond_premium_adjustment),
         }
 
 class DividendItemV1:
@@ -134,10 +106,7 @@ class DividendItemV1:
         exempt_val = kwargs.get("exempt_interest_dividends") if kwargs.get("exempt_interest_dividends") is not None else kwargs.get("exempt_interest_amount", "0.00")
         self.exempt_interest_dividends = Decimal(str(exempt_val))
         
-        # Nominee 相關金額 (代收代付項目，V1 不支援其調整，僅作資料封裝)
-        self.nominee_ordinary_amount = Decimal(str(kwargs.get("nominee_ordinary_amount", "0.00")))
-        self.nominee_qualified_amount = Decimal(str(kwargs.get("nominee_qualified_amount", "0.00")))
-        self.nominee_amount = Decimal(str(kwargs.get("nominee_amount", "0.00")))
+
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -152,9 +121,6 @@ class DividendItemV1:
             "ordinary_dividends": float(self.ordinary_dividends),
             "qualified_dividends": float(self.qualified_dividends),
             "exempt_interest_dividends": float(self.exempt_interest_dividends),
-            "nominee_ordinary_amount": float(self.nominee_ordinary_amount),
-            "nominee_qualified_amount": float(self.nominee_qualified_amount),
-            "nominee_amount": float(self.nominee_amount),
         }
 
 class MarketDiscountItemV1:
@@ -260,22 +226,47 @@ class ScheduleBInputsV1:
         ty = kwargs.get("tax_year")
         self.tax_year = int(ty) if ty is not None else 2024
         
-        # 映射利息明細項目列表
-        self.interest_items = [
-            InterestItemV1(**x) if isinstance(x, dict) else x for x in kwargs.get("interest_items", [])
-        ]
-        # 映射股利明細項目列表
-        self.dividend_items = [
-            DividendItemV1(**x) if isinstance(x, dict) else x for x in kwargs.get("dividend_items", [])
-        ]
-        # 映射市場折價明細項目列表
-        self.market_discount_items = [
-            MarketDiscountItemV1(**x) if isinstance(x, dict) else x for x in kwargs.get("market_discount_items", [])
-        ]
+        # 映射利息明細項目列表 (若缺失 item_id 則以 index 自動生成，維持與 Schedule A 相同防禦邏輯)
+        interest_items = []
+        for idx, x in enumerate(kwargs.get("interest_items", [])):
+            if isinstance(x, dict):
+                if not x.get("item_id"):
+                    x = dict(x)
+                    x["item_id"] = f"interest_{idx}"
+                interest_items.append(InterestItemV1(**x))
+            else:
+                interest_items.append(x)
+        self.interest_items = interest_items
+        
+        # 映射股利明細項目列表 (若缺失 item_id 則以 index 自動生成)
+        dividend_items = []
+        for idx, x in enumerate(kwargs.get("dividend_items", [])):
+            if isinstance(x, dict):
+                if not x.get("item_id"):
+                    x = dict(x)
+                    x["item_id"] = f"dividend_{idx}"
+                dividend_items.append(DividendItemV1(**x))
+            else:
+                dividend_items.append(x)
+        self.dividend_items = dividend_items
+        
+        # 映射市場折價明細項目列表 (若缺失 item_id 則以 index 自動生成)
+        market_discount_items = []
+        for idx, x in enumerate(kwargs.get("market_discount_items", [])):
+            if isinstance(x, dict):
+                if not x.get("item_id"):
+                    x = dict(x)
+                    x["item_id"] = f"market_discount_{idx}"
+                market_discount_items.append(MarketDiscountItemV1(**x))
+            else:
+                market_discount_items.append(x)
+        self.market_discount_items = market_discount_items
         
         # 映射 Form 8815 參考模型
         f8815 = kwargs.get("form_8815")
         self.form_8815 = Form8815V1(**f8815) if isinstance(f8815, dict) else f8815 if f8815 else Form8815V1()
+        
+
         
         # Part III 國外帳戶與信託篩選問卷 (Screening Questions)
         self.foreign_account_q1 = kwargs.get("foreign_account_q1")
@@ -293,6 +284,7 @@ class ScheduleBInputsV1:
         flags = kwargs.get("special_case_flags")
         self.special_case_flags = SpecialCaseFlagsBV1(**flags) if isinstance(flags, dict) else flags if flags else SpecialCaseFlagsBV1()
 
+    # 可能要重構 把職責分離
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ScheduleBInputsV1":
         """

@@ -48,21 +48,13 @@ def sum_decimal(iterable) -> Decimal:
             s += Decimal(str(x))
     return s
 
-def coalesce_decimal(*args) -> Decimal:
-    """回傳參數中第一個非 None 的 Decimal，若全為 None 則回傳 Decimal('0.00')。"""
-    for arg in args:
-        if arg is not None:
-            return Decimal(str(arg))
-    return Decimal("0.00")
-
-def process_interest_items(interest_items: List[InterestItemV1], tax_year: int) -> List[InterestItemV1]:
-    # Since they are already converted in InterestItemV1 init, we can just return them.
-    # But wait, to match legacy output exactly (which returns dicts or objects), we keep them as InterestItemV1.
-    return interest_items
 
 def process_market_discount_items(market_discount_items: List[MarketDiscountItemV1]) -> List[InterestItemV1]:
     processed = []
     for item in market_discount_items:
+        # 稅法規則 (IRC § 1276(a)(1))：
+        # 1. 應稅之折價利息，以該交易的「實際獲利 (Gain)」為上限，故虧損時（獲利為負）以 0 計算。
+        # 2. 最終應申報利息為「已累積折價」與「實際獲利」兩者取小者：min(accrued_market_discount, gain)。
         gain = max(Decimal("0.00"), item.proceeds - item.cost_basis)
         taxable_interest = min(item.accrued_market_discount, gain)
         
@@ -80,10 +72,17 @@ def process_market_discount_items(market_discount_items: List[MarketDiscountItem
             ))
     return processed
 
-def process_dividend_items(dividend_items: List[DividendItemV1], tax_year: int) -> List[DividendItemV1]:
-    return dividend_items
 
 def aggregate_interest_entries(processed_interest_items: List[InterestItemV1]) -> List[Dict[str, Any]]:
+    """
+    將所有「應稅利息」依同一付款人/券商對帳單進行合併與金額加總。
+    用意：合併同來源之利息明細，產生最終填入 Schedule B Line 1 的付款人清單。
+
+    防禦性 Fallback 機制：
+    1. 若未捕獲付款人名稱 (payer_name 為空/None)，預設替換為 "Unnamed Payer" 作為醒目標記。
+    2. 若未提供對帳單 ID (source_statement_id 為空)，則安全降級為 ""，此時所有同名的項目會自動依名稱合併。
+    3. 若同時缺失對帳單 ID 與付款人名稱，則透過獨立計數器 (standalone_counter) 確保它們不會被錯誤地合併在同一個 "Unnamed Payer"，而是維持獨立行項目。
+    """
     taxable_items = [item for item in processed_interest_items if item.tax_character == 'TAXABLE_INTEREST']
     grouped = {}
     standalone_counter = 0
@@ -94,6 +93,9 @@ def aggregate_interest_entries(processed_interest_items: List[InterestItemV1]) -
         issuer = item.statement_issuer_name
         payer = item.payer_name or "Unnamed Payer"
         
+        # 決定申報時顯示的付款人名稱：
+        # 如果是券商綜合對帳單 (SUBSTITUTE_STATEMENT)，優先以券商名稱 (issuer) 作為合併與申報主體（以對齊綜合對帳單申報）；
+        # 若是獨立的 1099-INT 表單，則直接使用個別付款人名稱 (payer)。
         display_name = issuer if (doc_type == "SUBSTITUTE_STATEMENT" and issuer) else payer
         
         if not stmt_id and not item.payer_name:
@@ -117,6 +119,15 @@ def aggregate_interest_entries(processed_interest_items: List[InterestItemV1]) -
     return aggregated
 
 def aggregate_dividend_entries(processed_dividend_items: List[DividendItemV1]) -> List[Dict[str, Any]]:
+    """
+    將所有「股利明細」依同一付款人/券商對帳單進行合併與金額加總。
+    用意：合併同來源之股利明細，產生最終填入 Schedule B Line 5 的付款人清單。
+
+    防禦性 Fallback 機制：
+    1. 若未捕獲付款人名稱 (payer_name 為空/None)，預設替換為 "Unnamed Payer" 作為醒目標記。
+    2. 若未提供對帳單 ID (source_statement_id 為空)，則安全降級為 ""，此時所有同名的項目會自動依名稱合併。
+    3. 若同時缺失對帳單 ID 與付款人名稱，則透過獨立計數器 (standalone_counter) 確保它們不會被錯誤地合併在同一個 "Unnamed Payer"，而是維持獨立行項目。
+    """
     grouped = {}
     standalone_counter = 0
     
@@ -126,6 +137,9 @@ def aggregate_dividend_entries(processed_dividend_items: List[DividendItemV1]) -
         issuer = item.statement_issuer_name
         payer = item.payer_name or "Unnamed Payer"
         
+        # 決定申報時顯示的付款人名稱：
+        # 如果是券商綜合對帳單 (SUBSTITUTE_STATEMENT)，優先以券商名稱 (issuer) 作為合併與申報主體（以對齊綜合對帳單申報）；
+        # 若是獨立的 1099-DIV 表單，則直接使用個別付款人名稱 (payer)。
         display_name = issuer if (doc_type == "SUBSTITUTE_STATEMENT" and issuer) else payer
         
         if not stmt_id and not item.payer_name:
@@ -153,58 +167,45 @@ def any_special_case(flags, interest_items: List[InterestItemV1] = None, dividen
         for attr in ["has_nominee_distribution", "has_accrued_interest", "has_oid", "has_abp_adjustment", "has_seller_financed_mortgage", "has_form_8814", "has_tax_exempt_bond_premium", "has_contingent_payment_debt"]:
             if getattr(flags, attr, False) is True:
                 return True
-        
-    if interest_items:
-        for item in interest_items:
-            if item.nominee_amount > Decimal("0.00"):
-                return True
-            if item.accrued_interest > Decimal("0.00"):
-                return True
-            if item.is_seller_financed:
-                return True
-            if item.oid_broker_adjustment_amount > Decimal("0.00") or item.oid_taxpayer_computed_adjustment > Decimal("0.00") or item.oid_adjustment > Decimal("0.00"):
-                return True
-            if item.abp_broker_adjustment_amount > Decimal("0.00") or item.abp_taxpayer_computed_adjustment > Decimal("0.00") or item.bond_premium_adjustment > Decimal("0.00"):
-                return True
-                
-    if dividend_items:
-        for item in dividend_items:
-            if item.nominee_ordinary_amount > Decimal("0.00") or item.nominee_qualified_amount > Decimal("0.00") or item.nominee_amount > Decimal("0.00"):
-                return True
-                
     return False
 
 def calculate_schedule_b_v1(inputs: ScheduleBInputsV1) -> ScheduleBResultV1:
     errors: List[ValidationIssue] = []
     
     # 1. Validation identity & tax year
+    # 檢測是否符合基本資料與稅務年度
     validate_identity(inputs, errors)
     validate_tax_year(inputs.tax_year, {2024, 2025}, errors)
     
     # 2. Process interest and dividend items
-    processed_interest = process_interest_items(inputs.interest_items, inputs.tax_year) + process_market_discount_items(inputs.market_discount_items)
-    processed_dividend = process_dividend_items(inputs.dividend_items, inputs.tax_year)
+    # 先計算出扣除accrued_market_discount的利息收入
+    processed_interest = inputs.interest_items + process_market_discount_items(inputs.market_discount_items)
+    processed_dividend = inputs.dividend_items
     
+    
+    # 填表 Line 1：將來自同一個銀行或券商的利息合併加總（免得報稅表寫不下，比如把 Chase 的多個帳戶利息合算成一行）
     line_1_payer_entries = aggregate_interest_entries(processed_interest)
+
+    
+    # 填表 Line 2：把上面各家合併後的利息「通通加總起來」，這就是您今年所有銀行利息的總和
     interest_subtotal = sum_decimal(entry['payer_reported_amount'] for entry in line_1_payer_entries)
     line_2_total_interest = interest_subtotal
     
-    # Line 3 Form 8815 Exclusion
+    # Line 3 Form 8815 Exclusion (教育儲蓄債券利息排除額)
+    # 若有填寫 Form 8815，則直接扣除其計算完畢的可排除金額 (Line 14)
     line_3_excludable_savings_bond_interest = Decimal("0.00")
-    if inputs.form_8815 is not None and inputs.form_8815.is_completed:
-        # Note: in schema expression: Decimal(str(form_8815['line_14_excludable_interest']))
-        # But wait! In the model, we mapped line_14_excludable_interest or is_completed.
-        # Let's check how the form_8815 is represented or if it has line_14_excludable_interest in input.
-        # Yes, we will check if it has line_14_excludable_interest. Let's make sure it handles both object attribute and dict-fallback safely.
-        if hasattr(inputs.form_8815, "line_14_excludable_interest"):
-            line_3_excludable_savings_bond_interest = Decimal(str(inputs.form_8815.line_14_excludable_interest))
-        elif isinstance(inputs.form_8815, dict):
-            line_3_excludable_savings_bond_interest = Decimal(str(inputs.form_8815.get("line_14_excludable_interest", "0.00")))
+    if inputs.form_8815.is_completed:
+        line_3_excludable_savings_bond_interest = inputs.form_8815.line_14_excludable_interest
             
+    # 填表 Line 4：將總利息 (Line 2) 減去教育債券排除額 (Line 3)，得出最終的「應稅利息總額」
+    # 這是最後要填入實體 Schedule B Line 4 以及 Form 1040 Line 2b 的申報數值 (若小於 0 則設為 None/空白)
     line_4_raw_calculation = line_2_total_interest - line_3_excludable_savings_bond_interest
     line_4_surface_value = line_4_raw_calculation if line_4_raw_calculation >= Decimal("0.00") else None
     
+    # 填表 Line 5：將來自同一個地方發的股利合併加總（比如把 Vanguard 的多筆股利合併成一行）
     line_5_payer_entries = aggregate_dividend_entries(processed_dividend)
+    
+    # 填表 Line 6：把上面各家合併後的股利「通通加總起來」，這就是您今年所有普通股利的總和
     dividend_subtotal = sum_decimal(entry['payer_reported_amount'] for entry in line_5_payer_entries)
     line_6_total_ordinary_dividends = dividend_subtotal
     
@@ -230,6 +231,11 @@ def calculate_schedule_b_v1(inputs: ScheduleBInputsV1) -> ScheduleBResultV1:
         any_special_case(inputs.special_case_flags, inputs.interest_items, inputs.dividend_items)
     )
     
+    # 填表 Part III：海外帳戶與信託問卷（只有在利息或股利合計超過 $1,500，或本身有海外帳戶時才需要回答，否則實體表單一律留空 None）
+    # - Line 7a Q1: 是否擁有海外金融帳戶
+    # - Line 7a Q2: 是否需要申報海外資產 FBAR (只有在 Q1 為 Yes 時才需要回答)
+    # - Line 7b: 填入海外國家的名稱 (只有在 Q1 與 Q2 皆為 Yes 且有資料時才填寫)
+    # - Line 8: 是否與海外信託有資金往來
     line_7a_q1_surface = inputs.foreign_account_q1 if is_part_iii_required else None
     line_7a_q2_surface = inputs.fbar_q2 if (is_part_iii_required and inputs.foreign_account_q1 is True) else None
     line_7b_surface = ', '.join(inputs.foreign_countries) if (is_part_iii_required and inputs.foreign_account_q1 is True and inputs.fbar_q2 is True and inputs.foreign_countries) else None

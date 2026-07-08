@@ -67,29 +67,6 @@ def extract_schedule_a_inputs_with_logs(
     parser = ScheduleALLMParser(model_name=model_name)
     return parser.parse(document_context)
 
-def topological_sort(formula_deps: Dict[str, List[str]]) -> List[str]:
-    """使用 DFS 演算法對公式依賴樹進行拓撲排序，排除循環引用。"""
-    visited = {}  # 0: unvisited, 1: visiting, 2: visited
-    order = []
-    
-    def dfs(node):
-        if visited.get(node, 0) == 1:
-            raise ValueError(f"公式依賴檢測到循環引用 (Cycle detected at node): {node}")
-        if visited.get(node, 0) == 2:
-            return
-            
-        visited[node] = 1  # visiting
-        for dep in formula_deps.get(node, []):
-            if dep in formula_deps:
-                dfs(dep)
-        visited[node] = 2  # visited
-        order.append(node)
-        
-    for node in formula_deps:
-        if visited.get(node, 0) == 0:
-            dfs(node)
-            
-    return order
 
 def coalesce_decimal(*args):
     """回傳第一個非 None 的 Decimal 項目，否則回傳 Decimal('0.00')。"""

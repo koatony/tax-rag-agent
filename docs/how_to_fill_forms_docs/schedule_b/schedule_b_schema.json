@@ -16,23 +16,17 @@
     {
       "id": "tax_year",
       "type": "int",
-      "default": 2024,
       "description": "Tax Year: 申報之稅務年度"
     },
     {
       "id": "interest_items",
       "type": "array",
-      "description": "一般利息明細。結構包含 item_id, source_statement_id, statement_issuer_name (string | null), source_document_type, source_box, payer_name, payer_reported_amount (Decimal), tax_character (TAXABLE_INTEREST | TAX_EXEMPT_INTEREST | UNKNOWN), is_series_ee_or_i_interest."
+      "description": "一般利息明細。結構包含 statement_issuer_name (string | null), source_document_type, source_box, payer_name, payer_reported_amount (Decimal), tax_character (TAXABLE_INTEREST | TAX_EXEMPT_INTEREST | UNKNOWN), is_series_ee_or_i_interest."
     },
     {
       "id": "dividend_items",
       "type": "array",
-      "description": "一般股利明細。結構包含 item_id, source_statement_id, statement_issuer_name (string | null), source_document_type, payer_name, ordinary_dividends (Decimal), qualified_dividends (Decimal), exempt_interest_dividends (Decimal)."
-    },
-    {
-      "id": "form_8815",
-      "type": "object",
-      "description": "Form 8815 跨表引用項目。結構包含 is_completed, line_14_excludable_interest (Decimal), eligible_series_ee_i_interest_included_in_line_2 (Decimal)."
+      "description": "一般股利明細。結構包含 statement_issuer_name (string | null), source_document_type, payer_name, ordinary_dividends (Decimal), qualified_dividends (Decimal), exempt_interest_dividends (Decimal)."
     },
     {
       "id": "foreign_account_q1",
@@ -62,7 +56,7 @@
     {
       "id": "market_discount_items",
       "type": "array",
-      "description": "Form 1099-B/Form 8949 中包含 accrued market discount 的交易明細。結構包含 item_id, payer_name, proceeds (Decimal), cost_basis (Decimal), accrued_market_discount (Decimal)."
+      "description": "Form 1099-B/Form 8949 中包含 accrued market discount 的交易明細。結構包含 payer_name, proceeds (Decimal), cost_basis (Decimal), accrued_market_discount (Decimal)."
     }
   ],
   "formulas": [
