@@ -313,6 +313,7 @@ class StandardDeductionReferenceV1:
     """
     標準扣除額參考配置 (Standard Deduction Reference).
     用於決定該申報人適用的標準扣除額基準，以及是否因特殊申報身份而強制列舉扣除。
+    標準扣除額後面會動態載入
     """
     def __init__(
         self,
@@ -476,6 +477,7 @@ class ScheduleAInputsV1:
         adjusted_gross_income = Decimal(str(inputs_dict.get("adjusted_gross_income") or inputs_dict.get("agi") or "0.00"))
         
         # Medical items
+        # 把已經傳盛medical item的物件加上item_id
         medical_items = []
         raw_med = inputs_dict.get("medical_items") or inputs_dict.get("medical_expense_items") or []
         for idx, m in enumerate(raw_med):
@@ -487,6 +489,7 @@ class ScheduleAInputsV1:
             medical_items.append(MedicalExpenseItemV1.from_dict(m, tax_year))
             
         # Tax items
+        # 把已經傳盛tax item的物件加上item_id
         tax_items = []
         raw_tax = inputs_dict.get("tax_items") or inputs_dict.get("tax_payment_items") or []
         for idx, t in enumerate(raw_tax):
@@ -498,95 +501,52 @@ class ScheduleAInputsV1:
             tax_items.append(TaxPaymentItemV1.from_dict(t, tax_year))
             
         line_5a_election = inputs_dict.get("line_5a_election")
-        if line_5a_election is None:
-            use_sales = inputs_dict.get("use_sales_tax_instead_of_income_tax") or inputs_dict.get("use_sales_tax_instead")
-            if use_sales is True:
-                line_5a_election = "GENERAL_SALES_TAX"
-            elif use_sales is False:
-                line_5a_election = "INCOME_TAX"
+        
 
         # Mortgage items
         mortgage_interest_items = []
         raw_mort = inputs_dict.get("mortgage_interest_items") or []
-        if not raw_mort and ("home_mortgage_interest_1098" in inputs_dict or "points_reported_on_1098" in inputs_dict):
-            box1 = Decimal(str(inputs_dict.get("home_mortgage_interest_1098") or "0.00"))
-            pts = Decimal(str(inputs_dict.get("points_reported_on_1098") or "0.00"))
-            mortgage_interest_items.append(MortgageInterestItemV1(
-                item_id="mortgage_1",
-                form_1098_box_1_mortgage_interest=box1,
-                deductible_points_reported_on_1098=pts,
-                paid_in_tax_year=True,
-                simple_mortgage_status="CONFIRMED_SIMPLE"
-            ))
-        else:
-            for idx, mo in enumerate(raw_mort):
-                if not isinstance(mo, dict):
-                    continue
-                if not mo.get("item_id"):
-                    mo = dict(mo)
-                    mo["item_id"] = f"mort_{idx}"
-                mortgage_interest_items.append(MortgageInterestItemV1.from_dict(mo))
+        for idx, mo in enumerate(raw_mort):
+            if not isinstance(mo, dict):
+                continue
+            if not mo.get("item_id"):
+                mo = dict(mo)
+                mo["item_id"] = f"mort_{idx}"
+            mortgage_interest_items.append(MortgageInterestItemV1.from_dict(mo))
 
         # Charity items
         cash_charity_items = []
         raw_charity = inputs_dict.get("cash_charity_items") or []
-        if not raw_charity and "cash_charitable_contributions" in inputs_dict:
-            amt = Decimal(str(inputs_dict.get("cash_charitable_contributions") or "0.00"))
-            cash_charity_items.append(CashCharityItemV1(
-                item_id="charity_1",
-                gross_contribution_amount=amt,
-                paid_in_tax_year=True,
-                qualified_organization_status="VERIFIED",
-                bank_or_written_record_available=True,
-                contemporaneous_acknowledgment_received=True
-            ))
-        else:
-            for idx, ch in enumerate(raw_charity):
-                if not isinstance(ch, dict):
-                    continue
-                if not ch.get("item_id"):
-                    ch = dict(ch)
-                    ch["item_id"] = f"charity_{idx}"
-                cash_charity_items.append(CashCharityItemV1.from_dict(ch))
+        
+        for idx, ch in enumerate(raw_charity):
+            if not isinstance(ch, dict):
+                continue
+            if not ch.get("item_id"):
+                ch = dict(ch)
+                ch["item_id"] = f"charity_{idx}"
+            cash_charity_items.append(CashCharityItemV1.from_dict(ch))
 
         # Standard Deduction Reference
-        std_ref = inputs_dict.get("standard_deduction_reference")
-        std_ded_amt = None
-        if isinstance(std_ref, dict):
-            std_ded_amt = std_ref.get("standard_deduction_amount")
-        if std_ded_amt is None:
-            std_ded_amt = inputs_dict.get("standard_deduction_amount")
-            
         try:
-            is_invalid_amt = std_ded_amt is None or float(std_ded_amt) <= 0.0
-        except (ValueError, TypeError):
-            is_invalid_amt = True
+            rates = load_tax_rates(tax_year)
+            std_cfg = rates.get("standard_deduction", {})
+            std_ded_amt = std_cfg.get(filing_status)
+        except Exception:
+            std_ded_amt = 15000.0
 
-        if not isinstance(std_ref, dict) or not std_ref or is_invalid_amt:
-            if is_invalid_amt:
-                try:
-                    rates = load_tax_rates(tax_year)
-                    std_cfg = rates.get("standard_deduction", {})
-                    std_ded_amt = std_cfg.get(filing_status)
-                except Exception:
-                    std_ded_amt = 15000.0
-                    
-            spouse_itemizes = False
-            elect_itemize = False
-            if isinstance(std_ref, dict):
-                spouse_itemizes = std_ref.get("must_itemize_due_to_mfs_spouse") or std_ref.get("spouse_itemizes_on_separate_return") or False
-                elect_itemize = std_ref.get("elect_itemize_even_if_less") or std_ref.get("elect_itemize_even_if_less_than_standard") or False
-            else:
-                spouse_itemizes = inputs_dict.get("spouse_itemizes_on_separate_return") or False
-                elect_itemize = inputs_dict.get("elect_itemize_even_if_less_than_standard") or False
-                
-            std_ref = {
-                "standard_deduction_amount": std_ded_amt,
-                "must_itemize_due_to_mfs_spouse": spouse_itemizes,
-                "elect_itemize_even_if_less": elect_itemize
-            }
+        std_ref = inputs_dict.get("standard_deduction_reference")
+        spouse_itemizes = False
+        elect_itemize = False
+        if isinstance(std_ref, dict):
+            spouse_itemizes = std_ref.get("must_itemize_due_to_mfs_spouse") 
+            elect_itemize = std_ref.get("elect_itemize_even_if_less") 
         
-        std_deduction_reference = StandardDeductionReferenceV1.from_dict(std_ref)
+
+        std_deduction_reference = StandardDeductionReferenceV1(
+            standard_deduction_amount=Decimal(str(std_ded_amt)) if std_ded_amt is not None else None,
+            must_itemize_due_to_mfs_spouse=spouse_itemizes,
+            elect_itemize_even_if_less=elect_itemize
+        )
 
         # Special Case Flags
         raw_flags = inputs_dict.get("special_case_flags")
@@ -608,158 +568,6 @@ class ScheduleAInputsV1:
             if inputs_dict.get("charitable_carryover", 0.0) > 0.0:
                 raw_flags["has_charity_carryover"] = True
         
-        # Parse legacy "facts" list
-        raw_facts = inputs_dict.get("facts") or []
-        if raw_facts:
-            medical_groups = {}
-            for f in raw_facts:
-                ftype = f.get("fact_type")
-                fname = f.get("source_filename") or "unknown_medical"
-                if ftype in ("qualified_medical_expense_paid", "medical_reimbursement", "medical_tax_free_account_payment"):
-                    if fname not in medical_groups:
-                        medical_groups[fname] = []
-                    medical_groups[fname].append(f)
-                    
-            for fname, flist in medical_groups.items():
-                paid_amt = Decimal("0.00")
-                reimb_amt = Decimal("0.00")
-                hsa_fsa = Decimal("0.00")
-                needs_rev = False
-                for f in flist:
-                    ftype = f.get("fact_type")
-                    amt = Decimal(str(f.get("amount") or "0.00"))
-                    if ftype == "qualified_medical_expense_paid":
-                        paid_amt += amt
-                    elif ftype == "medical_reimbursement":
-                        reimb_amt += amt
-                    elif ftype == "medical_tax_free_account_payment":
-                        hsa_fsa += amt
-                    if f.get("needs_review") is True:
-                        needs_rev = True
-                        
-                medical_items.append(MedicalExpenseItemV1(
-                    item_id=f"med_{fname}",
-                    source_document_id=fname,
-                    description=f"Medical expenses from {fname}",
-                    paid_in_tax_year=True,
-                    taxpayer_paid_amount=paid_amt,
-                    reimbursement_amount=reimb_amt,
-                    tax_free_medical_account_payment=hsa_fsa,
-                    eligible_person_status="UNKNOWN" if needs_rev else "ELIGIBLE",
-                    medical_qualification_status="UNKNOWN" if needs_rev else "QUALIFIED_SIMPLE"
-                ))
-
-            tax_fact_count = len(tax_items)
-            mortgage_groups = {}
-            for f in raw_facts:
-                ftype = f.get("fact_type")
-                amt = Decimal(str(f.get("amount") or "0.00"))
-                fname = f.get("source_filename") or "unknown_doc"
-                needs_rev = f.get("needs_review") is True
-                
-                if ftype == "state_local_income_tax_paid":
-                    tax_items.append(TaxPaymentItemV1(
-                        item_id=f"tax_{tax_fact_count}",
-                        source_document_id=fname,
-                        description=f"State/local income tax from {fname}",
-                        paid_in_tax_year=True,
-                        amount_paid=amt,
-                        tax_category="STATE_LOCAL_INCOME_TAX",
-                        personal_use_confirmed=True,
-                        actual_paid_to_taxing_authority_confirmed=True
-                    ))
-                    tax_fact_count += 1
-                elif ftype == "general_sales_tax_amount":
-                    tax_items.append(TaxPaymentItemV1(
-                        item_id=f"tax_{tax_fact_count}",
-                        source_document_id=fname,
-                        description=f"General sales tax from {fname}",
-                        paid_in_tax_year=True,
-                        amount_paid=amt,
-                        tax_category="GENERAL_SALES_TAX",
-                        personal_use_confirmed=True,
-                        actual_paid_to_taxing_authority_confirmed=True
-                    ))
-                    tax_fact_count += 1
-                elif ftype == "personal_real_estate_tax_paid":
-                    tax_items.append(TaxPaymentItemV1(
-                        item_id=f"tax_{tax_fact_count}",
-                        source_document_id=fname,
-                        description=f"Real estate tax from {fname}",
-                        paid_in_tax_year=True,
-                        amount_paid=amt,
-                        tax_category="PERSONAL_REAL_ESTATE_TAX",
-                        personal_use_confirmed=None if needs_rev else True,
-                        actual_paid_to_taxing_authority_confirmed=None if needs_rev else True
-                    ))
-                    tax_fact_count += 1
-                elif ftype == "personal_property_tax_paid":
-                    tax_items.append(TaxPaymentItemV1(
-                        item_id=f"tax_{tax_fact_count}",
-                        source_document_id=fname,
-                        description=f"Personal property tax from {fname}",
-                        paid_in_tax_year=True,
-                        amount_paid=amt,
-                        tax_category="PERSONAL_PROPERTY_TAX",
-                        personal_use_confirmed=None if needs_rev else True,
-                        value_based_and_annual_confirmed=None if needs_rev else True
-                    ))
-                    tax_fact_count += 1
-                elif ftype in ("mortgage_interest_reported_on_1098", "points_reported_on_1098"):
-                    if fname not in mortgage_groups:
-                        mortgage_groups[fname] = []
-                    mortgage_groups[fname].append(f)
-                elif ftype == "cash_charitable_contribution":
-                    cash_charity_items.append(CashCharityItemV1(
-                        item_id=f"charity_{len(cash_charity_items)}",
-                        source_document_id=fname,
-                        contribution_date=f.get("date"),
-                        paid_in_tax_year=True,
-                        organization_name=f.get("payee"),
-                        qualified_organization_status="UNKNOWN" if needs_rev else "VERIFIED",
-                        gross_contribution_amount=amt,
-                        goods_or_services_value=Decimal("0.00"),
-                        bank_or_written_record_available=None if needs_rev else True,
-                        contemporaneous_acknowledgment_received=None if needs_rev else True
-                    ))
-                elif ftype == "marketplace_health_insurance_premium":
-                    raw_flags["has_marketplace_medical_premium"] = True
-                elif ftype in ("ltc_premium", "qualified_ltc_insurance_premium"):
-                    raw_flags["has_ltc_premium"] = True
-                elif ftype == "noncash_charitable_contribution":
-                    raw_flags["has_noncash_charity"] = True
-                elif ftype == "charity_carryover":
-                    raw_flags["has_charity_carryover"] = True
-                elif ftype == "casualty_loss":
-                    raw_flags["has_casualty_or_theft_loss"] = True
-                elif ftype == "investment_interest_paid":
-                    raw_flags["has_investment_interest"] = True
-                    
-            if len(mortgage_groups) > 1:
-                raw_flags["has_multiple_mortgages"] = True
-            for fname, flist in mortgage_groups.items():
-                box1 = Decimal("0.00")
-                pts = Decimal("0.00")
-                needs_rev = False
-                for f in flist:
-                    ftype = f.get("fact_type")
-                    amt = Decimal(str(f.get("amount") or "0.00"))
-                    if ftype == "mortgage_interest_reported_on_1098":
-                        box1 += amt
-                    elif ftype == "points_reported_on_1098":
-                        pts += amt
-                    if f.get("needs_review") is True:
-                        needs_rev = True
-                mortgage_interest_items.append(MortgageInterestItemV1(
-                    item_id=f"mort_{fname}",
-                    source_document_id=fname,
-                    lender_name=flist[0].get("payee") or "Lender",
-                    form_1098_box_1_mortgage_interest=box1,
-                    deductible_points_reported_on_1098=pts,
-                    paid_in_tax_year=True,
-                    simple_mortgage_status="UNKNOWN" if needs_rev else "CONFIRMED_SIMPLE"
-                ))
-
         special_case_flags = SpecialCaseFlagsV1.from_dict(raw_flags)
 
         return cls(
@@ -850,6 +658,8 @@ class ScheduleAResultV1:
         self.line_16_other_itemized_deductions = kwargs.get("line_16_other_itemized_deductions", Decimal("0.00"))
         self.line_17_total_itemized_deductions = kwargs.get("line_17_total_itemized_deductions")
         self.line_18_elect_itemize_surface = kwargs.get("line_18_elect_itemize_surface")
+
+
 
         self.standard_deduction_amount = kwargs.get("standard_deduction_amount")
         self.is_itemizing = kwargs.get("is_itemizing")

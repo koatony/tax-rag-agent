@@ -53,6 +53,16 @@ def is_over_65(dob_str: str, tax_year: int) -> bool:
     return False
 
 def calculate_additional_standard_deduction(inputs: ScheduleAInputsV1) -> Decimal:
+    """
+    計算申報人（及配偶）適用的「加計標準扣除額」（Additional Standard Deduction）。
+    
+    扣除規則：
+    1. 申報人（與配偶，若為聯申/分申）如果「滿 65 歲」或「法定盲人」，可獲得額外的扣除額度。
+    2. 統計申報人與配偶符合上述條件的總個數 (conditions_count，最多 4 個)。
+    3. 根據申報身份乘上對應的加計額度：
+       - 單身 / 戶主 (SINGLE/HOH) 適用單身加計額率（如 2025 年為 $2,000/項）。
+       - 聯申 / 分申 / 合格孀婦 (MFJ/MFS/QSS) 適用聯申加計額率（如 2025 年為 $1,600/項）。
+    """
     ZERO = Decimal("0.00")
     try:
         rates = load_tax_rates(inputs.tax_year)
@@ -82,19 +92,41 @@ def calculate_additional_standard_deduction(inputs: ScheduleAInputsV1) -> Decima
     return Decimal(conditions_count) * rate
 
 def calculate_salt_limit_v1(tax_year: int, filing_status: str, agi: Decimal, line_5d: Decimal, has_foreign_adjustment: bool, errors: List[ValidationIssue]) -> Decimal:
+    """
+    計算州與地方稅 (SALT) 的扣除上限 (Line 5e)。
+    
+    扣除規則：
+    - 2024 年：上限為 $10,000 (夫妻分申 MFS 為 $5,000)。
+    - 2025 年：
+      1. 若總 SALT (line_5d) <= $10,000 (MFS 為 $5,000)，可全額扣除。
+      2. 若總 SALT 超過 $10,000，且 AGI <= $500,000 (MFS 為 $250,000) 且無國外所得調整，上限為 $40,000 (MFS 為 $20,000)。
+      3. 高收入或有國外調整之複雜情境，須使用專用 SALT 工作表（V1 引擎不支援）。
+    """
+    rates = load_tax_rates(tax_year)
+    salt_cfg = rates.get("salt_cap", {})
+    if not salt_cfg:
+        raise ValueError(f"SALT configuration not found for tax year {tax_year}")
+
+    is_mfs = filing_status == "MFS"
+    
+    # Extract values from config
+    floor = Decimal(str(salt_cfg.get("mfs_floor" if is_mfs else "floor") or (5000.0 if is_mfs else 10000.0)))
+    base_cap = Decimal(str(salt_cfg.get("mfs_cap" if is_mfs else "base_cap") or (5000.0 if is_mfs else 10000.0)))
+    agi_limit_val = salt_cfg.get("mfs_phaseout_threshold" if is_mfs else "phaseout_threshold")
+    
     if tax_year == 2024:
-        cap = Decimal("5000.00") if filing_status == "MFS" else Decimal("10000.00")
-        return min(line_5d, cap)
+        return min(line_5d, base_cap)
     elif tax_year == 2025:
-        floor_2025 = Decimal("5000.00") if filing_status == "MFS" else Decimal("10000.00")
-        base_cap_2025 = Decimal("20000.00") if filing_status == "MFS" else Decimal("40000.00")
-        
-        if line_5d <= floor_2025:
+        if line_5d <= floor:
             return line_5d
+        
+        if agi_limit_val is None:
+            # If config has no phaseout threshold, default to 2025 base logic
+            agi_limit_val = 250000.0 if is_mfs else 500000.0
             
-        agi_limit = Decimal("250000.00") if filing_status == "MFS" else Decimal("500000.00")
+        agi_limit = Decimal(str(agi_limit_val))
         if agi <= agi_limit and not has_foreign_adjustment:
-            return min(line_5d, base_cap_2025)
+            return min(line_5d, base_cap)
         else:
             errors.append(ValidationIssue("UNSUPPORTED_2025_SALT_WORKSHEET", field="line_5e_salt_deduction", message="2025 high-income or foreign-income SALT worksheet is not supported in V1."))
             return None
@@ -108,21 +140,19 @@ def calculate_simple_form_1098(mortgage_interest_items: List[MortgageInterestIte
         return ZERO
     if len(mortgage_interest_items) > 1:
         errors.append(ValidationIssue("UNSUPPORTED_MULTIPLE_MORTGAGES", field="mortgage_interest_items", message="Multiple mortgages not supported in V1."))
-        return ZERO
         
-    item = mortgage_interest_items[0]
-    validate_paid_year(item, errors)
-    
-    if item.simple_mortgage_status == "UNKNOWN":
-        errors.append(ValidationIssue("UNKNOWN_TAX_CHARACTER", field="simple_mortgage_status", item_id=item.item_id, source_document_id=item.source_document_id, message="Unknown mortgage status."))
-        return ZERO
-    elif item.simple_mortgage_status == "LIMITATION_OR_WORKSHEET_REQUIRED":
-        errors.append(ValidationIssue("UNSUPPORTED_MORTGAGE_LIMITATION", field="simple_mortgage_status", item_id=item.item_id, source_document_id=item.source_document_id, message="Mortgage limitation or worksheet required is not supported in V1."))
-        return ZERO
+    total_deductible = ZERO
+    for item in mortgage_interest_items:
+        validate_paid_year(item, errors)
         
-    if item.paid_in_tax_year is True:
-        return item.form_1098_box_1_mortgage_interest + item.deductible_points_reported_on_1098
-    return ZERO
+        if item.simple_mortgage_status == "UNKNOWN":
+            errors.append(ValidationIssue("UNKNOWN_TAX_CHARACTER", field="simple_mortgage_status", item_id=item.item_id, source_document_id=item.source_document_id, message="Unknown mortgage status."))
+            continue
+            
+        if item.paid_in_tax_year is True:
+            total_deductible += item.form_1098_box_1_mortgage_interest + item.deductible_points_reported_on_1098
+            
+    return total_deductible
 
 def calculate_cash_charity(cash_charity_items: List[CashCharityItemV1], errors: List[ValidationIssue], warnings: List[ValidationIssue], tax_year: int = 2024) -> Decimal:
     total = Decimal("0.00")
@@ -235,16 +265,26 @@ def classify_tax_items(tax_items: List[TaxPaymentItemV1], errors: List[Validatio
         if item.separately_stated_nondeductible_charge > item.amount_paid:
             errors.append(ValidationIssue("ADJUSTMENT_EXCEEDS_GROSS_AMOUNT", field="separately_stated_nondeductible_charge", item_id=item.item_id, source_document_id=item.source_document_id, message="Nondeductible charge exceeds amount paid."))
             continue
-            
+        
+        '''
+        可納入 Schedule A 的稅款
+        = 文件上的總金額 - 明確列出的不可扣費用
+        separately_stated_nondeductible_charge 全靠LLM判斷
+        '''
         eligible_amt = item.amount_paid - item.separately_stated_nondeductible_charge
         
+
+
+
         if item.tax_category == "STATE_LOCAL_INCOME_TAX":
             if item.paid_in_tax_year is True:
                 pools.income_tax.append(eligible_amt)
         elif item.tax_category == "GENERAL_SALES_TAX":
             if item.paid_in_tax_year is True:
                 pools.sales_tax.append(eligible_amt)
+        # 區分是否為自用
         elif item.tax_category == "PERSONAL_REAL_ESTATE_TAX":
+            #實價登錄檢查
             if item.personal_use_confirmed is None:
                 errors.append(ValidationIssue("UNKNOWN_TAX_CHARACTER", field="personal_use_confirmed", item_id=item.item_id, source_document_id=item.source_document_id, message="Real estate tax personal use confirmation is missing or unknown."))
                 continue
@@ -266,7 +306,13 @@ def classify_tax_items(tax_items: List[TaxPaymentItemV1], errors: List[Validatio
                     pools.personal_property_tax.append(eligible_amt)
     return pools
 
+
+
+# 需要手動輸入agi 後續再想辦法結合1040
 def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
+
+
+
     errors = []
     warnings = []
     ZERO = Decimal("0.00")
@@ -276,11 +322,15 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
     validate_identity(inputs, errors)
     validate_tax_year(inputs.tax_year, allowed={2024, 2025}, errors=errors)
     validate_nonnegative_amounts(inputs, errors)
+
+
+    # 抓目前input看出的問題，丟回不支援的解釋
     detect_unsupported_cases(inputs.special_case_flags, errors)
 
     # 2. Medical Expense (Lines 1-4)
     medical_total = ZERO
     for item in inputs.medical_items:
+        # 每一項都要檢查年分
         validate_paid_year(item, errors)
 
         if item.medical_qualification_status == "UNKNOWN":
@@ -299,6 +349,7 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
             warnings.append(ValidationIssue("MEDICAL_ITEM_EXCLUDED", field="medical_items", item_id=item.item_id, source_document_id=item.source_document_id, message=f"Medical item {item.item_id} excluded."))
             continue
 
+        # line 1~4公式
         adjustments = item.reimbursement_amount + item.tax_free_medical_account_payment
 
         if adjustments > item.taxpayer_paid_amount:
@@ -313,6 +364,12 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
     line_4 = max(ZERO, line_1 - line_3)
 
     # 3. Taxes Paid (Lines 5-7)
+    
+    # 將扣除項目分類為四種州與地方稅 (SALT)：
+    # - income_tax: 州與地方個人所得稅（與 sales_tax 互斥，二選一申報）
+    # - sales_tax: 州與地方一般銷售稅（與 income_tax 互斥，二選一申報）
+    # - real_estate_tax: 個人自用不動產稅（房產稅，須確認實際繳納）
+    # - personal_property_tax: 按價值計徵且每年收取的個人動產稅（如車輛價值登記費）
     tax_pools = classify_tax_items(inputs.tax_items, errors=errors, warnings=warnings)
 
     if inputs.line_5a_election == "INCOME_TAX":
@@ -331,6 +388,9 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
         sales_tax_checkbox = False
         errors.append(ValidationIssue("TAX_ELECTION_MISSING", field="line_5a_election", message="Invalid tax election value."))
 
+    # 檢查是否有未確認實際支付的房產稅項目
+    # （依照 IRS 規定，只有「實際繳納給稅務機關」的房產稅可扣抵；若僅是存入房屋貸款代管帳戶 Escrow 的預估金額則不可扣抵，
+    # 因此若 actual_paid_to_taxing_authority_confirmed 不是 True（即為 None 或 False），會觸發阻斷性錯誤並剔除該金額）
     has_unconfirmed_real_estate_tax = False
     for item in inputs.tax_items:
         if item.tax_category == "PERSONAL_REAL_ESTATE_TAX" and item.actual_paid_to_taxing_authority_confirmed is not True:
@@ -361,6 +421,11 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
     line_7 = None if line_5e is None else line_5e + line_6
 
     # 4. Interest Paid (Lines 8-10)
+    # V1 引擎僅支援單一房貸之常規簡單利息扣除 (Line 8a)。以下情境均不支援：
+    # - Line 8b: 未申報於 Form 1098 的房貸利息 (設為 0)
+    # - Line 8c: 未申報於 Form 1098 的點數 (設為 0)
+    # - Line 9: 投資利息支出 / Form 4952 (設為 0)
+    # - 多筆房貸、房貸本金超額限額計算、共享利息、賣方融資房貸等 (由特別 Flag 阻斷)
     line_8a = calculate_simple_form_1098(inputs.mortgage_interest_items, errors=errors)
     line_8b = ZERO
     line_8c = ZERO
@@ -369,13 +434,19 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
     line_10 = line_8e + line_9
 
     # 5. Charitable Contributions (Lines 11-14)
+    # V1 引擎僅支援現金捐款 (Line 11)，以下情況均不支援：
+    # - 非現金捐款、股票或資產捐贈（設為 0）
+    # - 捐給非 501(c)(3) 機構的捐款（設為 0）
+    # - 總額超過 AGI 60% 的特殊情況（設為 0）
     line_11 = calculate_cash_charity(inputs.cash_charity_items, errors=errors, warnings=warnings, tax_year=inputs.tax_year)
     line_12 = ZERO
     line_13 = ZERO
     line_14 = line_11 + line_12 + line_13
 
     # 6. Casualty and Theft Losses & Other Itemized Deductions (Lines 15-16)
+    # V1 引擎不支援自然災害損失申報（Line 15），設為 0。
     line_15 = ZERO
+    # V1 引擎不支援其他扣除項目（如 Gambing Losses、Form 8803、Form 4952 等）（Line 16），設為 0。
     line_16 = ZERO
 
     # 7. Total Itemized Deductions (Line 17)
@@ -384,6 +455,8 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
     else:
         line_17 = line_4 + line_7 + line_10 + line_14 + line_15 + line_16
 
+    # 8. Determine if Itemizing (Lines 18-19)
+    # 計算「是否申報單項扣除額」：當計算結果無誤且有總額，則與標準扣除額比較。
     is_v1_supported = not any_unsupported_case(inputs.special_case_flags)
     can_file = is_v1_supported and len(errors) == 0 and line_17 is not None
 
@@ -396,6 +469,11 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
         if standard_amount is None:
             errors.append(ValidationIssue("STANDARD_DEDUCTION_REFERENCE_MISSING", field="standard_deduction_amount", message="Standard deduction amount is missing."))
     else:
+        # 決定是否使用列舉扣除額 (Itemized Deduction)：
+        # 符合以下任一情況即為 True：
+        # 1. 夫妻分申 (MFS) 且配偶已選擇列舉扣除，依法本申報人也「強制必須列舉」。
+        # 2. 申報人主動選擇列舉扣除（即使列舉總額小於標準扣除額）。
+        # 3. 列舉扣除總額 (Line 17) 大於標準扣除額 (standard_amount)（常規最優選擇）。
         is_itemizing = (
             inputs.standard_deduction_reference.must_itemize_due_to_mfs_spouse is True
             or inputs.standard_deduction_reference.elect_itemize_even_if_less is True

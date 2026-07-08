@@ -35,7 +35,6 @@
     {
       "id": "tax_year",
       "type": "int",
-      "default": 2025,
       "description": "Tax Year"
     },
     {
@@ -44,20 +43,14 @@
       "description": "Filing Status (SINGLE, MFJ, MFS, HOH, QSS)"
     },
     {
-      "id": "adjusted_gross_income",
-      "type": "float",
-      "default": 0.0,
-      "description": "Adjusted Gross Income (AGI)"
-    },
-    {
       "id": "medical_items",
       "type": "array",
-      "description": "Medical Expense Items. Each item has: taxpayer_paid_amount (float), reimbursement_amount (float), paid_by_hsa_msa_fsa_hra_cafeteria_plan_amount (float), expense_category (string: MEDICAL, DENTAL, PRESCRIPTION_DRUGS, etc.), expense_person (string: TAXPAYER, SPOUSE, DEPENDENT), paid_in_tax_year (boolean)."
+      "description": "Medical Expense Items. Each item has: item_id (string), source_document_id (string), taxpayer_paid_amount (float), reimbursement_amount (float), tax_free_medical_account_payment (float), eligible_person_status (string: ELIGIBLE, NOT_ELIGIBLE, UNKNOWN), medical_qualification_status (string: QUALIFIED_SIMPLE, UNKNOWN), paid_in_tax_year (boolean)."
     },
     {
       "id": "tax_items",
       "type": "array",
-      "description": "Tax Payment Items. Each item has: amount_paid (float), tax_category (string: STATE_LOCAL_INCOME_TAX, GENERAL_SALES_TAX, PERSONAL_REAL_ESTATE_TAX, PERSONAL_PROPERTY_TAX, FEDERAL_OR_NONDEDUCTIBLE_TAX, BUSINESS_OR_RENTAL_TAX), description (string), paid_in_tax_year (boolean), personal_use_confirmed (boolean), actual_paid_to_taxing_authority_confirmed (boolean; set to false if the payment is only to an escrow account, such as Form 1098 Box 10, without confirmation of actual payment to the taxing authority), value_based_and_annual_confirmed (boolean)."
+      "description": "Tax Payment Items. Each item has: item_id (string), source_document_id (string), amount_paid (float), separately_stated_nondeductible_charge (float), tax_category (string: STATE_LOCAL_INCOME_TAX, GENERAL_SALES_TAX, PERSONAL_REAL_ESTATE_TAX, PERSONAL_PROPERTY_TAX, FEDERAL_OR_NONDEDUCTIBLE_TAX, BUSINESS_OR_RENTAL_TAX, UNKNOWN), description (string), paid_in_tax_year (boolean), personal_use_confirmed (boolean), actual_paid_to_taxing_authority_confirmed (boolean; set to false if the payment is only to an escrow account, such as Form 1098 Box 10, without confirmation of actual payment to the taxing authority), value_based_and_annual_confirmed (boolean)."
     },
     {
       "id": "line_5a_election",
@@ -67,22 +60,22 @@
     {
       "id": "mortgage_interest_items",
       "type": "array",
-      "description": "Mortgage Interest Items. Each item has: form_1098_box_1_mortgage_interest (float), deductible_points_reported_on_1098 (float), simple_mortgage_status (string: CONFIRMED_SIMPLE, UNKNOWN), paid_in_tax_year (boolean)."
+      "description": "Mortgage Interest Items. Each item has: item_id (string), source_document_id (string), source_document_type (string), lender_name (string), form_1098_box_1_mortgage_interest (float), deductible_points_reported_on_1098 (float), property_use_context (string: MAIN_HOME, SECOND_HOME, RENTAL_PROPERTY, BUSINESS_PROPERTY, UNKNOWN), simple_mortgage_status (string: CONFIRMED_SIMPLE, UNKNOWN), paid_in_tax_year (boolean)."
     },
     {
       "id": "cash_charity_items",
       "type": "array",
-      "description": "Cash Charity Items. Each item has: gross_contribution_amount (float), organization_name (string), paid_in_tax_year (boolean), qualified_organization_status (string: VERIFIED, UNKNOWN), contribution_date (string, e.g. YYYY-MM-DD), goods_or_services_value (float), bank_or_written_record_available (boolean), contemporaneous_acknowledgment_received (boolean)."
+      "description": "Cash Charity Items. Each item has: item_id (string), source_document_id (string), organization_name (string), gross_contribution_amount (float), goods_or_services_value (float), paid_in_tax_year (boolean), contribution_date (string, e.g. YYYY-MM-DD), qualified_organization_status (string: VERIFIED, UNKNOWN), bank_or_written_record_available (boolean), contemporaneous_acknowledgment_received (boolean)."
     },
     {
       "id": "standard_deduction_reference",
       "type": "object",
-      "description": "Standard Deduction Reference. Properties: standard_deduction_amount (float, optional), must_itemize_due_to_mfs_spouse (boolean, optional), elect_itemize_even_if_less (boolean, optional)."
+      "description": "Standard Deduction Reference. Properties: must_itemize_due_to_mfs_spouse (boolean, optional; set to true if spouse itemizes on a separate return), elect_itemize_even_if_less (boolean, optional; set to true if taxpayer elects to itemize even if it is less than standard deduction)."
     },
     {
       "id": "special_case_flags",
       "type": "object",
-      "description": "Special Case Flags. Properties: has_marketplace_medical_premium (boolean), has_ltc_premium (boolean)."
+      "description": "Special Case Flags. Set a property to true only if explicitly stated in documents. Properties:\n- has_marketplace_medical_premium (boolean): Marketplace/Form 1095-A/Form 8962 premiums present.\n- has_ltc_premium (boolean): Long-term care insurance premium present.\n- has_self_employed_health_insurance_overlap (boolean): Self-employed health insurance coordination present.\n- has_prior_year_medical_recovery (boolean): Prior-year medical recovery/refund present.\n- sales_tax_amount_requires_calculation (boolean): Sales tax requires tables/calculation.\n- has_tax_refund_or_rebate_adjustment (boolean): Tax refund/rebate adjustment present.\n- has_form_2555_or_4563_or_puerto_rico_exclusion (boolean): Form 2555, Form 4563, or Puerto Rico exclusion context.\n- has_other_tax_line_6 (boolean): Other taxes for Line 6 present.\n- has_multiple_mortgages (boolean): Multiple mortgages or Form 1098s present.\n- mortgage_proceeds_not_all_qualified (boolean): Mortgage proceeds not fully used to buy/build/improve qualified home.\n- mortgage_limitation_required (boolean): Mortgage principal exceeds IRS limits, limitation worksheet required.\n- has_shared_mortgage (boolean): Shared/co-owned mortgage interest present.\n- has_non_1098_mortgage_interest (boolean): Mortgage interest not reported on Form 1098.\n- has_non_1098_points (boolean): Points not reported on Form 1098.\n- has_seller_financed_mortgage (boolean): Seller-financed mortgage.\n- has_form_8396_credit (boolean): Form 8396 Mortgage Interest Credit.\n- has_investment_interest (boolean): Investment interest/Form 4952 present.\n- has_noncash_charity (boolean): Noncash charity/Form 8283 present.\n- has_charity_carryover (boolean): Charitable contribution carryover.\n- has_charitable_agi_limitation (boolean): Charitable AGI limitation applies.\n- has_casualty_or_theft_loss (boolean): Casualty/theft loss/Form 4684 present.\n- has_net_qualified_disaster_loss (boolean): Net qualified disaster loss.\n- has_line_16_item (boolean): Line 16 other itemized deduction.\n- has_unresolved_mfs_joint_expense_allocation (boolean): MFS joint expense allocation unresolved."
     }
   ],
   "formulas": [

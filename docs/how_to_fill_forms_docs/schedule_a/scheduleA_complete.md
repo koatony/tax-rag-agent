@@ -366,7 +366,6 @@ MortgageInterestItemV1 = {
 
   simple_mortgage_status:
     CONFIRMED_SIMPLE
-    | LIMITATION_OR_WORKSHEET_REQUIRED
     | UNKNOWN
 }
 ```
@@ -375,9 +374,9 @@ MortgageInterestItemV1 = {
 
 規則：
 
-- V1 最多接受一筆 `MortgageInterestItemV1`。
-- `CONFIRMED_SIMPLE` 才可進 Line 8a。
-- `LIMITATION_OR_WORKSHEET_REQUIRED` 或 `UNKNOWN` 必須阻止自動申報。
+- 若有多個 `MortgageInterestItemV1`，會將其利息加總，但會拋出 `UNSUPPORTED_MULTIPLE_MORTGAGES` 阻斷自動申報。
+- `CONFIRMED_SIMPLE` 才可計入 Line 8a。
+- `UNKNOWN` 必須阻止自動申報，且該項目不計入金額。
 - 若沒有 Form 1098，V1 不自動填 Line 8b 或 8c。
 
 ### 5.4 CashCharityItemV1

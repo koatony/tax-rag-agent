@@ -7,16 +7,51 @@ from processors.models.schedule_a import (
 )
 
 def validate_identity(inputs: ScheduleAInputsV1, errors: List[ValidationIssue]):
+    """
+    驗證申報人（與配偶，如果適用）的基本身分資訊與出生日期。
+    
+    主要檢查項目：
+    1. 申報人姓名 (taxpayer_name) 是否存在。
+    2. 申報人社會安全號碼 (taxpayer_ssn) 是否存在。
+    3. 申報人出生日期 (taxpayer_date_of_birth) 是否存在且格式符合 YYYY-MM-DD（用來判定是否滿 65 歲以決定加計標準扣除額）。
+    4. 當申報身分為聯申或分申 (MFJ/MFS/QSS) 時，配偶的出生日期 (spouse_date_of_birth) 是否存在且格式符合 YYYY-MM-DD。
+    """
+    import re
     if not inputs.taxpayer_name.strip():
         errors.append(ValidationIssue("MISSING_TAXPAYER_NAME", "taxpayer_name", message="Taxpayer name is missing."))
     if not inputs.taxpayer_ssn.strip():
         errors.append(ValidationIssue("MISSING_TAXPAYER_SSN", "taxpayer_ssn", message="Taxpayer SSN is missing."))
+        
+    dob = inputs.taxpayer_date_of_birth
+    if not dob or not isinstance(dob, str) or not dob.strip():
+        errors.append(ValidationIssue("UNKNOWN_AGE_STATUS", "taxpayer_date_of_birth", message="Taxpayer date of birth is missing; cannot determine if over 65."))
+    elif not re.match(r"^\d{4}-\d{2}-\d{2}$", dob.strip()):
+        errors.append(ValidationIssue("UNKNOWN_AGE_STATUS", "taxpayer_date_of_birth", message="Taxpayer date of birth format is invalid (expected YYYY-MM-DD); cannot determine if over 65."))
 
+    status = str(inputs.filing_status or "SINGLE").upper()
+    if status in ("MFJ", "MFS", "QSS"):
+        spouse_dob = inputs.spouse_date_of_birth
+        if not spouse_dob or not isinstance(spouse_dob, str) or not spouse_dob.strip():
+            errors.append(ValidationIssue("UNKNOWN_AGE_STATUS", "spouse_date_of_birth", message="Spouse date of birth is missing; cannot determine if over 65."))
+        elif not re.match(r"^\d{4}-\d{2}-\d{2}$", spouse_dob.strip()):
+            errors.append(ValidationIssue("UNKNOWN_AGE_STATUS", "spouse_date_of_birth", message="Spouse date of birth format is invalid (expected YYYY-MM-DD); cannot determine if over 65."))
+
+#目前只支援2024 2025
 def validate_tax_year(tax_year: int, allowed: Set[int], errors: List[ValidationIssue]):
     if tax_year not in allowed:
         errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message=f"Tax year {tax_year} is not supported."))
 
 def validate_nonnegative_amounts(inputs: ScheduleAInputsV1, errors: List[ValidationIssue]):
+    """
+    驗證輸入的所有金額欄位是否為非負數。
+    
+    主要檢查項目：
+    1. 調整後總收入 (AGI) 是否大於或等於 0。
+    2. 醫療費用明細 (medical_items) 中的各項金額（自付金額、保險補償金額、免稅醫療帳戶支付金額）是否均大於或等於 0。
+    3. 稅金支出明細 (tax_items) 中的各項金額（已繳稅金額、單獨列出之不可扣除費用）是否均大於或等於 0。
+    4. 房貸利息明細 (mortgage_interest_items) 中的各項金額（Form 1098 Box 1 利息、抵稅點數）是否均大於或等於 0。
+    5. 現金慈善捐贈明細 (cash_charity_items) 中的各項金額（總捐贈金額、獲贈之商品/服務價值）是否均大於或等於 0。
+    """
     ZERO = Decimal("0.00")
     if inputs.adjusted_gross_income < ZERO:
         errors.append(ValidationIssue("NEGATIVE_AMOUNT", "adjusted_gross_income", message="Adjusted Gross Income cannot be negative."))
@@ -77,6 +112,7 @@ def detect_unsupported_cases(flags: SpecialCaseFlagsV1, errors: List[ValidationI
         if getattr(flags, attr, False):
             errors.append(ValidationIssue(code, field=attr, message=msg))
 
+#如果沒有填寫支付年度，導致無法判斷是否在2024或2025年，就報錯
 def validate_paid_year(item, errors: List[ValidationIssue]):
     if item.paid_in_tax_year is None:
         errors.append(ValidationIssue(
