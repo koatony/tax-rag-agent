@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pathlib import Path
 
 import streamlit as st
 
@@ -159,7 +160,9 @@ EXAMPLE_IRA = {
     ],
 }
 
-col1, col2, col3 = st.columns([5, 1, 1])
+EXAMPLE2_PATH = Path(__file__).resolve().parent.parent / "Flag" / "example" / "example2.json"
+
+col1, col2, col3, col4 = st.columns([4, 1, 1, 1])
 with col1:
     st.caption("Financial data (JSON)")
 with col2:
@@ -168,6 +171,9 @@ with col2:
 with col3:
     if st.button("Load example IRA", use_container_width=True, key="_fm2_load_ira"):
         st.session_state["_fm2_json_text"] = json.dumps(EXAMPLE_IRA, indent=2)
+with col4:
+    if st.button("Load example2", use_container_width=True, key="_fm2_load_example2"):
+        st.session_state["_fm2_json_text"] = EXAMPLE2_PATH.read_text(encoding="utf-8")
 
 json_input = st.text_area(
     "json_input",
