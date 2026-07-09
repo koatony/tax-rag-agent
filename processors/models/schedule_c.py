@@ -157,9 +157,6 @@ class ScheduleCInputsV1:
         self.accounting_method = str(raw_method).upper() if raw_method else None
 
         self.line_g_material_participation = kwargs.get("line_g_material_participation")
-        if self.line_g_material_participation is None:
-            if "material_participation" in kwargs:
-                self.line_g_material_participation = bool(kwargs["material_participation"])
 
         self.line_h_started_or_acquired = kwargs.get("line_h_started_or_acquired")
         self.line_i_payment_requiring_1099 = kwargs.get("line_i_payment_requiring_1099")
