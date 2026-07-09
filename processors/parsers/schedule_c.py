@@ -16,7 +16,8 @@ class ScheduleCLLMParser(BaseLLMParser):
         return [
             "絕對不要自行計算任何毛利或總費用公式，保持原始金額。例如不要對餐飲費折半，直接提取收據或損益表中的原始總額。",
             "絕對不要根據任何商務用途比例、個人使用比例或出差天數比例進行折算，必須提取文件中最原始的總金額。所有比例折算與公式計算均由下游系統自動處理。",
-            "提取 'other_expense_items'（其他營業費用）時，僅限包含符合 IRS 規定普通且必要之可扣除商業支出。絕對不可將個人生活支出、政府罰金與罰款 (fines/penalties)、政治捐款等不可扣除項目納入 'other_expense_items'；如發現有此類非營業或不可扣除支出，應予以排除且不可申報。"
+            "提取 'other_expense_items'（其他營業費用）時，僅限包含符合 IRS 規定普通且必要之可扣除商業支出。絕對不可將個人生活支出、政府罰金與罰款 (fines/penalties)、政治捐款等不可扣除項目納入 'other_expense_items'；如發現有此類非營業或不可扣除支出，應予以排除且不可申報。",
+            "對於以 '_from_module' 或 '_final' 結尾的欄位（如 line_4_cogs_from_module, line_9_car_truck_expenses_final, line_13_depreciation_from_form4562, line_30_home_office_from_module），僅在輸入文件中有明確標明該項計算完成之最終總額時才進行提取。絕對不要自己嘗試累加零散收據、計算存貨公式或估算金額；如果文件中沒有明確的最終總額，請直接填寫 null (None)。"
         ]
 
     def get_example_json(self) -> Dict[str, Any]:
