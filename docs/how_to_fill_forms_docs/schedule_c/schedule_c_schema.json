@@ -81,7 +81,7 @@
     {
       "id": "other_expense_items",
       "type": "array",
-      "description": "Part V 其他營業費用清單（⚠️ 僅限 IRS 規定普通且必要之可扣除商業支出，絕對不可包含個人生活支出、政府罰金/罰款、政治捐款等不可扣除項目）。每個項目為物件: {item_id: string, name: string, amount: Decimal, source_document_id: string | null, confidence: 'HIGH' | 'MEDIUM' | 'LOW'}"
+      "description": "Part V Line 48 / Line 27b 可扣除其他營業費用清單。僅能包含已確認為 ordinary and necessary business expense、且無法歸入 Schedule C Lines 8-26 的項目。不得包含 vehicle、mileage、parking、tolls、travel、airfare、lodging、meals、entertainment、COGS、depreciation、home office、wages、taxes、rent、utilities、office supplies、supplies、政府罰金/罰款、政治捐款、個人支出或分類不明項目。每個項目為物件: {item_id: string, name: string, amount: Decimal, source_document_id: string | null, confidence: 'HIGH' | 'MEDIUM' | 'LOW', part_v_category: 'BANK_FEES' | 'MERCHANT_PROCESSING_FEES' | 'SOFTWARE_SUBSCRIPTIONS' | 'SECURITY_MONITORING' | 'CLEANING_SERVICES' | 'CONFERENCE_REGISTRATION' | 'OTHER_ALLOWED'}"
     },
     {
       "id": "loss_at_risk_answer",

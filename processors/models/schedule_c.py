@@ -21,7 +21,7 @@ def to_decimal(value: Any, default: Optional[str] = "0.00") -> Optional[Decimal]
 class OtherExpenseItemV1:
     """
     其他費用明細（Part V Other Expenses）資料結構。
-    包含單筆項目的 ID、名稱、金額、來源文件 ID 以及置信度。
+    包含單筆項目的 ID、名稱、金額、來源文件 ID、置信度以及類別。
     """
     def __init__(self, **kwargs):
         self.item_id = str(kwargs.get("item_id", ""))
@@ -29,6 +29,7 @@ class OtherExpenseItemV1:
         self.amount = to_decimal(kwargs.get("amount"))
         self.source_document_id = kwargs.get("source_document_id")
         self.confidence = str(kwargs.get("confidence", "HIGH")).upper()
+        self.part_v_category = str(kwargs.get("part_v_category", "OTHER_ALLOWED")).upper()
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -36,7 +37,8 @@ class OtherExpenseItemV1:
             "name": self.name,
             "amount": float(self.amount) if self.amount is not None else 0.0,
             "source_document_id": self.source_document_id,
-            "confidence": self.confidence
+            "confidence": self.confidence,
+            "part_v_category": self.part_v_category
         }
 
 class ScheduleCIncomeV1:

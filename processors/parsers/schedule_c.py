@@ -75,7 +75,8 @@ class ScheduleCLLMParser(BaseLLMParser):
                     "name": "Software Subscription",
                     "amount": 299.99,
                     "source_document_id": "doc_abc123",
-                    "confidence": "HIGH"
+                    "confidence": "HIGH",
+                    "part_v_category": "SOFTWARE_SUBSCRIPTIONS"
                 }
             ],
             "loss_at_risk_answer": None,
