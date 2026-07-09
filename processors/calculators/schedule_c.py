@@ -99,7 +99,20 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
     line_27a_energy_efficient_building_deduction = ZERO
 
     # Other Expenses Part V
-    line_48_total_other_expenses = sum(item.amount for item in inputs.other_expense_items)
+    line_48_total_other_expenses = ZERO
+    for item in inputs.other_expense_items:
+        name_lower = item.name.lower()
+        if "fine" in name_lower or "penalty" in name_lower:
+            errors.append(ValidationIssue(
+                "NONDEDUCTIBLE_FINE_OR_PENALTY",
+                field="other_expense_items",
+                item_id=item.item_id,
+                source_document_id=item.source_document_id,
+                message=f"Nondeductible fine/penalty '{item.name}' found in other expenses."
+            ))
+            continue
+        line_48_total_other_expenses += item.amount
+        
     line_27b = line_48_total_other_expenses
 
     # Total Expenses (Line 28)

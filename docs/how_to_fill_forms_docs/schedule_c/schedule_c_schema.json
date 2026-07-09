@@ -81,7 +81,7 @@
     {
       "id": "other_expense_items",
       "type": "array",
-      "description": "Part V 其他營業費用清單。每個項目為物件: {item_id: string, name: string, amount: Decimal, source_document_id: string | null, confidence: 'HIGH' | 'MEDIUM' | 'LOW'}"
+      "description": "Part V 其他營業費用清單（⚠️ 僅限 IRS 規定普通且必要之可扣除商業支出，絕對不可包含個人生活支出、政府罰金/罰款、政治捐款等不可扣除項目）。每個項目為物件: {item_id: string, name: string, amount: Decimal, source_document_id: string | null, confidence: 'HIGH' | 'MEDIUM' | 'LOW'}"
     },
     {
       "id": "loss_at_risk_answer",
