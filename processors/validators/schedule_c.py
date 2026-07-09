@@ -6,40 +6,99 @@ from processors.models.schedule_c import ScheduleCInputsV1
 def validate_identity(inputs: ScheduleCInputsV1, errors: List[ValidationIssue]):
     if not inputs.proprietor_name.strip():
         errors.append(ValidationIssue("MISSING_PROPRIETOR_NAME", "proprietor_name", message="Proprietor name is missing."))
-    if not inputs.ssn.strip():
-        errors.append(ValidationIssue("MISSING_SSN", "ssn", message="SSN is missing."))
+    if not inputs.taxpayer_ssn.strip():
+        errors.append(ValidationIssue("MISSING_SSN", "taxpayer_ssn", message="SSN is missing."))
+    if inputs.tax_year not in (2024, 2025):
+        errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message=f"Tax year {inputs.tax_year} is not supported."))
 
 def validate_nonnegative_amounts(inputs: ScheduleCInputsV1, errors: List[ValidationIssue]):
     ZERO = Decimal("0.00")
-    fields_to_check = [
-        ("line_1_gross_receipts", inputs.line_1_gross_receipts),
-        ("line_2_returns_allowances", inputs.line_2_returns_allowances),
-        ("line_6_other_income", inputs.line_6_other_income),
-        ("line_8_advertising", inputs.line_8_advertising),
-        ("line_10_commissions_fees", inputs.line_10_commissions_fees),
-        ("line_11_contract_labor", inputs.line_11_contract_labor),
-        ("line_12_depletion", inputs.line_12_depletion),
-        ("line_14_employee_benefit_programs", inputs.line_14_employee_benefit_programs),
-        ("line_15_insurance", inputs.line_15_insurance),
-        ("line_16a_mortgage_interest", inputs.line_16a_mortgage_interest),
-        ("line_16b_other_interest", inputs.line_16b_other_interest),
-        ("line_17_legal_professional", inputs.line_17_legal_professional),
-        ("line_18_office_expense", inputs.line_18_office_expense),
-        ("line_19_pension_profit_sharing", inputs.line_19_pension_profit_sharing),
-        ("line_20a_rent_machinery_equipment", inputs.line_20a_rent_machinery_equipment),
-        ("line_20b_rent_other_property", inputs.line_20b_rent_other_property),
-        ("line_21_repairs_maintenance", inputs.line_21_repairs_maintenance),
-        ("line_22_supplies", inputs.line_22_supplies),
-        ("line_23_taxes_licenses", inputs.line_23_taxes_licenses),
-        ("line_25_utilities", inputs.line_25_utilities),
-        ("line_36_purchases_less_personal", inputs.line_36_purchases_less_personal),
-        ("line_38_materials_supplies", inputs.line_38_materials_supplies),
-        ("line_39_other_costs", inputs.line_39_other_costs),
-        ("line_41_ending_inventory", inputs.line_41_ending_inventory),
-        ("line_44a_business_miles", inputs.line_44a_business_miles),
-        ("line_44b_commuting_miles", inputs.line_44b_commuting_miles),
-        ("line_44c_other_miles", inputs.line_44c_other_miles),
+    # Check income fields
+    if inputs.income.line_1_gross_receipts < ZERO:
+        errors.append(ValidationIssue("NEGATIVE_AMOUNT", "line_1_gross_receipts", message="Gross receipts cannot be negative."))
+    if inputs.income.line_2_returns_allowances < ZERO:
+        errors.append(ValidationIssue("NEGATIVE_AMOUNT", "line_2_returns_allowances", message="Returns and allowances cannot be negative."))
+    if inputs.income.line_6_other_income < ZERO:
+        errors.append(ValidationIssue("NEGATIVE_AMOUNT", "line_6_other_income", message="Other income cannot be negative."))
+
+    # Check expense fields
+    exp = inputs.expenses
+    expense_fields = [
+        ("line_8_advertising", exp.line_8_advertising),
+        ("line_10_commissions_fees", exp.line_10_commissions_fees),
+        ("line_11_contract_labor", exp.line_11_contract_labor),
+        ("line_12_depletion", exp.line_12_depletion),
+        ("line_14_employee_benefit_programs", exp.line_14_employee_benefit_programs),
+        ("line_15_insurance", exp.line_15_insurance),
+        ("line_16a_mortgage_interest", exp.line_16a_mortgage_interest),
+        ("line_16b_other_interest", exp.line_16b_other_interest),
+        ("line_17_legal_professional", exp.line_17_legal_professional),
+        ("line_18_office_expense", exp.line_18_office_expense),
+        ("line_19_pension_profit_sharing", exp.line_19_pension_profit_sharing),
+        ("line_20a_rent_machinery_equipment", exp.line_20a_rent_machinery_equipment),
+        ("line_20b_rent_other_property", exp.line_20b_rent_other_property),
+        ("line_21_repairs_maintenance", exp.line_21_repairs_maintenance),
+        ("line_22_supplies", exp.line_22_supplies),
+        ("line_23_taxes_licenses", exp.line_23_taxes_licenses),
+        ("meals_50_percent_source_amount", exp.meals_50_percent_source_amount),
+        ("meals_100_percent_source_amount", exp.meals_100_percent_source_amount),
+        ("entertainment_source_amount", exp.entertainment_source_amount),
+        ("line_25_utilities", exp.line_25_utilities),
     ]
-    for field_name, val in fields_to_check:
+
+    # Nullable fields to check if not None
+    nullable_fields = [
+        ("line_9_car_truck_expenses_final", exp.line_9_car_truck_expenses_final),
+        ("line_24a_travel_final", exp.line_24a_travel_final),
+        ("line_26_wages_final", exp.line_26_wages_final),
+        ("line_13_depreciation_from_form4562", exp.line_13_depreciation_from_form4562),
+        ("line_30_home_office_from_module", exp.line_30_home_office_from_module),
+        ("line_4_cogs_from_module", exp.line_4_cogs_from_module),
+    ]
+
+    for name, val in expense_fields:
         if val < ZERO:
-            errors.append(ValidationIssue("NEGATIVE_AMOUNT", field_name, message=f"{field_name} cannot be negative."))
+            errors.append(ValidationIssue("NEGATIVE_AMOUNT", name, message=f"{name} cannot be negative."))
+
+    for name, val in nullable_fields:
+        if val is not None and val < ZERO:
+            errors.append(ValidationIssue("NEGATIVE_AMOUNT", name, message=f"{name} cannot be negative."))
+
+    # Check other expense items
+    for idx, item in enumerate(inputs.other_expense_items):
+        if item.amount < ZERO:
+            errors.append(ValidationIssue("NEGATIVE_AMOUNT", f"other_expense_items[{idx}].amount", item_id=item.item_id, message="Other expense amount cannot be negative."))
+
+def detect_unsupported_cases(inputs: ScheduleCInputsV1, errors: List[ValidationIssue]):
+    flags = inputs.special_case_flags
+    exp = inputs.expenses
+
+    # 1. Non-trade/business type checks
+    if flags.has_rental_or_royalty_activity:
+        errors.append(ValidationIssue("WRONG_FORM_RENTAL_OR_ROYALTY", "has_rental_or_royalty_activity", message="Rental or royalty activity is not supported in Schedule C V1."))
+    if flags.has_farm_activity:
+        errors.append(ValidationIssue("WRONG_FORM_FARM_INCOME", "has_farm_activity", message="Farming activity is not supported in Schedule C V1."))
+    if flags.has_business_asset_sale:
+        errors.append(ValidationIssue("UNSUPPORTED_ASSET_SALE", "has_business_asset_sale", message="Business asset sale is not supported in V1."))
+
+    # 2. General Special flags checking blocking cases
+    if flags.has_owner_draw_in_expenses:
+        errors.append(ValidationIssue("OWNER_DRAW_INCLUDED_IN_EXPENSES", "has_owner_draw_in_expenses", message="Owner salary/draw is not allowed as a business expense on Schedule C."))
+    if flags.has_uncertain_meals_or_entertainment:
+        errors.append(ValidationIssue("UNCERTAIN_MEALS_ENTERTAINMENT_CLASSIFICATION", "has_uncertain_meals_or_entertainment", message="Meals/entertainment classification is uncertain."))
+    if flags.has_uncertain_expense_category:
+        errors.append(ValidationIssue("UNCERTAIN_EXPENSE_CLASSIFICATION", "has_uncertain_expense_category", message="Uncertain expense category requires review."))
+
+    # 3. Missing upstream module inputs for special features
+    if flags.has_inventory_or_cogs and exp.line_4_cogs_from_module is None:
+        errors.append(ValidationIssue("UNSUPPORTED_COGS_IN_V1", "line_4_cogs_from_module", message="COGS/inventory is not supported in V1 without upstream module output."))
+    if flags.has_vehicle_expense_requiring_calculation and exp.line_9_car_truck_expenses_final is None:
+        errors.append(ValidationIssue("UNSUPPORTED_VEHICLE_CALCULATION_IN_V1", "line_9_car_truck_expenses_final", message="Vehicle calculation is not supported in V1 without upstream final amount."))
+    if flags.has_depreciation_or_section179 and exp.line_13_depreciation_from_form4562 is None:
+        errors.append(ValidationIssue("FORM_4562_REQUIRED", "line_13_depreciation_from_form4562", message="Form 4562 depreciation is not supported in V1 without upstream module output."))
+    if flags.has_home_office and exp.line_30_home_office_from_module is None:
+        errors.append(ValidationIssue("FORM_8829_OR_SIMPLIFIED_HOME_OFFICE_REQUIRED", "line_30_home_office_from_module", message="Home office deduction is not supported in V1 without upstream module output."))
+    if flags.has_mixed_travel and exp.line_24a_travel_final is None:
+        errors.append(ValidationIssue("UNSUPPORTED_TRAVEL_ALLOCATION_IN_V1", "line_24a_travel_final", message="Mixed/international travel allocation is not supported in V1 without upstream final amount."))
+    if flags.has_employee_wages_or_payroll_credit and exp.line_26_wages_final is None:
+        errors.append(ValidationIssue("PAYROLL_OR_OWNER_DRAW_REVIEW_REQUIRED", "line_26_wages_final", message="Employee wages require review or final amount in V1."))

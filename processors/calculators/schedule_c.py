@@ -1,205 +1,228 @@
 from decimal import Decimal
-from typing import Dict, Any, List
+from typing import List, Dict, Any
 from processors.models.schedule_a import ValidationIssue
 from processors.models.schedule_c import ScheduleCInputsV1, ScheduleCResultV1
-from processors.validators.schedule_c import validate_identity, validate_nonnegative_amounts
-
-# =====================================================================
-# REVIEW 重點 1: 單一職責原則 (Single Responsibility Principle)
-# =====================================================================
-# 【為什麼要把計算邏輯單獨抽成一個模組？】
-# 1. 職責分離：在軟體工程中，I/O（網路呼叫、LLM 解析）與「業務邏輯（計算）」應當嚴格分離。
-#    這使得我們在單元測試 (Unit Test) 此計算邏輯時，不需要 Mock LLM 網路連線，只需傳入模擬物件，即可進行純代數比對。
-# 2. 本模組不關心資料如何被讀取（資料庫、CSV、網頁或 LLM 萃取），它只負責給定輸入 inputs，並回傳確定性的 outputs。
-# =====================================================================
+from processors.validators.schedule_c import (
+    validate_identity,
+    validate_nonnegative_amounts,
+    detect_unsupported_cases,
+)
 
 def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
     errors: List[ValidationIssue] = []
-    
-    # 執行校驗 (這屬於資料提取後的業務規則過濾，與資料格式驗證分開)
+    warnings: List[ValidationIssue] = []
+    ZERO = Decimal("0.00")
+
+    # 1. Run Validators
     validate_identity(inputs, errors)
     validate_nonnegative_amounts(inputs, errors)
-    
-    # 1. 基礎宣告
-    line_b_principal_activity_code_val = inputs.line_b_principal_activity_code
-    
-    # 是否實質參與判定
-    if inputs.owner_annual_hours > 500 or inputs.is_sole_participant:
-        line_g_material_participation = True
-    elif inputs.owner_annual_hours > 100 and inputs.owner_annual_hours >= inputs.others_annual_hours:
-        line_g_material_participation = True
-    elif inputs.owner_annual_hours == Decimal("0.00") and inputs.others_annual_hours == Decimal("0.00"):
-        line_g_material_participation = True
+    detect_unsupported_cases(inputs, errors)
+
+    # 2. Check for low confidence other expenses
+    for item in inputs.other_expense_items:
+        if item.confidence == "LOW":
+            warnings.append(ValidationIssue(
+                "LOW_CONFIDENCE_OTHER_EXPENSE",
+                field="other_expense_items",
+                item_id=item.item_id,
+                source_document_id=item.source_document_id,
+                message=f"Other expense item '{item.name}' has LOW confidence."
+            ))
+
+    # 3. Calculate Income
+    line_1_gross_receipts = inputs.income.line_1_gross_receipts
+    line_2_returns_allowances = inputs.income.line_2_returns_allowances
+    line_3_net_receipts = line_1_gross_receipts - line_2_returns_allowances
+    if line_3_net_receipts < ZERO:
+        errors.append(ValidationIssue("NEGATIVE_NET_RECEIPTS", "line_3_net_receipts", message="Net receipts cannot be negative."))
+
+    # 4. COGS
+    if not inputs.special_case_flags.has_inventory_or_cogs:
+        line_4_cogs = ZERO
     else:
-        line_g_material_participation = False
-        
-    line_i_payment_requiring_1099 = inputs.any_contractor_paid_600_or_more
-    line_j_filed_1099 = inputs.is_1099_filed if line_i_payment_requiring_1099 else False
-    
-    # =====================================================================
-    # REVIEW 重點 2: 預防 ZeroDivisionError 除以零的邊界防守
-    # =====================================================================
-    # 【如何優雅地預防除以零？】
-    # 1. 當 total_miles 為 0 時，直接除以它會拋出 ZeroDivisionError 造成整個服務崩潰。
-    # 2. 我們在此處透過檢查 `if total_miles > 0:` 來保護除法運算，若無里程則比率預設為 0.00。
-    # 3. ⚠️ 面試提點：在任何涉及比例、除法的系統中，防堵除以零都是安全審查的必看指標。
-    # =====================================================================
-    if inputs.selected_mileage_method == 'standard':
-        line_9_car_truck_expenses = inputs.line_44a_business_miles * Decimal('0.70') + inputs.parking_and_tolls
-    else:
-        total_miles = inputs.line_44a_business_miles + inputs.line_44b_commuting_miles + inputs.line_44c_other_miles
-        if total_miles > 0:
-            ratio = inputs.line_44a_business_miles / total_miles
-        else:
-            ratio = Decimal("0.00")
-        line_9_car_truck_expenses = inputs.actual_car_expenses * ratio + inputs.parking_and_tolls
-        
-    # 差旅大交通與住宿費用分配
-    if not inputs.is_international:
-        if inputs.business_days > inputs.total_trip_days / 2:
-            transit = inputs.travel_transit_cost
-        else:
-            transit = Decimal("0.00")
-        if inputs.total_trip_days > 0:
-            lodging = inputs.travel_lodging_cost * (inputs.business_days / inputs.total_trip_days)
-        else:
-            lodging = Decimal("0.00")
-        line_24a_travel = transit + lodging
-    else:
-        if inputs.total_trip_days <= 7 or (inputs.total_trip_days - inputs.business_days) / inputs.total_trip_days < Decimal("0.25"):
-            transit = inputs.travel_transit_cost
-        else:
-            transit = inputs.travel_transit_cost * (inputs.business_days / inputs.total_trip_days)
-        if inputs.total_trip_days > 0:
-            lodging = inputs.travel_lodging_cost * (inputs.business_days / inputs.total_trip_days)
-        else:
-            lodging = Decimal("0.00")
-        line_24a_travel = transit + lodging
-        
-    # 餐飲限制 (一般 50%, 全額 100%, 娛樂 0%)
-    line_24b_deductible_meals = inputs.meals_50_pct * Decimal('0.50') + inputs.meals_100_pct * Decimal('1.00') + inputs.entertainment_cost * Decimal('0.00')
-    
-    # 扣除抵免之雇員工資
-    line_26_wages = inputs.w2_gross_wages - inputs.employment_credits
-    
-    # 節能建築扣除
-    line_27a_energy_efficient_deduction = inputs.improved_building_sqft * inputs.certified_deduction_rate
-    
-    # 銷貨成本 (Part III COGS)
-    line_35_beginning_inventory = inputs.prior_year_ending_inventory
-    line_37_cost_of_labor = inputs.production_labor_wages
-    
-    # 雜項費用加總
-    other_list_sum = sum(item.value for item in inputs.other_misc_expenses_list)
-    line_48_other_expenses_total = (
-        inputs.stripe_merchant_fees +
-        inputs.software_subscriptions +
-        inputs.cleaning_services +
-        inputs.book_amortization +
-        inputs.book_bad_debts +
-        inputs.de_minimis_safe_harbor_cost +
-        other_list_sum
-    )
-    
-    line_40_total_cost_of_goods = line_35_beginning_inventory + inputs.line_36_purchases_less_personal + line_37_cost_of_labor + inputs.line_38_materials_supplies + inputs.line_39_other_costs
-    line_42_cogs = line_40_total_cost_of_goods - inputs.line_41_ending_inventory
-    
-    # 毛利計算 (Gross Profit)
-    line_3_net_receipts = inputs.line_1_gross_receipts - inputs.line_2_returns_allowances
-    line_4_cogs = line_42_cogs
+        line_4_cogs = inputs.expenses.line_4_cogs_from_module or ZERO
+
     line_5_gross_profit = line_3_net_receipts - line_4_cogs
-    line_6_other_income = inputs.line_6_other_income
+    line_6_other_income = inputs.income.line_6_other_income
     line_7_gross_income = line_5_gross_profit + line_6_other_income
+
+    # 5. Expenses (Lines 8-27)
+    line_8 = inputs.expenses.line_8_advertising
+    line_9 = inputs.expenses.line_9_car_truck_expenses_final or ZERO
+    line_10 = inputs.expenses.line_10_commissions_fees
+    line_11 = inputs.expenses.line_11_contract_labor
+    line_12 = inputs.expenses.line_12_depletion
+    line_13 = inputs.expenses.line_13_depreciation_from_form4562 or ZERO
+    line_14 = inputs.expenses.line_14_employee_benefit_programs
+    line_15 = inputs.expenses.line_15_insurance
+    line_16a = inputs.expenses.line_16a_mortgage_interest
+    line_16b = inputs.expenses.line_16b_other_interest
+    line_17 = inputs.expenses.line_17_legal_professional
+    line_18 = inputs.expenses.line_18_office_expense
+    line_19 = inputs.expenses.line_19_pension_profit_sharing
+    line_20a = inputs.expenses.line_20a_rent_machinery_equipment
+    line_20b = inputs.expenses.line_20b_rent_other_property
+    line_21 = inputs.expenses.line_21_repairs_maintenance
+    line_22 = inputs.expenses.line_22_supplies
+    line_23 = inputs.expenses.line_23_taxes_licenses
+    line_24a = inputs.expenses.line_24a_travel_final or ZERO
     
-    line_27b_other_expenses = line_48_other_expenses_total
-    
-    # 扣除折舊與 Section 179 之前的淨利
-    expenses_excluding_deprec_sec179 = (
-        inputs.line_8_advertising +
-        line_9_car_truck_expenses +
-        inputs.line_10_commissions_fees +
-        inputs.line_11_contract_labor +
-        inputs.line_12_depletion +
-        inputs.line_14_employee_benefit_programs +
-        inputs.line_15_insurance +
-        inputs.line_16a_mortgage_interest +
-        inputs.line_16b_other_interest +
-        inputs.line_17_legal_professional +
-        inputs.line_18_office_expense +
-        inputs.line_19_pension_profit_sharing +
-        inputs.line_20a_rent_machinery_equipment +
-        inputs.line_20b_rent_other_property +
-        inputs.line_21_repairs_maintenance +
-        inputs.line_22_supplies +
-        inputs.line_23_taxes_licenses +
-        line_24a_travel +
-        line_24b_deductible_meals +
-        inputs.line_25_utilities +
-        line_26_wages +
-        line_27a_energy_efficient_deduction +
-        line_27b_other_expenses
+    # Meals & Entertainment
+    line_24b = inputs.expenses.meals_50_percent_source_amount * Decimal("0.50") + inputs.expenses.meals_100_percent_source_amount
+
+    line_25 = inputs.expenses.line_25_utilities
+    line_26 = inputs.expenses.line_26_wages_final or ZERO
+    line_27a_energy_efficient_building_deduction = ZERO
+
+    # Other Expenses Part V
+    line_48_total_other_expenses = sum(item.amount for item in inputs.other_expense_items)
+    line_27b = line_48_total_other_expenses
+
+    # Total Expenses (Line 28)
+    line_28_total_expenses = (
+        line_8 + line_9 + line_10 + line_11 + line_12 + line_13 + line_14 + line_15 +
+        line_16a + line_16b + line_17 + line_18 + line_19 + line_20a + line_20b + line_21 +
+        line_22 + line_23 + line_24a + line_24b + line_25 + line_26 +
+        line_27a_energy_efficient_building_deduction + line_27b
     )
-    net_income_before_sec179 = line_7_gross_income - expenses_excluding_deprec_sec179
-    
-    # Section 179 一次性費用折舊上限 (不可使淨利為負值)
-    sec179_deduction = Decimal("0.00")
-    if inputs.use_sec179:
-        sec179_deduction = min(inputs.sec179_asset_cost, Decimal('1150000.00'), max(Decimal('0.00'), net_income_before_sec179))
-        
-    line_13_depreciation_sec179 = inputs.macrs_depreciation + sec179_deduction
-    
-    line_28_total_expenses = expenses_excluding_deprec_sec179 + line_13_depreciation_sec179
-    line_29_tentative_profit = line_7_gross_income - line_28_total_expenses
-    
-    # 家庭辦公室扣抵 (Home Office)
-    if not inputs.is_exclusive_and_regular:
-        line_30_business_use_of_home = Decimal("0.00")
-    else:
-        if inputs.selected_home_method == 'simplified':
-            line_30_business_use_of_home = min(Decimal('300.00'), inputs.home_office_sqft) * Decimal('5.00')
+
+    # 6. Profit or Loss
+    line_29_tentative_profit_or_loss = line_7_gross_income - line_28_total_expenses
+    line_30 = inputs.expenses.line_30_home_office_from_module or ZERO
+    line_31_net_profit_or_loss = line_29_tentative_profit_or_loss - line_30
+
+    # 7. Loss case, At-Risk & Passive activities
+    line_32_at_risk_surface = None
+    if line_31_net_profit_or_loss < ZERO:
+        if inputs.loss_at_risk_answer == "ALL_AT_RISK":
+            line_32_at_risk_surface = "32a"
+        elif inputs.loss_at_risk_answer == "SOME_NOT_AT_RISK":
+            line_32_at_risk_surface = "32b"
+            errors.append(ValidationIssue("FORM_6198_REQUIRED", "loss_at_risk_answer", message="Form 6198 is required because some investment is not at risk."))
         else:
-            denom = inputs.total_home_sqft + Decimal('0.0001') # 防禦性加上小數防止除以零
-            line_30_business_use_of_home = inputs.allowable_home_expenses * (inputs.home_office_sqft / denom)
-            
-    line_31_net_profit = line_29_tentative_profit - line_30_business_use_of_home
+            errors.append(ValidationIssue("AT_RISK_ANSWER_MISSING", "loss_at_risk_answer", message="Loss at-risk answer is missing."))
+
+        if inputs.line_g_material_participation is False:
+            errors.append(ValidationIssue("PASSIVE_ACTIVITY_REVIEW_REQUIRED", "line_g_material_participation", message="Passive activity review is required since material participation is False and there is a net loss."))
+
+        # Excess business loss check
+        if line_31_net_profit_or_loss < Decimal("-313000.00"):
+            errors.append(ValidationIssue("FORM_461_REVIEW_REQUIRED", "line_31_net_profit_or_loss", message="Form 461 review is required for excess business loss limitation."))
+
+    # 8. Determine V1 States
+    has_identity = bool(inputs.proprietor_name.strip() and inputs.taxpayer_ssn.strip())
     
-    # At-risk 風險狀態判定
-    if inputs.nonrecourse_debt == Decimal("0.00") and inputs.guaranteed_non_risk_funding == Decimal("0.00"):
-        line_32_at_risk = '32a'
+    # Check if there is at least one income or expense input
+    has_income_or_expense = (
+        inputs.income.line_1_gross_receipts > ZERO or
+        inputs.income.line_2_returns_allowances > ZERO or
+        inputs.income.line_6_other_income > ZERO or
+        len(inputs.other_expense_items) > 0 or
+        any(
+            val > ZERO
+            for k, val in inputs.expenses.__dict__.items()
+            if val is not None and k not in ("line_13_depreciation_from_form4562", "line_30_home_office_from_module", "line_4_cogs_from_module")
+        )
+    )
+    can_map = bool(has_identity and has_income_or_expense)
+
+    unsupported_codes = {
+        "WRONG_FORM_RENTAL_OR_ROYALTY",
+        "WRONG_FORM_FARM_INCOME",
+        "UNSUPPORTED_ASSET_SALE",
+        "OWNER_DRAW_INCLUDED_IN_EXPENSES",
+        "UNCERTAIN_MEALS_ENTERTAINMENT_CLASSIFICATION",
+        "UNCERTAIN_EXPENSE_CLASSIFICATION",
+        "UNSUPPORTED_COGS_IN_V1",
+        "UNSUPPORTED_VEHICLE_CALCULATION_IN_V1",
+        "FORM_4562_REQUIRED",
+        "FORM_8829_OR_SIMPLIFIED_HOME_OFFICE_REQUIRED",
+        "UNSUPPORTED_TRAVEL_ALLOCATION_IN_V1",
+        "PAYROLL_OR_OWNER_DRAW_REVIEW_REQUIRED",
+        "FORM_6198_REQUIRED",
+        "AT_RISK_ANSWER_MISSING",
+        "PASSIVE_ACTIVITY_REVIEW_REQUIRED",
+        "FORM_461_REVIEW_REQUIRED"
+    }
+    
+    any_unsupported = any(err.code in unsupported_codes for err in errors)
+    is_v1_supported = not any_unsupported
+    can_file = bool(is_v1_supported and len(errors) == 0)
+
+    optional_missing = not (
+        inputs.principal_business and
+        inputs.principal_activity_code and
+        inputs.business_name and
+        inputs.ein and
+        inputs.business_address and
+        inputs.accounting_method
+    )
+    low_confidence = any(item.confidence == "LOW" for item in inputs.other_expense_items)
+    needs_review = bool(len(warnings) > 0 or low_confidence or optional_missing)
+
+    # SSN Masking for result
+    raw_ssn = str(inputs.taxpayer_ssn or "")
+    if len(raw_ssn) >= 4:
+        ssn_masked = f"***-**-{raw_ssn[-4:]}"
     else:
-        line_32_at_risk = '32b'
-        
+        ssn_masked = "***-**-XXXX"
+
     return ScheduleCResultV1(
         proprietor_name=inputs.proprietor_name,
-        ssn=inputs.ssn,
-        line_b_principal_activity_code_val=line_b_principal_activity_code_val,
-        line_g_material_participation=line_g_material_participation,
-        line_i_payment_requiring_1099=line_i_payment_requiring_1099,
-        line_j_filed_1099=line_j_filed_1099,
-        line_9_car_truck_expenses=line_9_car_truck_expenses,
-        line_24a_travel=line_24a_travel,
-        line_24b_deductible_meals=line_24b_deductible_meals,
-        line_26_wages=line_26_wages,
-        line_27a_energy_efficient_deduction=line_27a_energy_efficient_deduction,
-        line_35_beginning_inventory=line_35_beginning_inventory,
-        line_37_cost_of_labor=line_37_cost_of_labor,
-        line_48_other_expenses_total=line_48_other_expenses_total,
-        line_40_total_cost_of_goods=line_40_total_cost_of_goods,
-        line_42_cogs=line_42_cogs,
+        taxpayer_ssn_masked=ssn_masked,
+        tax_year=inputs.tax_year,
+        principal_business=inputs.principal_business,
+        principal_activity_code=inputs.principal_activity_code,
+        business_name=inputs.business_name,
+        ein=inputs.ein,
+        business_address=inputs.business_address,
+        accounting_method=inputs.accounting_method,
+        line_g_material_participation=inputs.line_g_material_participation,
+        line_h_started_or_acquired=inputs.line_h_started_or_acquired,
+        line_i_payment_requiring_1099=inputs.line_i_payment_requiring_1099,
+        line_j_filed_required_1099=inputs.line_j_filed_required_1099 if inputs.line_i_payment_requiring_1099 is True else None,
+        line_1_gross_receipts=line_1_gross_receipts,
+        line_2_returns_allowances=line_2_returns_allowances,
         line_3_net_receipts=line_3_net_receipts,
         line_4_cogs=line_4_cogs,
         line_5_gross_profit=line_5_gross_profit,
         line_6_other_income=line_6_other_income,
         line_7_gross_income=line_7_gross_income,
-        line_27b_other_expenses=line_27b_other_expenses,
-        net_income_before_sec179=net_income_before_sec179,
-        sec179_deduction=sec179_deduction,
-        line_13_depreciation_sec179=line_13_depreciation_sec179,
+        line_8_advertising=line_8,
+        line_9_car_truck_expenses=line_9,
+        line_10_commissions_fees=line_10,
+        line_11_contract_labor=line_11,
+        line_12_depletion=line_12,
+        line_13_depreciation=line_13,
+        line_14_employee_benefit_programs=line_14,
+        line_15_insurance=line_15,
+        line_16a_mortgage_interest=line_16a,
+        line_16b_other_interest=line_16b,
+        line_17_legal_professional=line_17,
+        line_18_office_expense=line_18,
+        line_19_pension_profit_sharing=line_19,
+        line_20a_rent_machinery_equipment=line_20a,
+        line_20b_rent_other_property=line_20b,
+        line_21_repairs_maintenance=line_21,
+        line_22_supplies=line_22,
+        line_23_taxes_licenses=line_23,
+        line_24a_travel=line_24a,
+        line_24b_deductible_meals=line_24b,
+        line_25_utilities=line_25,
+        line_26_wages=line_26,
+        line_27a_energy_efficient_building_deduction=line_27a_energy_efficient_building_deduction,
+        line_27b_other_expenses=line_27b,
         line_28_total_expenses=line_28_total_expenses,
-        line_29_tentative_profit=line_29_tentative_profit,
-        line_30_business_use_of_home=line_30_business_use_of_home,
-        line_31_net_profit=line_31_net_profit,
-        line_32_at_risk=line_32_at_risk,
+        line_29_tentative_profit_or_loss=line_29_tentative_profit_or_loss,
+        line_30_home_office=line_30,
+        line_31_net_profit_or_loss=line_31_net_profit_or_loss,
+        line_32_at_risk_surface=line_32_at_risk_surface,
+        line_48_total_other_expenses=line_48_total_other_expenses,
+        other_expense_items=inputs.other_expense_items,
+        can_map=can_map,
+        is_v1_supported=is_v1_supported,
+        can_file=can_file,
+        needs_review=needs_review,
         blocking_errors=errors,
-        review_warnings=[]
+        review_warnings=warnings,
     )

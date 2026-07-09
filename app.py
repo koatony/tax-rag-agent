@@ -12,7 +12,8 @@ from retriever import IRACRetriever
 import missing_form_detector
 from schedule_c_processor import (
     extract_schedule_c_inputs_with_logs,
-    calculate_schedule_c_dynamic
+    calculate_schedule_c_dynamic,
+    extract_and_calculate_schedule_c
 )
 from schedule_a_processor import (
     extract_schedule_a_inputs_with_logs,
@@ -333,20 +334,18 @@ async def extract_and_calculate_schedule_c(
             else:
                 model_name = "gemini-2.5-pro"
                 
-        extracted_inputs, prompt_log, raw_output = extract_schedule_c_inputs_with_logs(
+        e2e_res = extract_and_calculate_schedule_c(
             document_context=doc_ctx_str,
             model_name=model_name
         )
         
-        final_state = calculate_schedule_c_dynamic(extracted_inputs)
-        
         return {
             "success": True,
-            "state": final_state,
+            "state": e2e_res["final_state"],
             "debug_info": {
                 "model_name": model_name,
-                "prompt_log": prompt_log,
-                "raw_output": raw_output
+                "prompt_log": e2e_res["prompt_sent"],
+                "raw_output": e2e_res["llm_raw_out"]
             }
         }
     except Exception as e:

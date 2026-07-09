@@ -2,11 +2,8 @@ import os
 from typing import Dict, Any, List
 from processors.base_parser import BaseLLMParser
 
-
 class ScheduleCLLMParser(BaseLLMParser):
     def get_schema_path(self) -> str:
-        # 回傳Schema JSON檔案的絕對路徑
-        # os.path.abspath 會換成絕對路徑
         current_dir = os.path.dirname(os.path.abspath(__file__))
         return os.path.abspath(
             os.path.join(current_dir, "..", "..", "docs", "how_to_fill_forms_docs", "schedule_c", "schedule_c_schema.json")

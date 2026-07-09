@@ -1,64 +1,42 @@
 import json
 from decimal import Decimal
 from typing import Dict, Any, List, Optional
+from processors.models.schedule_a import ValidationIssue
 
-# =====================================================================
-# REVIEW 重點 1: 金融與精確計算必考題 —— 浮點數誤差防範
-# =====================================================================
-# 【為什麼要用 Decimal 而不用 float？】
-# 1. 電腦以二進位儲存小數，會導致有些十進位小數（如 0.1, 0.2）無法精確表示，產生如 0.30000000000000004 的微小誤差。
-# 2. 在非金融業（如電商購物車金額、計費系統、物理引擎等），精確的數值計算同樣至關重要。使用 Decimal(str(val)) 
-#    能保證十進制小數運算的絕對精確。
-# 3. ⚠️ 注意：傳入 Decimal() 時一定要先轉為 str 類型（如 Decimal("0.10")），否則直接傳入 float 依然會帶入浮點數本身的誤差。
-# =====================================================================
-
-class OtherMiscExpenseItemV1:
+class OtherExpenseItemV1:
     def __init__(self, **kwargs):
+        self.item_id = str(kwargs.get("item_id", ""))
         self.name = str(kwargs.get("name", ""))
-        self.value = Decimal(str(kwargs.get("value", "0.00")))
+        self.amount = Decimal(str(kwargs.get("amount", "0.00")))
+        self.source_document_id = kwargs.get("source_document_id")
+        self.confidence = str(kwargs.get("confidence", "HIGH")).upper()
 
-    # =====================================================================
-    # REVIEW 重點 2: 邊界轉換（Boundary Conversion）模式
-    # =====================================================================
-    # 【為什麼內部用 Decimal，對外輸出又轉回 float？】
-    # 1. 內部運算（Core Loop）：使用 Decimal 進行累加與比例折算，確保乘除運算不會累積精度誤差。
-    # 2. 外部輸出（Boundary）：因為標準 JSON 格式不支持 Decimal 類型，且後續的 Web API、前端 UI 
-    #    一般僅接受 float。因此，我們在 to_dict() 當中統一轉回 float。這叫「內部高精確，外部高相容」。
-    # =====================================================================
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "item_id": self.item_id,
             "name": self.name,
-            "value": float(self.value)
+            "amount": float(self.amount),
+            "source_document_id": self.source_document_id,
+            "confidence": self.confidence
         }
 
-# =====================================================================
-# REVIEW 重點 3: 資料夾解耦 (Decoupling) 與強型別合約 (Type Contract)
-# =====================================================================
-# 【為什麼不用單純的 dict，而要特別宣告一個 InputsV1 類別？】
-# 1. 職責分離 (Single Responsibility)：若把 LLM 提取的 JSON 直接拿去運算，一但 schema 欄位異動，
-#    所有計算邏輯都會壞掉。定義 Inputs 類別作為「資料保護層（DTO/Data Transfer Object）」，
-#    可以過濾掉無用欄位，確保資料格式符合預期。
-# 2. 強型別檢查：Python 在執行期 (Runtime) 是動態的，但寫成 Class 可以享受 IDE 的自動補完 (Autocomplete)、
-#    靜態程式檢查（Mypy/Linting），避免把 "gross_receipts" 拼錯成 "gross_receipt"。
-# =====================================================================
-class ScheduleCInputsV1:
+class ScheduleCIncomeV1:
     def __init__(self, **kwargs):
-        self.proprietor_name = str(kwargs.get("proprietor_name", ""))
-        self.ssn = str(kwargs.get("ssn", ""))
-        self.principal_business = kwargs.get("principal_business")
-        self.line_b_principal_activity_code = kwargs.get("line_b_principal_activity_code")
-        self.business_name = kwargs.get("business_name")
-        self.ein = kwargs.get("ein")
-        self.business_address = kwargs.get("business_address")
-        
-        self.accounting_method = kwargs.get("accounting_method", "Cash")
-        self.started_acquired_2025 = bool(kwargs.get("started_acquired_2025", False))
-        
-        # 數值輸入項目，全部使用 Decimal 進行防禦性轉換
         self.line_1_gross_receipts = Decimal(str(kwargs.get("line_1_gross_receipts", "0.00")))
         self.line_2_returns_allowances = Decimal(str(kwargs.get("line_2_returns_allowances", "0.00")))
         self.line_6_other_income = Decimal(str(kwargs.get("line_6_other_income", "0.00")))
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "line_1_gross_receipts": float(self.line_1_gross_receipts),
+            "line_2_returns_allowances": float(self.line_2_returns_allowances),
+            "line_6_other_income": float(self.line_6_other_income)
+        }
+
+class ScheduleCExpenseInputsV1:
+    def __init__(self, **kwargs):
         self.line_8_advertising = Decimal(str(kwargs.get("line_8_advertising", "0.00")))
+        self.line_9_car_truck_expenses_final = Decimal(str(kwargs.get("line_9_car_truck_expenses_final"))) if kwargs.get("line_9_car_truck_expenses_final") is not None else None
         self.line_10_commissions_fees = Decimal(str(kwargs.get("line_10_commissions_fees", "0.00")))
         self.line_11_contract_labor = Decimal(str(kwargs.get("line_11_contract_labor", "0.00")))
         self.line_12_depletion = Decimal(str(kwargs.get("line_12_depletion", "0.00")))
@@ -74,136 +52,217 @@ class ScheduleCInputsV1:
         self.line_21_repairs_maintenance = Decimal(str(kwargs.get("line_21_repairs_maintenance", "0.00")))
         self.line_22_supplies = Decimal(str(kwargs.get("line_22_supplies", "0.00")))
         self.line_23_taxes_licenses = Decimal(str(kwargs.get("line_23_taxes_licenses", "0.00")))
+        self.line_24a_travel_final = Decimal(str(kwargs.get("line_24a_travel_final"))) if kwargs.get("line_24a_travel_final") is not None else None
+        
+        self.meals_50_percent_source_amount = Decimal(str(kwargs.get("meals_50_percent_source_amount", "0.00")))
+        self.meals_100_percent_source_amount = Decimal(str(kwargs.get("meals_100_percent_source_amount", "0.00")))
+        self.entertainment_source_amount = Decimal(str(kwargs.get("entertainment_source_amount", "0.00")))
+        
         self.line_25_utilities = Decimal(str(kwargs.get("line_25_utilities", "0.00")))
+        self.line_26_wages_final = Decimal(str(kwargs.get("line_26_wages_final"))) if kwargs.get("line_26_wages_final") is not None else None
         
-        self.line_33_inventory_valuation_method = kwargs.get("line_33_inventory_valuation_method")
-        self.line_34_change_in_valuation = bool(kwargs.get("line_34_change_in_valuation", False))
-        self.line_36_purchases_less_personal = Decimal(str(kwargs.get("line_36_purchases_less_personal", "0.00")))
-        self.line_38_materials_supplies = Decimal(str(kwargs.get("line_38_materials_supplies", "0.00")))
-        self.line_39_other_costs = Decimal(str(kwargs.get("line_39_other_costs", "0.00")))
-        self.line_41_ending_inventory = Decimal(str(kwargs.get("line_41_ending_inventory", "0.00")))
-        
-        self.line_43_date_placed_in_service = kwargs.get("line_43_date_placed_in_service")
-        self.line_44a_business_miles = Decimal(str(kwargs.get("line_44a_business_miles", "0.00")))
-        self.line_44b_commuting_miles = Decimal(str(kwargs.get("line_44b_commuting_miles", "0.00")))
-        self.line_44c_other_miles = Decimal(str(kwargs.get("line_44c_other_miles", "0.00")))
-        self.line_45_available_for_personal_use = bool(kwargs.get("line_45_available_for_personal_use", False))
-        self.line_46_another_vehicle_available = bool(kwargs.get("line_46_another_vehicle_available", False))
-        self.line_47a_evidence_to_support = bool(kwargs.get("line_47a_evidence_to_support", False))
-        self.line_47b_evidence_written = bool(kwargs.get("line_47b_evidence_written", False))
-        
-        self.owner_annual_hours = Decimal(str(kwargs.get("owner_annual_hours", "0.00")))
-        self.is_sole_participant = bool(kwargs.get("is_sole_participant", False))
-        self.others_annual_hours = Decimal(str(kwargs.get("others_annual_hours", "0.00")))
-        self.any_contractor_paid_600_or_more = bool(kwargs.get("any_contractor_paid_600_or_more", False))
-        self.is_1099_filed = bool(kwargs.get("is_1099_filed", False))
-        
-        self.actual_car_expenses = Decimal(str(kwargs.get("actual_car_expenses", "0.00")))
-        self.parking_and_tolls = Decimal(str(kwargs.get("parking_and_tolls", "0.00")))
-        self.selected_mileage_method = kwargs.get("selected_mileage_method", "standard")
-        
-        self.macrs_depreciation = Decimal(str(kwargs.get("macrs_depreciation", "0.00")))
-        self.sec179_asset_cost = Decimal(str(kwargs.get("sec179_asset_cost", "0.00")))
-        self.use_sec179 = bool(kwargs.get("use_sec179", False))
-        
-        self.travel_transit_cost = Decimal(str(kwargs.get("travel_transit_cost", "0.00")))
-        self.travel_lodging_cost = Decimal(str(kwargs.get("travel_lodging_cost", "0.00")))
-        self.total_trip_days = Decimal(str(kwargs.get("total_trip_days", "0.00")))
-        self.business_days = Decimal(str(kwargs.get("business_days", "0.00")))
-        self.is_international = bool(kwargs.get("is_international", False))
-        
-        self.meals_50_pct = Decimal(str(kwargs.get("meals_50_pct", "0.00")))
-        self.meals_100_pct = Decimal(str(kwargs.get("meals_100_pct", "0.00")))
-        self.entertainment_cost = Decimal(str(kwargs.get("entertainment_cost", "0.00")))
-        
-        self.w2_gross_wages = Decimal(str(kwargs.get("w2_gross_wages", "0.00")))
-        self.employment_credits = Decimal(str(kwargs.get("employment_credits", "0.00")))
-        self.owner_salary_or_draw = Decimal(str(kwargs.get("owner_salary_or_draw", "0.00")))
-        
-        self.improved_building_sqft = Decimal(str(kwargs.get("improved_building_sqft", "0.00")))
-        self.certified_deduction_rate = Decimal(str(kwargs.get("certified_deduction_rate", "0.00")))
-        
-        self.home_office_sqft = Decimal(str(kwargs.get("home_office_sqft", "0.00")))
-        self.total_home_sqft = Decimal(str(kwargs.get("total_home_sqft", "0.00")))
-        self.allowable_home_expenses = Decimal(str(kwargs.get("allowable_home_expenses", "0.00")))
-        self.is_exclusive_and_regular = bool(kwargs.get("is_exclusive_and_regular", False))
-        self.selected_home_method = kwargs.get("selected_home_method", "simplified")
-        
-        self.nonrecourse_debt = Decimal(str(kwargs.get("nonrecourse_debt", "0.00")))
-        self.guaranteed_non_risk_funding = Decimal(str(kwargs.get("guaranteed_non_risk_funding", "0.00")))
-        self.prior_year_ending_inventory = Decimal(str(kwargs.get("prior_year_ending_inventory", "0.00")))
-        self.book_beginning_inventory = Decimal(str(kwargs.get("book_beginning_inventory", "0.00")))
-        
-        self.production_labor_wages = Decimal(str(kwargs.get("production_labor_wages", "0.00")))
-        self.owner_production_labor_pay = Decimal(str(kwargs.get("owner_production_labor_pay", "0.00")))
-        self.stripe_merchant_fees = Decimal(str(kwargs.get("stripe_merchant_fees", "0.00")))
-        self.software_subscriptions = Decimal(str(kwargs.get("software_subscriptions", "0.00")))
-        self.cleaning_services = Decimal(str(kwargs.get("cleaning_services", "0.00")))
-        self.book_amortization = Decimal(str(kwargs.get("book_amortization", "0.00")))
-        self.book_bad_debts = Decimal(str(kwargs.get("book_bad_debts", "0.00")))
-        self.de_minimis_safe_harbor_cost = Decimal(str(kwargs.get("de_minimis_safe_harbor_cost", "0.00")))
-        
-        self.other_misc_expenses_list = [
-            OtherMiscExpenseItemV1(**x) if isinstance(x, dict) else x for x in kwargs.get("other_misc_expenses_list", [])
+        self.line_13_depreciation_from_form4562 = Decimal(str(kwargs.get("line_13_depreciation_from_form4562"))) if kwargs.get("line_13_depreciation_from_form4562") is not None else None
+        self.line_30_home_office_from_module = Decimal(str(kwargs.get("line_30_home_office_from_module"))) if kwargs.get("line_30_home_office_from_module") is not None else None
+        self.line_4_cogs_from_module = Decimal(str(kwargs.get("line_4_cogs_from_module"))) if kwargs.get("line_4_cogs_from_module") is not None else None
+
+    def to_dict(self) -> Dict[str, Any]:
+        def to_float(val):
+            return float(val) if isinstance(val, Decimal) else val
+        return {
+            "line_8_advertising": to_float(self.line_8_advertising),
+            "line_9_car_truck_expenses_final": to_float(self.line_9_car_truck_expenses_final),
+            "line_10_commissions_fees": to_float(self.line_10_commissions_fees),
+            "line_11_contract_labor": to_float(self.line_11_contract_labor),
+            "line_12_depletion": to_float(self.line_12_depletion),
+            "line_14_employee_benefit_programs": to_float(self.line_14_employee_benefit_programs),
+            "line_15_insurance": to_float(self.line_15_insurance),
+            "line_16a_mortgage_interest": to_float(self.line_16a_mortgage_interest),
+            "line_16b_other_interest": to_float(self.line_16b_other_interest),
+            "line_17_legal_professional": to_float(self.line_17_legal_professional),
+            "line_18_office_expense": to_float(self.line_18_office_expense),
+            "line_19_pension_profit_sharing": to_float(self.line_19_pension_profit_sharing),
+            "line_20a_rent_machinery_equipment": to_float(self.line_20a_rent_machinery_equipment),
+            "line_20b_rent_other_property": to_float(self.line_20b_rent_other_property),
+            "line_21_repairs_maintenance": to_float(self.line_21_repairs_maintenance),
+            "line_22_supplies": to_float(self.line_22_supplies),
+            "line_23_taxes_licenses": to_float(self.line_23_taxes_licenses),
+            "line_24a_travel_final": to_float(self.line_24a_travel_final),
+            "meals_50_percent_source_amount": to_float(self.meals_50_percent_source_amount),
+            "meals_100_percent_source_amount": to_float(self.meals_100_percent_source_amount),
+            "entertainment_source_amount": to_float(self.entertainment_source_amount),
+            "line_25_utilities": to_float(self.line_25_utilities),
+            "line_26_wages_final": to_float(self.line_26_wages_final),
+            "line_13_depreciation_from_form4562": to_float(self.line_13_depreciation_from_form4562),
+            "line_30_home_office_from_module": to_float(self.line_30_home_office_from_module),
+            "line_4_cogs_from_module": to_float(self.line_4_cogs_from_module),
+        }
+
+class ScheduleCSpecialCaseFlagsV1:
+    def __init__(self, **kwargs):
+        self.has_inventory_or_cogs = bool(kwargs.get("has_inventory_or_cogs", False))
+        self.has_vehicle_expense_requiring_calculation = bool(kwargs.get("has_vehicle_expense_requiring_calculation", False))
+        self.has_depreciation_or_section179 = bool(kwargs.get("has_depreciation_or_section179", False))
+        self.has_home_office = bool(kwargs.get("has_home_office", False))
+        self.has_mixed_travel = bool(kwargs.get("has_mixed_travel", False))
+        self.has_uncertain_meals_or_entertainment = bool(kwargs.get("has_uncertain_meals_or_entertainment", False))
+        self.has_employee_wages_or_payroll_credit = bool(kwargs.get("has_employee_wages_or_payroll_credit", False))
+        self.has_owner_draw_in_expenses = bool(kwargs.get("has_owner_draw_in_expenses", False))
+        self.has_uncertain_expense_category = bool(kwargs.get("has_uncertain_expense_category", False))
+        self.has_rental_or_royalty_activity = bool(kwargs.get("has_rental_or_royalty_activity", False))
+        self.has_farm_activity = bool(kwargs.get("has_farm_activity", False))
+        self.has_business_asset_sale = bool(kwargs.get("has_business_asset_sale", False))
+        self.has_passive_activity_issue = bool(kwargs.get("has_passive_activity_issue", False))
+        self.has_at_risk_limitation_issue = bool(kwargs.get("has_at_risk_limitation_issue", False))
+        self.has_qbi_request = bool(kwargs.get("has_qbi_request", False))
+        self.has_schedule_se_request = bool(kwargs.get("has_schedule_se_request", False))
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {k: getattr(self, k) for k in self.__dict__}
+
+class ScheduleCInputsV1:
+    def __init__(self, **kwargs):
+        self.proprietor_name = str(kwargs.get("proprietor_name", ""))
+        self.taxpayer_ssn = str(kwargs.get("taxpayer_ssn", ""))
+        self.tax_year = int(kwargs.get("tax_year", 2025))
+
+        self.principal_business = kwargs.get("principal_business")
+        self.principal_activity_code = kwargs.get("principal_activity_code")
+        self.business_name = kwargs.get("business_name")
+        self.ein = kwargs.get("ein")
+        self.business_address = kwargs.get("business_address")
+
+        raw_method = kwargs.get("accounting_method")
+        self.accounting_method = str(raw_method).upper() if raw_method else None
+
+        self.line_g_material_participation = kwargs.get("line_g_material_participation")
+        if self.line_g_material_participation is None:
+            if "material_participation" in kwargs:
+                self.line_g_material_participation = bool(kwargs["material_participation"])
+
+        self.line_h_started_or_acquired = kwargs.get("line_h_started_or_acquired")
+        self.line_i_payment_requiring_1099 = kwargs.get("line_i_payment_requiring_1099")
+        self.line_j_filed_required_1099 = kwargs.get("line_j_filed_required_1099")
+
+        # Parse nested models (resilient to both nested and flat dictionaries)
+        inc_data = kwargs.get("income") or kwargs
+        self.income = ScheduleCIncomeV1(**inc_data) if isinstance(inc_data, dict) else inc_data
+
+        exp_data = kwargs.get("expenses") or kwargs
+        self.expenses = ScheduleCExpenseInputsV1(**exp_data) if isinstance(exp_data, dict) else exp_data
+
+        other_items = kwargs.get("other_expense_items") or []
+        self.other_expense_items = [
+            OtherExpenseItemV1(**x) if isinstance(x, dict) else x for x in other_items
         ]
 
-    # 工廠方法模式 (Factory Method)
+        self.loss_at_risk_answer = kwargs.get("loss_at_risk_answer")
+
+        flags_data = kwargs.get("special_case_flags") or kwargs
+        self.special_case_flags = ScheduleCSpecialCaseFlagsV1(**flags_data) if isinstance(flags_data, dict) else flags_data
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ScheduleCInputsV1":
         return cls(**data)
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "proprietor_name": self.proprietor_name,
+            "taxpayer_ssn": self.taxpayer_ssn,
+            "tax_year": self.tax_year,
+            "principal_business": self.principal_business,
+            "principal_activity_code": self.principal_activity_code,
+            "business_name": self.business_name,
+            "ein": self.ein,
+            "business_address": self.business_address,
+            "accounting_method": self.accounting_method,
+            "line_g_material_participation": self.line_g_material_participation,
+            "line_h_started_or_acquired": self.line_h_started_or_acquired,
+            "line_i_payment_requiring_1099": self.line_i_payment_requiring_1099,
+            "line_j_filed_required_1099": self.line_j_filed_required_1099,
+            "income": self.income.to_dict() if hasattr(self.income, "to_dict") else self.income,
+            "expenses": self.expenses.to_dict() if hasattr(self.expenses, "to_dict") else self.expenses,
+            "other_expense_items": [x.to_dict() if hasattr(x, "to_dict") else x for x in self.other_expense_items],
+            "loss_at_risk_answer": self.loss_at_risk_answer,
+            "special_case_flags": self.special_case_flags.to_dict() if hasattr(self.special_case_flags, "to_dict") else self.special_case_flags
+        }
+
 class ScheduleCResultV1:
     def __init__(self, **kwargs):
         self.proprietor_name = kwargs.get("proprietor_name", "")
-        self.ssn = kwargs.get("ssn", "")
-        
-        # calculated variables
-        self.line_b_principal_activity_code_val = kwargs.get("line_b_principal_activity_code_val")
-        self.line_g_material_participation = bool(kwargs.get("line_g_material_participation", False))
-        self.line_i_payment_requiring_1099 = bool(kwargs.get("line_i_payment_requiring_1099", False))
-        self.line_j_filed_1099 = bool(kwargs.get("line_j_filed_1099", False))
-        
-        self.line_9_car_truck_expenses = kwargs.get("line_9_car_truck_expenses", Decimal("0.00"))
-        self.line_24a_travel = kwargs.get("line_24a_travel", Decimal("0.00"))
-        self.line_24b_deductible_meals = kwargs.get("line_24b_deductible_meals", Decimal("0.00"))
-        self.line_26_wages = kwargs.get("line_26_wages", Decimal("0.00"))
-        self.line_27a_energy_efficient_deduction = kwargs.get("line_27a_energy_efficient_deduction", Decimal("0.00"))
-        
-        self.line_35_beginning_inventory = kwargs.get("line_35_beginning_inventory", Decimal("0.00"))
-        self.line_37_cost_of_labor = kwargs.get("line_37_cost_of_labor", Decimal("0.00"))
-        self.line_48_other_expenses_total = kwargs.get("line_48_other_expenses_total", Decimal("0.00"))
-        self.line_40_total_cost_of_goods = kwargs.get("line_40_total_cost_of_goods", Decimal("0.00"))
-        self.line_42_cogs = kwargs.get("line_42_cogs", Decimal("0.00"))
-        
+        self.taxpayer_ssn_masked = kwargs.get("taxpayer_ssn_masked", "")
+        self.tax_year = kwargs.get("tax_year", 2025)
+
+        self.principal_business = kwargs.get("principal_business")
+        self.principal_activity_code = kwargs.get("principal_activity_code")
+        self.business_name = kwargs.get("business_name")
+        self.ein = kwargs.get("ein")
+        self.business_address = kwargs.get("business_address")
+        self.accounting_method = kwargs.get("accounting_method")
+
+        self.line_g_material_participation = kwargs.get("line_g_material_participation")
+        self.line_h_started_or_acquired = kwargs.get("line_h_started_or_acquired")
+        self.line_i_payment_requiring_1099 = kwargs.get("line_i_payment_requiring_1099")
+        self.line_j_filed_required_1099 = kwargs.get("line_j_filed_required_1099")
+
+        self.line_1_gross_receipts = kwargs.get("line_1_gross_receipts", Decimal("0.00"))
+        self.line_2_returns_allowances = kwargs.get("line_2_returns_allowances", Decimal("0.00"))
         self.line_3_net_receipts = kwargs.get("line_3_net_receipts", Decimal("0.00"))
         self.line_4_cogs = kwargs.get("line_4_cogs", Decimal("0.00"))
         self.line_5_gross_profit = kwargs.get("line_5_gross_profit", Decimal("0.00"))
         self.line_6_other_income = kwargs.get("line_6_other_income", Decimal("0.00"))
         self.line_7_gross_income = kwargs.get("line_7_gross_income", Decimal("0.00"))
+
+        self.line_8_advertising = kwargs.get("line_8_advertising", Decimal("0.00"))
+        self.line_9_car_truck_expenses = kwargs.get("line_9_car_truck_expenses", Decimal("0.00"))
+        self.line_10_commissions_fees = kwargs.get("line_10_commissions_fees", Decimal("0.00"))
+        self.line_11_contract_labor = kwargs.get("line_11_contract_labor", Decimal("0.00"))
+        self.line_12_depletion = kwargs.get("line_12_depletion", Decimal("0.00"))
+        self.line_13_depreciation = kwargs.get("line_13_depreciation", Decimal("0.00"))
+        self.line_14_employee_benefit_programs = kwargs.get("line_14_employee_benefit_programs", Decimal("0.00"))
+        self.line_15_insurance = kwargs.get("line_15_insurance", Decimal("0.00"))
+        self.line_16a_mortgage_interest = kwargs.get("line_16a_mortgage_interest", Decimal("0.00"))
+        self.line_16b_other_interest = kwargs.get("line_16b_other_interest", Decimal("0.00"))
+        self.line_17_legal_professional = kwargs.get("line_17_legal_professional", Decimal("0.00"))
+        self.line_18_office_expense = kwargs.get("line_18_office_expense", Decimal("0.00"))
+        self.line_19_pension_profit_sharing = kwargs.get("line_19_pension_profit_sharing", Decimal("0.00"))
+        self.line_20a_rent_machinery_equipment = kwargs.get("line_20a_rent_machinery_equipment", Decimal("0.00"))
+        self.line_20b_rent_other_property = kwargs.get("line_20b_rent_other_property", Decimal("0.00"))
+        self.line_21_repairs_maintenance = kwargs.get("line_21_repairs_maintenance", Decimal("0.00"))
+        self.line_22_supplies = kwargs.get("line_22_supplies", Decimal("0.00"))
+        self.line_23_taxes_licenses = kwargs.get("line_23_taxes_licenses", Decimal("0.00"))
+        self.line_24a_travel = kwargs.get("line_24a_travel", Decimal("0.00"))
+        self.line_24b_deductible_meals = kwargs.get("line_24b_deductible_meals", Decimal("0.00"))
+        self.line_25_utilities = kwargs.get("line_25_utilities", Decimal("0.00"))
+        self.line_26_wages = kwargs.get("line_26_wages", Decimal("0.00"))
+        self.line_27a_energy_efficient_building_deduction = kwargs.get("line_27a_energy_efficient_building_deduction", Decimal("0.00"))
         self.line_27b_other_expenses = kwargs.get("line_27b_other_expenses", Decimal("0.00"))
-        
-        self.net_income_before_sec179 = kwargs.get("net_income_before_sec179", Decimal("0.00"))
-        self.sec179_deduction = kwargs.get("sec179_deduction", Decimal("0.00"))
-        self.line_13_depreciation_sec179 = kwargs.get("line_13_depreciation_sec179", Decimal("0.00"))
+
         self.line_28_total_expenses = kwargs.get("line_28_total_expenses", Decimal("0.00"))
-        self.line_29_tentative_profit = kwargs.get("line_29_tentative_profit", Decimal("0.00"))
-        self.line_30_business_use_of_home = kwargs.get("line_30_business_use_of_home", Decimal("0.00"))
-        self.line_31_net_profit = kwargs.get("line_31_net_profit", Decimal("0.00"))
-        self.line_32_at_risk = kwargs.get("line_32_at_risk", "32a")
-        
+        self.line_29_tentative_profit_or_loss = kwargs.get("line_29_tentative_profit_or_loss", Decimal("0.00"))
+        self.line_30_home_office = kwargs.get("line_30_home_office", Decimal("0.00"))
+        self.line_31_net_profit_or_loss = kwargs.get("line_31_net_profit_or_loss", Decimal("0.00"))
+        self.line_32_at_risk_surface = kwargs.get("line_32_at_risk_surface")
+
+        self.line_48_total_other_expenses = kwargs.get("line_48_total_other_expenses", Decimal("0.00"))
+        self.other_expense_items = kwargs.get("other_expense_items") or []
+
+        self.can_map = bool(kwargs.get("can_map", True))
+        self.is_v1_supported = bool(kwargs.get("is_v1_supported", True))
+        self.can_file = bool(kwargs.get("can_file", True))
+        self.needs_review = bool(kwargs.get("needs_review", False))
+
         self.blocking_errors = kwargs.get("blocking_errors") or []
         self.review_warnings = kwargs.get("review_warnings") or []
 
-    # 當呼叫 to_dict() 時，利用 recursive 的方式確保內部的 Decimal 回退成標準型態，避免 serialization 錯誤。
     def to_dict(self) -> Dict[str, Any]:
         def to_float(val):
-            if isinstance(val, Decimal):
-                return float(val)
-            return val
-            
+            return float(val) if isinstance(val, Decimal) else val
+        
         res = {}
         for k, v in self.__dict__.items():
             if k in ["blocking_errors", "review_warnings"]:
+                res[k] = [x.to_dict() if hasattr(x, "to_dict") else x for x in v]
+            elif k == "other_expense_items":
                 res[k] = [x.to_dict() if hasattr(x, "to_dict") else x for x in v]
             else:
                 res[k] = to_float(v)
