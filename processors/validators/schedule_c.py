@@ -82,6 +82,14 @@ def detect_unsupported_cases(inputs: ScheduleCInputsV1, errors: List[ValidationI
         errors.append(ValidationIssue("WRONG_FORM_FARM_INCOME", "has_farm_activity", message="Farming activity is not supported in Schedule C V1."))
     if flags.has_business_asset_sale:
         errors.append(ValidationIssue("UNSUPPORTED_ASSET_SALE", "has_business_asset_sale", message="Business asset sale is not supported in V1."))
+    if flags.has_passive_activity_issue:
+        errors.append(ValidationIssue("PASSIVE_ACTIVITY_LIMITATION", "has_passive_activity_issue", message="Passive activity loss limitation is not supported in V1."))
+    if flags.has_at_risk_limitation_issue:
+        errors.append(ValidationIssue("AT_RISK_LIMITATION", "has_at_risk_limitation_issue", message="At-risk limitation is not supported in V1."))
+    if flags.has_qbi_request:
+        errors.append(ValidationIssue("UNSUPPORTED_QBI_CALCULATION", "has_qbi_request", message="Qualified Business Income (QBI) deduction calculation is not supported in V1."))
+    if flags.has_schedule_se_request:
+        errors.append(ValidationIssue("UNSUPPORTED_SE_TAX_CALCULATION", "has_schedule_se_request", message="Self-Employment Tax (Schedule SE) calculation is not supported in V1."))
 
     # 2. General Special flags checking blocking cases
     if flags.has_owner_draw_in_expenses:
