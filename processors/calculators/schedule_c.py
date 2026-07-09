@@ -6,6 +6,7 @@ from processors.validators.schedule_c import (
     validate_identity,
     validate_nonnegative_amounts,
     detect_unsupported_cases,
+    validate_questionnaire,
 )
 
 def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
@@ -17,6 +18,7 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
     validate_identity(inputs, errors)
     validate_nonnegative_amounts(inputs, errors)
     detect_unsupported_cases(inputs, errors)
+    validate_questionnaire(inputs, errors)
 
     # 2. Check for low confidence other expenses
     for item in inputs.other_expense_items:
@@ -189,7 +191,8 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
         "FORM_6198_REQUIRED",
         "AT_RISK_ANSWER_MISSING",
         "PASSIVE_ACTIVITY_REVIEW_REQUIRED",
-        "FORM_461_REVIEW_REQUIRED"
+        "FORM_461_REVIEW_REQUIRED",
+        "FORM_1099_ANSWER_MISSING"
     }
     
     any_unsupported = any(err.code in unsupported_codes for err in errors)

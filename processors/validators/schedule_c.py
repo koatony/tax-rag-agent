@@ -102,3 +102,12 @@ def detect_unsupported_cases(inputs: ScheduleCInputsV1, errors: List[ValidationI
         errors.append(ValidationIssue("UNSUPPORTED_TRAVEL_ALLOCATION_IN_V1", "line_24a_travel_final", message="Mixed/international travel allocation is not supported in V1 without upstream final amount."))
     if flags.has_employee_wages_or_payroll_credit and exp.line_26_wages_final is None:
         errors.append(ValidationIssue("PAYROLL_OR_OWNER_DRAW_REVIEW_REQUIRED", "line_26_wages_final", message="Employee wages require review or final amount in V1."))
+
+def validate_questionnaire(inputs: ScheduleCInputsV1, errors: List[ValidationIssue]):
+    if inputs.line_i_payment_requiring_1099 is True:
+        if inputs.line_j_filed_required_1099 is None:
+            errors.append(ValidationIssue(
+                "FORM_1099_ANSWER_MISSING",
+                "line_j_filed_required_1099",
+                message="Line J (whether required Forms 1099 were filed) must be answered when Line I is Yes."
+            ))
