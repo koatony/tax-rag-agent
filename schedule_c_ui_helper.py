@@ -183,10 +183,23 @@ def render_standard_fields_table(final_state: dict, schema: dict):
             val_display = str(val)
         
         desc = ""
-        for inp in schema.get("inputs", []):
-            if inp["id"] == key:
-                desc = inp.get("description", "")
-                break
+        if key == "needs_review":
+            desc = "是否有缺漏或低信心警告（選填欄位未填或項目信心度低）"
+        elif key == "can_file":
+            desc = "是否可直接申報（無阻斷性錯誤與不支援案件）"
+        elif key == "is_v1_supported":
+            desc = "當前 V1 引擎是否支援此申報案件"
+        elif key == "can_map":
+            desc = "是否可產生申報資料對照 (Draft Mapping)"
+        elif key == "blocking_errors":
+            desc = "阻斷申報的錯誤代碼清單"
+        elif key == "review_warnings":
+            desc = "審查警示與低信心警告清單"
+        else:
+            for inp in schema.get("inputs", []):
+                if inp["id"] == key:
+                    desc = inp.get("description", "")
+                    break
         
         if key in ["can_file", "is_v1_supported", "can_map", "needs_review"]:
             badge = '<span class="badge-conditional">Status</span>'
