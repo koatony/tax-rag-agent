@@ -36,7 +36,7 @@ with st.sidebar:
     # 支援模型測試
     selected_model = st.selectbox(
         "選擇分析模型",
-        options=["gemini-2.5-flash", "gemini-2.5-pro"],
+        options=["gemini-2.5-pro", "gemini-2.5-flash"],
         index=0
     )
     
