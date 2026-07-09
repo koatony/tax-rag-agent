@@ -39,9 +39,12 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
     # 3. Calculate Income
     line_1_gross_receipts = inputs.income.line_1_gross_receipts
     line_2_returns_allowances = inputs.income.line_2_returns_allowances
-    line_3_net_receipts = line_1_gross_receipts - line_2_returns_allowances
-    if line_3_net_receipts < ZERO:
-        errors.append(ValidationIssue("NEGATIVE_NET_RECEIPTS", "line_3_net_receipts", message="Net receipts cannot be negative."))
+    if line_1_gross_receipts is not None:
+        line_3_net_receipts = line_1_gross_receipts - line_2_returns_allowances
+        if line_3_net_receipts < ZERO:
+            errors.append(ValidationIssue("NEGATIVE_NET_RECEIPTS", "line_3_net_receipts", message="Net receipts cannot be negative."))
+    else:
+        line_3_net_receipts = None
 
     # 4. COGS
     if inputs.special_case_flags.has_inventory_or_cogs:
@@ -165,7 +168,7 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
     
     # Check if there is at least one income or expense input
     has_income_or_expense = (
-        inputs.income.line_1_gross_receipts > ZERO or
+        (inputs.income.line_1_gross_receipts is not None and inputs.income.line_1_gross_receipts > ZERO) or
         inputs.income.line_2_returns_allowances > ZERO or
         inputs.income.line_6_other_income > ZERO or
         len(inputs.other_expense_items) > 0 or

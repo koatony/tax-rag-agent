@@ -22,13 +22,13 @@ class OtherExpenseItemV1:
 
 class ScheduleCIncomeV1:
     def __init__(self, **kwargs):
-        self.line_1_gross_receipts = Decimal(str(kwargs.get("line_1_gross_receipts", "0.00")))
+        self.line_1_gross_receipts = Decimal(str(kwargs.get("line_1_gross_receipts"))) if kwargs.get("line_1_gross_receipts") is not None else None
         self.line_2_returns_allowances = Decimal(str(kwargs.get("line_2_returns_allowances", "0.00")))
         self.line_6_other_income = Decimal(str(kwargs.get("line_6_other_income", "0.00")))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "line_1_gross_receipts": float(self.line_1_gross_receipts),
+            "line_1_gross_receipts": float(self.line_1_gross_receipts) if self.line_1_gross_receipts is not None else None,
             "line_2_returns_allowances": float(self.line_2_returns_allowances),
             "line_6_other_income": float(self.line_6_other_income)
         }

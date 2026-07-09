@@ -10,11 +10,13 @@ def validate_identity(inputs: ScheduleCInputsV1, errors: List[ValidationIssue]):
         errors.append(ValidationIssue("MISSING_SSN", "taxpayer_ssn", message="SSN is missing."))
     if inputs.tax_year not in (2024, 2025):
         errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message=f"Tax year {inputs.tax_year} is not supported."))
+    if inputs.income.line_1_gross_receipts is None:
+        errors.append(ValidationIssue("MISSING_GROSS_RECEIPTS", "line_1_gross_receipts", message="Gross receipts are missing."))
 
 def validate_nonnegative_amounts(inputs: ScheduleCInputsV1, errors: List[ValidationIssue]):
     ZERO = Decimal("0.00")
     # Check income fields
-    if inputs.income.line_1_gross_receipts < ZERO:
+    if inputs.income.line_1_gross_receipts is not None and inputs.income.line_1_gross_receipts < ZERO:
         errors.append(ValidationIssue("NEGATIVE_AMOUNT", "line_1_gross_receipts", message="Gross receipts cannot be negative."))
     if inputs.income.line_2_returns_allowances < ZERO:
         errors.append(ValidationIssue("NEGATIVE_AMOUNT", "line_2_returns_allowances", message="Returns and allowances cannot be negative."))
