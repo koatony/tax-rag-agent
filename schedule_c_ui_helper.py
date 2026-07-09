@@ -101,8 +101,7 @@ def load_all_rivera_samples() -> str:
             
     return json.dumps(samples_data, indent=2, ensure_ascii=False)
 
-def _extract_text_from_docx(docx_path: str) -> str:
-    """從 .docx 檔案中提取純文字"""
+def extract_text_from_docx(docx_path):
     try:
         with zipfile.ZipFile(docx_path) as z:
             xml_content = z.read('word/document.xml')
@@ -110,12 +109,11 @@ def _extract_text_from_docx(docx_path: str) -> str:
             namespaces = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
             text_elements = root.findall('.//w:t', namespaces)
             return ' '.join([el.text for el in text_elements if el.text])
-    except Exception:
+    except Exception as e:
         return ""
 
-def load_sample_data_pack_v2() -> str:
-    """輔助函式：從 Sample Data Pack v2 0622 的 .docx 原始憑證組合文字，作為 LLM 輸入"""
-    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "docs", "Sample Data Pack v2 0622", "src_data"))
+def load_sample_data_pack_v2():
+    src_dir = os.path.join("docs", "Sample Data Pack v2 0622", "src_data")
     docx_files = [
         "Sample 01 - W-2 Marcus.docx",
         "Sample 02 - W-2 Elena.docx",
@@ -129,37 +127,26 @@ def load_sample_data_pack_v2() -> str:
     for f in docx_files:
         path = os.path.join(src_dir, f)
         if os.path.exists(path):
-            text = _extract_text_from_docx(path)
+            text = extract_text_from_docx(path)
             combined_texts.append(f"--- Document: {f} ---\n{text}\n")
         else:
             combined_texts.append(f"--- Document: {f} (找不到檔案) ---\n")
+            
     return "\n".join(combined_texts)
-
-def is_standard_schedule_c_field(field_id: str) -> bool:
-    """判斷是否為標準 Schedule C 國稅局申報欄位"""
-    general_info = [
-        "proprietor_name", "ssn", "principal_business", 
-        "line_b_principal_activity_code", "business_name", 
-        "ein", "business_address", "accounting_method", 
-        "started_acquired_2025"
-    ]
-    if field_id in general_info:
-        return True
-    if field_id.startswith("line_"):
-        if field_id.endswith("_val") or "before_sec179" in field_id or field_id == "sec179_deduction":
-            return False
-        return True
-    return False
 
 def render_general_info(final_state: dict, schema: dict):
     """顯示申報人基本資料"""
     with st.expander("📂 基本資訊 (General Information)", expanded=True):
         cols = st.columns(2)
-        general_show_keys = ["proprietor_name", "ssn", "principal_business", "line_b_principal_activity_code", "business_name", "ein", "business_address", "accounting_method", "started_acquired_2025"]
+        general_show_keys = [
+            "proprietor_name", "taxpayer_ssn_masked", "tax_year", 
+            "principal_business", "principal_activity_code", "business_name", 
+            "ein", "business_address", "accounting_method"
+        ]
         for idx, key in enumerate(general_show_keys):
             val = final_state.get(key, "N/A")
             desc = key
-            for item in schema["inputs"]:
+            for item in schema.get("inputs", []):
                 if item["id"] == key:
                     desc = item["description"]
                     break
@@ -167,146 +154,71 @@ def render_general_info(final_state: dict, schema: dict):
             col_to_use.markdown(f"**{desc}**: `{val}`")
 
 def render_standard_fields_table(final_state: dict, schema: dict):
-    """繪製標準欄位表格 (僅顯示標準 IRS 欄位)"""
-    general_show_keys = ["proprietor_name", "ssn", "principal_business", "line_b_principal_activity_code", "business_name", "ein", "business_address", "accounting_method", "started_acquired_2025"]
-    all_table_fields = []
+    """抄自 Schedule B 的動態欄位顯示表格，對齊所有 Key-Value 輸出。"""
     
-    # 加入 Inputs (僅過濾標準)
-    for item in schema["inputs"]:
-        if item["id"] in general_show_keys:
-            continue
-        if not is_standard_schedule_c_field(item["id"]):
-            continue
-        all_table_fields.append({
-            "id": item["id"],
-            "type_badge": '<span class="badge-input">Input</span>',
-            "val": final_state.get(item["id"], 0.0),
-            "desc": item["description"]
-        })
-        
-    # 加入 Formulas (僅過濾標準)
-    for item in schema["formulas"]:
-        if not is_standard_schedule_c_field(item["id"]):
-            continue
-        all_table_fields.append({
-            "id": item["id"],
-            "type_badge": '<span class="badge-formula">Formula</span>',
-            "val": final_state.get(item["id"], 0.0),
-            "desc": item["description"]
-        })
-        
-    # 依 ID 排序使表單顯示更有條理
-    all_table_fields = sorted(all_table_fields, key=lambda x: x["id"])
-        
-    # 繪製表格
+    def serialize_decimal(obj):
+        from decimal import Decimal
+        if isinstance(obj, Decimal):
+            return float(obj)
+        raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
+    GENERAL_KEYS = {
+        "proprietor_name", "taxpayer_ssn_masked", "tax_year", "principal_business",
+        "principal_activity_code", "business_name", "ein", "business_address",
+        "accounting_method"
+    }
+
     html_rows = []
-    for f in all_table_fields:
-        val_display = f["val"]
-        if isinstance(val_display, float):
-            val_display = f"${val_display:,.2f}"
+    for key, val in sorted(final_state.items()):
+        if key in GENERAL_KEYS:
+            continue
         
-        html_rows.append(f'<tr><td style="font-weight:bold; font-family:monospace;">{f["id"]}</td><td>{f["desc"]}</td><td>{f["type_badge"]}</td><td style="font-weight:bold; color:#a3e635; text-align:right;">{val_display}</td></tr>')
+        if isinstance(val, (dict, list)):
+            val_display = f"<code>{json.dumps(val, default=serialize_decimal, ensure_ascii=False)}</code>"
+        elif isinstance(val, float) or hasattr(val, "as_tuple"): # Decimal
+            val_display = f"<strong style='color:#a3e635;'>{val}</strong>"
+        elif isinstance(val, bool):
+            val_display = "✅ True" if val else "❌ False"
+        else:
+            val_display = str(val)
         
-    table_html = f'<table class="field-table"><thead><tr><th>欄位 ID</th><th>欄位描述 (Description)</th><th>填寫類型 (Type)</th><th style="text-align:right;">最終數值 (Value)</th></tr></thead><tbody>{"".join(html_rows)}</tbody></table>'
+        desc = ""
+        for inp in schema.get("inputs", []):
+            if inp["id"] == key:
+                desc = inp.get("description", "")
+                break
+        
+        if key in ["can_file", "is_v1_supported", "can_map", "needs_review"]:
+            badge = '<span class="badge-conditional">Status</span>'
+        elif key in ["blocking_errors", "review_warnings"]:
+            badge = '<span class="badge-conditional">Diagnosis</span>'
+        else:
+            badge = '<span class="badge-input">Standard</span>'
+
+        html_rows.append(
+            f"<tr>"
+            f"<td style='font-family:monospace; font-weight:bold;'>{key}</td>"
+            f"<td>{desc}</td>"
+            f"<td>{badge}</td>"
+            f"<td style='text-align:right;'>{val_display}</td>"
+            f"</tr>"
+        )
+        
+    table_html = (
+        f"<table class='field-table'>"
+        f"<thead><tr><th>欄位名稱 (Key)</th><th>欄位描述</th><th>類型 (Type)</th><th style='text-align:right;'>欄位值 (Value)</th></tr></thead>"
+        f"<tbody>{''.join(html_rows)}</tbody>"
+        f"</table>"
+    )
     st.markdown(table_html, unsafe_allow_html=True)
 
-def get_formula_variable_details(expr: str, state: dict) -> str:
-    """輔助函式：提取公式中的變數當前數值"""
-    vars_found = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', expr)
-    details = []
-    for var in vars_found:
-        if var in ["min", "max", "True", "False", "None"]:
-            continue
-        if var in state:
-            val = state[var]
-            if isinstance(val, float):
-                val_str = f"${val:,.2f}"
-            else:
-                val_str = str(val)
-            details.append(f"{var} = {val_str}")
-    return ", ".join(details) if details else "None"
-
 def render_calculation_trace_table(final_state: dict, schema: dict, input_detail_desc: str):
-    """繪製欄位計算與來源詳細追蹤表 (Calculation Trace Table)"""
-    st.markdown("#### 🧮 欄位計算與來源詳細追蹤表 (Calculation Trace Table)")
-    trace_rows = []
-    
-    # 收集 Inputs
-    for item in schema["inputs"]:
-        val = final_state.get(item["id"], "N/A")
-        val_display = f"${val:,.2f}" if isinstance(val, float) else str(val)
-        trace_rows.append({
-            "id": item["id"],
-            "desc": item["description"],
-            "type": '<span class="badge-input">Input</span>',
-            "expr": "N/A (直接提取)",
-            "details": input_detail_desc,
-            "val": val_display
-        })
-        
-    # 收集 Formulas 與中間計算
-    for item in schema["formulas"]:
-        expr = item["expr"]
-        val = final_state.get(item["id"], "N/A")
-        val_display = f"${val:,.2f}" if isinstance(val, float) else str(val)
-        details = get_formula_variable_details(expr, final_state)
-        
-        trace_rows.append({
-            "id": item["id"],
-            "desc": item["description"],
-            "type": '<span class="badge-formula">Formula / Calc</span>',
-            "expr": f"<code>{expr}</code>",
-            "details": details,
-            "val": val_display
-        })
-        
-    # 渲染 HTML 表格
-    trace_html_rows = []
-    for r in trace_rows:
-        trace_html_rows.append(f'<tr>'
-                               f'<td style="font-family:monospace; font-weight:bold;">{r["id"]}</td>'
-                               f'<td>{r["desc"]}</td>'
-                               f'<td>{r["type"]}</td>'
-                               f'<td>{r["expr"]}</td>'
-                               f'<td style="font-size:0.85rem; color:#888;">{r["details"]}</td>'
-                               f'<td style="font-weight:bold; color:#a3e635; text-align:right;">{r["val"]}</td>'
-                               f'</tr>')
-        
-    trace_table_html = f'<table class="field-table"><thead><tr><th>欄位 ID</th><th>描述</th><th>類型</th><th>運算公式/來源</th><th>依賴變數與當前值 (Trace)</th><th style="text-align:right;">計算結果</th></tr></thead><tbody>{"".join(trace_html_rows)}</tbody></table>'
-    st.markdown(trace_table_html, unsafe_allow_html=True)
+    """與 render_standard_fields_table 保持一致"""
+    st.markdown("#### 🧮 欄位計算與來源詳細追蹤表")
+    render_standard_fields_table(final_state, schema)
 
 def render_topological_chain(schema: dict, final_state: dict):
     """顯示依賴排序順序 (拓撲鏈)"""
-    st.markdown("#### 🔄 Python 拓撲排序依賴鏈")
-    st.write("公式在執行時是由 Python 自動根據依賴圖計算出排序鏈，以確保有依賴的欄位永遠最先計算。")
-    
-    # 提取表達式依賴並排序
-    formulas_def = schema.get("formulas", [])
-    formula_deps = {}
-    for f in formulas_def:
-        variables = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', f["expr"])
-        dependencies = [var for var in variables if var in formula_deps or var in final_state]
-        formula_deps[f["id"]] = dependencies
-        
-    def topological_sort(formula_deps: dict) -> list:
-        visited = {}  # 0: unvisited, 1: visiting, 2: visited
-        order = []
-        def dfs(node):
-            if visited.get(node, 0) == 1:
-                raise ValueError(f"公式依賴檢測到循環引用: {node}")
-            if visited.get(node, 0) == 2:
-                return
-            visited[node] = 1
-            for dep in formula_deps.get(node, []):
-                if dep in formula_deps:
-                    dfs(dep)
-            visited[node] = 2
-            order.append(node)
-        for node in formula_deps:
-            if visited.get(node, 0) == 0:
-                dfs(node)
-        return order
-
-    calc_order = topological_sort(formula_deps)
-    
-    st.code(" -> ".join(calc_order), language="text")
+    st.markdown("#### 🔄 依賴與計算引擎鏈")
+    st.info("Schedule C V1 採用確定性 Python 代數計算。依賴關係包含：")
+    st.code("Part I Income -> Part II Expenses & Part V Other Expenses -> Line 28 Total Expenses -> Line 29 Tentative Profit -> Line 31 Net Profit -> Line 32 At-Risk Box & Diagnostics", language="text")
