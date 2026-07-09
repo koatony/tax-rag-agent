@@ -67,7 +67,15 @@ class ScheduleCLLMParser(BaseLLMParser):
                 "line_30_home_office_from_module": None,
                 "line_4_cogs_from_module": None
             },
-            "other_expense_items": [],
+            "other_expense_items": [
+                {
+                    "item_id": "exp_item_1",
+                    "name": "Software Subscription",
+                    "amount": 299.99,
+                    "source_document_id": "doc_abc123",
+                    "confidence": "HIGH"
+                }
+            ],
             "loss_at_risk_answer": None,
             "special_case_flags": {
                 "has_inventory_or_cogs": False,
