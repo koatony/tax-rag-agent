@@ -1,7 +1,20 @@
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Dict, Any, List, Optional
 from processors.models.schedule_a import ValidationIssue
+
+def to_decimal(value: Any, default: Optional[str] = "0.00") -> Optional[Decimal]:
+    """
+    將輸入數值轉換為 Decimal。如果為 None 且 default 為 None，則返回 None。
+    """
+    if value is None or value == "":
+        return Decimal(default) if default is not None else None
+    if isinstance(value, Decimal):
+        return value
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        raise ValueError(f"Invalid decimal value: {value!r}")
 
 class OtherExpenseItemV1:
     """
@@ -11,7 +24,7 @@ class OtherExpenseItemV1:
     def __init__(self, **kwargs):
         self.item_id = str(kwargs.get("item_id", ""))
         self.name = str(kwargs.get("name", ""))
-        self.amount = Decimal(str(kwargs.get("amount", "0.00")))
+        self.amount = to_decimal(kwargs.get("amount"))
         self.source_document_id = kwargs.get("source_document_id")
         self.confidence = str(kwargs.get("confidence", "HIGH")).upper()
 
@@ -19,7 +32,7 @@ class OtherExpenseItemV1:
         return {
             "item_id": self.item_id,
             "name": self.name,
-            "amount": float(self.amount),
+            "amount": float(self.amount) if self.amount is not None else 0.0,
             "source_document_id": self.source_document_id,
             "confidence": self.confidence
         }
@@ -30,9 +43,9 @@ class ScheduleCIncomeV1:
     包含 Line 1 毛收入、Line 2 退貨折讓及 Line 6 其他收入。
     """
     def __init__(self, **kwargs):
-        self.line_1_gross_receipts = Decimal(str(kwargs.get("line_1_gross_receipts"))) if kwargs.get("line_1_gross_receipts") is not None else None
-        self.line_2_returns_allowances = Decimal(str(kwargs.get("line_2_returns_allowances", "0.00")))
-        self.line_6_other_income = Decimal(str(kwargs.get("line_6_other_income", "0.00")))
+        self.line_1_gross_receipts = to_decimal(kwargs.get("line_1_gross_receipts"), default=None)
+        self.line_2_returns_allowances = to_decimal(kwargs.get("line_2_returns_allowances"))
+        self.line_6_other_income = to_decimal(kwargs.get("line_6_other_income"))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -47,35 +60,35 @@ class ScheduleCExpenseInputsV1:
     餐飲與娛樂來源總額，以及由外部模組計算完成傳入的特別科目數據如 COGS、折舊、家庭辦公室等）。
     """
     def __init__(self, **kwargs):
-        self.line_8_advertising = Decimal(str(kwargs.get("line_8_advertising", "0.00")))
-        self.line_9_car_truck_expenses_final = Decimal(str(kwargs.get("line_9_car_truck_expenses_final"))) if kwargs.get("line_9_car_truck_expenses_final") is not None else None
-        self.line_10_commissions_fees = Decimal(str(kwargs.get("line_10_commissions_fees", "0.00")))
-        self.line_11_contract_labor = Decimal(str(kwargs.get("line_11_contract_labor", "0.00")))
-        self.line_12_depletion = Decimal(str(kwargs.get("line_12_depletion", "0.00")))
-        self.line_14_employee_benefit_programs = Decimal(str(kwargs.get("line_14_employee_benefit_programs", "0.00")))
-        self.line_15_insurance = Decimal(str(kwargs.get("line_15_insurance", "0.00")))
-        self.line_16a_mortgage_interest = Decimal(str(kwargs.get("line_16a_mortgage_interest", "0.00")))
-        self.line_16b_other_interest = Decimal(str(kwargs.get("line_16b_other_interest", "0.00")))
-        self.line_17_legal_professional = Decimal(str(kwargs.get("line_17_legal_professional", "0.00")))
-        self.line_18_office_expense = Decimal(str(kwargs.get("line_18_office_expense", "0.00")))
-        self.line_19_pension_profit_sharing = Decimal(str(kwargs.get("line_19_pension_profit_sharing", "0.00")))
-        self.line_20a_rent_machinery_equipment = Decimal(str(kwargs.get("line_20a_rent_machinery_equipment", "0.00")))
-        self.line_20b_rent_other_property = Decimal(str(kwargs.get("line_20b_rent_other_property", "0.00")))
-        self.line_21_repairs_maintenance = Decimal(str(kwargs.get("line_21_repairs_maintenance", "0.00")))
-        self.line_22_supplies = Decimal(str(kwargs.get("line_22_supplies", "0.00")))
-        self.line_23_taxes_licenses = Decimal(str(kwargs.get("line_23_taxes_licenses", "0.00")))
-        self.line_24a_travel_final = Decimal(str(kwargs.get("line_24a_travel_final"))) if kwargs.get("line_24a_travel_final") is not None else None
+        self.line_8_advertising = to_decimal(kwargs.get("line_8_advertising"))
+        self.line_9_car_truck_expenses_final = to_decimal(kwargs.get("line_9_car_truck_expenses_final"), default=None)
+        self.line_10_commissions_fees = to_decimal(kwargs.get("line_10_commissions_fees"))
+        self.line_11_contract_labor = to_decimal(kwargs.get("line_11_contract_labor"))
+        self.line_12_depletion = to_decimal(kwargs.get("line_12_depletion"))
+        self.line_14_employee_benefit_programs = to_decimal(kwargs.get("line_14_employee_benefit_programs"))
+        self.line_15_insurance = to_decimal(kwargs.get("line_15_insurance"))
+        self.line_16a_mortgage_interest = to_decimal(kwargs.get("line_16a_mortgage_interest"))
+        self.line_16b_other_interest = to_decimal(kwargs.get("line_16b_other_interest"))
+        self.line_17_legal_professional = to_decimal(kwargs.get("line_17_legal_professional"))
+        self.line_18_office_expense = to_decimal(kwargs.get("line_18_office_expense"))
+        self.line_19_pension_profit_sharing = to_decimal(kwargs.get("line_19_pension_profit_sharing"))
+        self.line_20a_rent_machinery_equipment = to_decimal(kwargs.get("line_20a_rent_machinery_equipment"))
+        self.line_20b_rent_other_property = to_decimal(kwargs.get("line_20b_rent_other_property"))
+        self.line_21_repairs_maintenance = to_decimal(kwargs.get("line_21_repairs_maintenance"))
+        self.line_22_supplies = to_decimal(kwargs.get("line_22_supplies"))
+        self.line_23_taxes_licenses = to_decimal(kwargs.get("line_23_taxes_licenses"))
+        self.line_24a_travel_final = to_decimal(kwargs.get("line_24a_travel_final"), default=None)
         
-        self.meals_50_percent_source_amount = Decimal(str(kwargs.get("meals_50_percent_source_amount", "0.00")))
-        self.meals_100_percent_source_amount = Decimal(str(kwargs.get("meals_100_percent_source_amount", "0.00")))
-        self.entertainment_source_amount = Decimal(str(kwargs.get("entertainment_source_amount", "0.00")))
+        self.meals_50_percent_source_amount = to_decimal(kwargs.get("meals_50_percent_source_amount"))
+        self.meals_100_percent_source_amount = to_decimal(kwargs.get("meals_100_percent_source_amount"))
+        self.entertainment_source_amount = to_decimal(kwargs.get("entertainment_source_amount"))
         
-        self.line_25_utilities = Decimal(str(kwargs.get("line_25_utilities", "0.00")))
-        self.line_26_wages_final = Decimal(str(kwargs.get("line_26_wages_final"))) if kwargs.get("line_26_wages_final") is not None else None
+        self.line_25_utilities = to_decimal(kwargs.get("line_25_utilities"))
+        self.line_26_wages_final = to_decimal(kwargs.get("line_26_wages_final"), default=None)
         
-        self.line_13_depreciation_from_form4562 = Decimal(str(kwargs.get("line_13_depreciation_from_form4562"))) if kwargs.get("line_13_depreciation_from_form4562") is not None else None
-        self.line_30_home_office_from_module = Decimal(str(kwargs.get("line_30_home_office_from_module"))) if kwargs.get("line_30_home_office_from_module") is not None else None
-        self.line_4_cogs_from_module = Decimal(str(kwargs.get("line_4_cogs_from_module"))) if kwargs.get("line_4_cogs_from_module") is not None else None
+        self.line_13_depreciation_from_form4562 = to_decimal(kwargs.get("line_13_depreciation_from_form4562"), default=None)
+        self.line_30_home_office_from_module = to_decimal(kwargs.get("line_30_home_office_from_module"), default=None)
+        self.line_4_cogs_from_module = to_decimal(kwargs.get("line_4_cogs_from_module"), default=None)
 
     def to_dict(self) -> Dict[str, Any]:
         def to_float(val):
@@ -139,7 +152,7 @@ class ScheduleCSpecialCaseFlagsV1:
 class ScheduleCInputsV1:
     """
     Schedule C 完整輸入模型。
-    封裝基本身份、問卷選項、營業收入（Income）、營業費用（Expenses）、
+    封封基本身份、問卷選項、營業收入（Income）、營業費用（Expenses）、
     其他費用列表（Other Expenses）與特殊案件偵測旗標（Flags）。
     """
     def __init__(self, **kwargs):
@@ -157,7 +170,6 @@ class ScheduleCInputsV1:
         self.accounting_method = str(raw_method).upper() if raw_method else None
 
         self.line_g_material_participation = kwargs.get("line_g_material_participation")
-
         self.line_h_started_or_acquired = kwargs.get("line_h_started_or_acquired")
         self.line_i_payment_requiring_1099 = kwargs.get("line_i_payment_requiring_1099")
         self.line_j_filed_required_1099 = kwargs.get("line_j_filed_required_1099")
@@ -228,55 +240,55 @@ class ScheduleCResultV1:
         self.line_i_payment_requiring_1099 = kwargs.get("line_i_payment_requiring_1099")
         self.line_j_filed_required_1099 = kwargs.get("line_j_filed_required_1099")
 
-        self.line_1_gross_receipts = kwargs.get("line_1_gross_receipts", Decimal("0.00"))
-        self.line_2_returns_allowances = kwargs.get("line_2_returns_allowances", Decimal("0.00"))
-        self.line_3_net_receipts = kwargs.get("line_3_net_receipts", Decimal("0.00"))
-        self.line_4_cogs = kwargs.get("line_4_cogs", Decimal("0.00"))
-        self.line_5_gross_profit = kwargs.get("line_5_gross_profit", Decimal("0.00"))
-        self.line_6_other_income = kwargs.get("line_6_other_income", Decimal("0.00"))
-        self.line_7_gross_income = kwargs.get("line_7_gross_income", Decimal("0.00"))
+        self.line_1_gross_receipts = to_decimal(kwargs.get("line_1_gross_receipts"), default=None)
+        self.line_2_returns_allowances = to_decimal(kwargs.get("line_2_returns_allowances"))
+        self.line_3_net_receipts = to_decimal(kwargs.get("line_3_net_receipts"), default=None)
+        self.line_4_cogs = to_decimal(kwargs.get("line_4_cogs"), default=None)
+        self.line_5_gross_profit = to_decimal(kwargs.get("line_5_gross_profit"), default=None)
+        self.line_6_other_income = to_decimal(kwargs.get("line_6_other_income"))
+        self.line_7_gross_income = to_decimal(kwargs.get("line_7_gross_income"), default=None)
 
-        self.line_8_advertising = kwargs.get("line_8_advertising", Decimal("0.00"))
-        self.line_9_car_truck_expenses = kwargs.get("line_9_car_truck_expenses", Decimal("0.00"))
-        self.line_10_commissions_fees = kwargs.get("line_10_commissions_fees", Decimal("0.00"))
-        self.line_11_contract_labor = kwargs.get("line_11_contract_labor", Decimal("0.00"))
-        self.line_12_depletion = kwargs.get("line_12_depletion", Decimal("0.00"))
-        self.line_13_depreciation = kwargs.get("line_13_depreciation", Decimal("0.00"))
-        self.line_14_employee_benefit_programs = kwargs.get("line_14_employee_benefit_programs", Decimal("0.00"))
-        self.line_15_insurance = kwargs.get("line_15_insurance", Decimal("0.00"))
-        self.line_16a_mortgage_interest = kwargs.get("line_16a_mortgage_interest", Decimal("0.00"))
-        self.line_16b_other_interest = kwargs.get("line_16b_other_interest", Decimal("0.00"))
-        self.line_17_legal_professional = kwargs.get("line_17_legal_professional", Decimal("0.00"))
-        self.line_18_office_expense = kwargs.get("line_18_office_expense", Decimal("0.00"))
-        self.line_19_pension_profit_sharing = kwargs.get("line_19_pension_profit_sharing", Decimal("0.00"))
-        self.line_20a_rent_machinery_equipment = kwargs.get("line_20a_rent_machinery_equipment", Decimal("0.00"))
-        self.line_20b_rent_other_property = kwargs.get("line_20b_rent_other_property", Decimal("0.00"))
-        self.line_21_repairs_maintenance = kwargs.get("line_21_repairs_maintenance", Decimal("0.00"))
-        self.line_22_supplies = kwargs.get("line_22_supplies", Decimal("0.00"))
-        self.line_23_taxes_licenses = kwargs.get("line_23_taxes_licenses", Decimal("0.00"))
-        self.line_24a_travel = kwargs.get("line_24a_travel", Decimal("0.00"))
-        self.line_24b_deductible_meals = kwargs.get("line_24b_deductible_meals", Decimal("0.00"))
-        self.line_25_utilities = kwargs.get("line_25_utilities", Decimal("0.00"))
-        self.line_26_wages = kwargs.get("line_26_wages", Decimal("0.00"))
-        self.line_27a_energy_efficient_building_deduction = kwargs.get("line_27a_energy_efficient_building_deduction", Decimal("0.00"))
-        self.line_27b_other_expenses = kwargs.get("line_27b_other_expenses", Decimal("0.00"))
+        self.line_8_advertising = to_decimal(kwargs.get("line_8_advertising"))
+        self.line_9_car_truck_expenses = to_decimal(kwargs.get("line_9_car_truck_expenses"), default=None)
+        self.line_10_commissions_fees = to_decimal(kwargs.get("line_10_commissions_fees"))
+        self.line_11_contract_labor = to_decimal(kwargs.get("line_11_contract_labor"))
+        self.line_12_depletion = to_decimal(kwargs.get("line_12_depletion"))
+        self.line_13_depreciation = to_decimal(kwargs.get("line_13_depreciation"), default=None)
+        self.line_14_employee_benefit_programs = to_decimal(kwargs.get("line_14_employee_benefit_programs"))
+        self.line_15_insurance = to_decimal(kwargs.get("line_15_insurance"))
+        self.line_16a_mortgage_interest = to_decimal(kwargs.get("line_16a_mortgage_interest"))
+        self.line_16b_other_interest = to_decimal(kwargs.get("line_16b_other_interest"))
+        self.line_17_legal_professional = to_decimal(kwargs.get("line_17_legal_professional"))
+        self.line_18_office_expense = to_decimal(kwargs.get("line_18_office_expense"))
+        self.line_19_pension_profit_sharing = to_decimal(kwargs.get("line_19_pension_profit_sharing"))
+        self.line_20a_rent_machinery_equipment = to_decimal(kwargs.get("line_20a_rent_machinery_equipment"))
+        self.line_20b_rent_other_property = to_decimal(kwargs.get("line_20b_rent_other_property"))
+        self.line_21_repairs_maintenance = to_decimal(kwargs.get("line_21_repairs_maintenance"))
+        self.line_22_supplies = to_decimal(kwargs.get("line_22_supplies"))
+        self.line_23_taxes_licenses = to_decimal(kwargs.get("line_23_taxes_licenses"))
+        self.line_24a_travel = to_decimal(kwargs.get("line_24a_travel"), default=None)
+        self.line_24b_deductible_meals = to_decimal(kwargs.get("line_24b_deductible_meals"))
+        self.line_25_utilities = to_decimal(kwargs.get("line_25_utilities"))
+        self.line_26_wages = to_decimal(kwargs.get("line_26_wages"), default=None)
+        self.line_27a_energy_efficient_building_deduction = to_decimal(kwargs.get("line_27a_energy_efficient_building_deduction"))
+        self.line_27b_other_expenses = to_decimal(kwargs.get("line_27b_other_expenses"))
 
-        self.line_28_total_expenses = kwargs.get("line_28_total_expenses", Decimal("0.00"))
-        self.line_29_tentative_profit_or_loss = kwargs.get("line_29_tentative_profit_or_loss", Decimal("0.00"))
-        self.line_30_home_office = kwargs.get("line_30_home_office", Decimal("0.00"))
-        self.line_31_net_profit_or_loss = kwargs.get("line_31_net_profit_or_loss", Decimal("0.00"))
+        self.line_28_total_expenses = to_decimal(kwargs.get("line_28_total_expenses"), default=None)
+        self.line_29_tentative_profit_or_loss = to_decimal(kwargs.get("line_29_tentative_profit_or_loss"), default=None)
+        self.line_30_home_office = to_decimal(kwargs.get("line_30_home_office"), default=None)
+        self.line_31_net_profit_or_loss = to_decimal(kwargs.get("line_31_net_profit_or_loss"), default=None)
         self.line_32_at_risk_surface = kwargs.get("line_32_at_risk_surface")
 
-        self.line_48_total_other_expenses = kwargs.get("line_48_total_other_expenses", Decimal("0.00"))
+        self.line_48_total_other_expenses = to_decimal(kwargs.get("line_48_total_other_expenses"))
         self.other_expense_items = kwargs.get("other_expense_items") or []
 
         self.can_map = bool(kwargs.get("can_map", True))
-        self.is_v1_supported = bool(kwargs.get("is_v1_supported", True))
-        self.can_file = bool(kwargs.get("can_file", True))
-        self.needs_review = bool(kwargs.get("needs_review", False))
-
         self.blocking_errors = kwargs.get("blocking_errors") or []
         self.review_warnings = kwargs.get("review_warnings") or []
+
+        self.is_v1_supported = bool(kwargs.get("is_v1_supported", len(self.blocking_errors) == 0))
+        self.can_file = bool(kwargs.get("can_file", self.is_v1_supported and len(self.blocking_errors) == 0))
+        self.needs_review = bool(kwargs.get("needs_review", len(self.blocking_errors) > 0 or len(self.review_warnings) > 0))
 
     def to_dict(self) -> Dict[str, Any]:
         def to_float(val):
