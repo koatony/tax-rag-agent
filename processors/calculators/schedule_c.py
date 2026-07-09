@@ -52,11 +52,16 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
     else:
         line_4_cogs = Decimal("0.00")
 
-    line_3_net_receipts_coalesce = coalesce_decimal(line_3_net_receipts)
-    line_4_cogs_coalesce = coalesce_decimal(line_4_cogs)
-    line_5_gross_profit = line_3_net_receipts_coalesce - line_4_cogs_coalesce
     line_6_other_income = inputs.income.line_6_other_income
-    line_7_gross_income = line_5_gross_profit + coalesce_decimal(line_6_other_income)
+
+    # Gross Profit & Gross Income Calculation
+    # If any required inputs are missing, gross profit/income should be None.
+    if line_3_net_receipts is None or line_4_cogs is None:
+        line_5_gross_profit = None
+        line_7_gross_income = None
+    else:
+        line_5_gross_profit = line_3_net_receipts - line_4_cogs
+        line_7_gross_income = line_5_gross_profit + coalesce_decimal(line_6_other_income)
 
     # 5. Expenses (Lines 8-27)
     line_8 = inputs.expenses.line_8_advertising
@@ -122,32 +127,49 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
         
     line_27b = line_48_total_other_expenses
 
-    # Total Expenses (Line 28)
-    line_28_total_expenses = (
-        coalesce_decimal(line_8) + coalesce_decimal(line_9) + coalesce_decimal(line_10) +
-        coalesce_decimal(line_11) + coalesce_decimal(line_12) + coalesce_decimal(line_13) +
-        coalesce_decimal(line_14) + coalesce_decimal(line_15) + coalesce_decimal(line_16a) +
-        coalesce_decimal(line_16b) + coalesce_decimal(line_17) + coalesce_decimal(line_18) +
-        coalesce_decimal(line_19) + coalesce_decimal(line_20a) + coalesce_decimal(line_20b) +
-        coalesce_decimal(line_21) + coalesce_decimal(line_22) + coalesce_decimal(line_23) +
-        coalesce_decimal(line_24a) + coalesce_decimal(line_24b) + coalesce_decimal(line_25) +
-        coalesce_decimal(line_26) + coalesce_decimal(line_27a_energy_efficient_building_deduction) +
-        coalesce_decimal(line_27b)
+    # Check if any required module-based expense is missing when flags are set
+    has_missing_required_expense = (
+        line_9 is None or
+        line_13 is None or
+        line_24a is None or
+        line_26 is None
     )
 
+    # Total Expenses (Line 28)
+    if has_missing_required_expense:
+        line_28_total_expenses = None
+    else:
+        line_28_total_expenses = (
+            coalesce_decimal(line_8) + coalesce_decimal(line_9) + coalesce_decimal(line_10) +
+            coalesce_decimal(line_11) + coalesce_decimal(line_12) + coalesce_decimal(line_13) +
+            coalesce_decimal(line_14) + coalesce_decimal(line_15) + coalesce_decimal(line_16a) +
+            coalesce_decimal(line_16b) + coalesce_decimal(line_17) + coalesce_decimal(line_18) +
+            coalesce_decimal(line_19) + coalesce_decimal(line_20a) + coalesce_decimal(line_20b) +
+            coalesce_decimal(line_21) + coalesce_decimal(line_22) + coalesce_decimal(line_23) +
+            coalesce_decimal(line_24a) + coalesce_decimal(line_24b) + coalesce_decimal(line_25) +
+            coalesce_decimal(line_26) + coalesce_decimal(line_27a_energy_efficient_building_deduction) +
+            coalesce_decimal(line_27b)
+        )
+
     # 6. Profit or Loss
-    line_29_tentative_profit_or_loss = line_7_gross_income - line_28_total_expenses
+    if line_7_gross_income is None or line_28_total_expenses is None:
+        line_29_tentative_profit_or_loss = None
+    else:
+        line_29_tentative_profit_or_loss = line_7_gross_income - line_28_total_expenses
     
     if inputs.special_case_flags.has_home_office:
         line_30 = inputs.expenses.line_30_home_office_from_module
     else:
         line_30 = inputs.expenses.line_30_home_office_from_module or Decimal("0.00")
         
-    line_31_net_profit_or_loss = line_29_tentative_profit_or_loss - coalesce_decimal(line_30)
+    if line_29_tentative_profit_or_loss is None or line_30 is None:
+        line_31_net_profit_or_loss = None
+    else:
+        line_31_net_profit_or_loss = line_29_tentative_profit_or_loss - line_30
 
     # 7. Loss case, At-Risk & Passive activities
     line_32_at_risk_surface = None
-    if line_31_net_profit_or_loss < ZERO:
+    if line_31_net_profit_or_loss is not None and line_31_net_profit_or_loss < ZERO:
         if inputs.loss_at_risk_answer == "ALL_AT_RISK":
             line_32_at_risk_surface = "32a"
         elif inputs.loss_at_risk_answer == "SOME_NOT_AT_RISK":
