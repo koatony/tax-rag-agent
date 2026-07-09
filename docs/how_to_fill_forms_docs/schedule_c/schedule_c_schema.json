@@ -91,7 +91,7 @@
     {
       "id": "special_case_flags",
       "type": "object",
-      "description": "V1 特殊案件偵測旗標。包含: has_inventory_or_cogs (bool), cogs_module_completed (bool), has_vehicle_expense_requiring_calculation (bool), has_depreciation_or_section179 (bool), has_home_office (bool), has_mixed_travel (bool), has_uncertain_meals_or_entertainment (bool), has_employee_wages_or_payroll_credit (bool), has_owner_draw_in_expenses (bool), has_uncertain_expense_category (bool), has_rental_or_royalty_activity (bool), has_farm_activity (bool), has_business_asset_sale (bool), has_passive_activity_issue (bool), has_at_risk_limitation_issue (bool), has_qbi_request (bool), has_schedule_se_request (bool)"
+      "description": "V1 特殊案件偵測旗標物件，包含以下屬性:\n- has_inventory_or_cogs: 是否包含存貨（庫存）或銷貨成本計算需求。\n- cogs_module_completed: 是否已由上游庫存/COGS模組完成計算並提供最終金額。\n- has_vehicle_expense_requiring_calculation: 是否包含車輛費用折算或里程折舊計算（需要 Form 4562 Part V）。\n- has_depreciation_or_section179: 是否包含資產折舊計算（需要 Form 4562）。\n- has_home_office: 是否包含家庭辦公室費用折算（需要 Form 8829）。\n- has_mixed_travel: 是否包含混雜個人用途的出差旅行費用。\n- has_uncertain_meals_or_entertainment: 餐飲或娛樂項目分類是否不明確。\n- has_employee_wages_or_payroll_credit: 是否包含僱用員工薪資或工資抵稅額度。\n- has_owner_draw_in_expenses: 費用中是否誤混入了獨資企業主個人的薪水或提款。\n- has_uncertain_expense_category: 是否有其他無法明確歸類的可疑費用科目。\n- has_rental_or_royalty_activity: 業務中是否包含出租房屋或特許權使用費活動。\n- has_farm_activity: 是否包含農業活動。\n- has_business_asset_sale: 是否包含出售營業用資產。\n- has_passive_activity_issue: 是否涉及被動活動損失限制。\n- has_at_risk_limitation_issue: 是否涉及投資風險限制。\n- has_qbi_request: 是否要求計算合格業務收入扣除 (QBI)。\n- has_schedule_se_request: 是否要求計算自雇稅 (Schedule SE)。"
     }
   ]
 }
