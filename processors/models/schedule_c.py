@@ -291,15 +291,24 @@ class ScheduleCResultV1:
         self.needs_review = bool(kwargs.get("needs_review", len(self.blocking_errors) > 0 or len(self.review_warnings) > 0))
 
     def to_dict(self) -> Dict[str, Any]:
+        # 輔助函式：因為 JSON 不支援 Python 的 Decimal 型別，
+        # 如果是 Decimal 就轉成一般的 float 浮點數，否則保持原樣。
         def to_float(val):
             return float(val) if isinstance(val, Decimal) else val
         
         res = {}
+        # 遍歷這個 Class 物件中的所有屬性欄位 (key: 屬性名, val: 屬性值)
         for k, v in self.__dict__.items():
+            # 情況 A：如果是阻斷錯誤或審查警告列表
             if k in ["blocking_errors", "review_warnings"]:
+                # 將列表中的每個 ValidationIssue 物件也轉換成 dict（如果它有 to_dict 方法的話）
                 res[k] = [x.to_dict() if hasattr(x, "to_dict") else x for x in v]
+            # 情況 B：如果是 Part V 其他費用明細列表
             elif k == "other_expense_items":
+                # 將列表中的每個 OtherExpenseItemV1 物件也轉換成 dict
                 res[k] = [x.to_dict() if hasattr(x, "to_dict") else x for x in v]
+            # 情況 C：一般的基本型別欄位（例如金額、字串、布林值等）
             else:
+                # 執行轉型 float 的防禦後，存入結果字典
                 res[k] = to_float(v)
         return res
