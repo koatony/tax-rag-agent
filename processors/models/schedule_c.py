@@ -4,6 +4,10 @@ from typing import Dict, Any, List, Optional
 from processors.models.schedule_a import ValidationIssue
 
 class OtherExpenseItemV1:
+    """
+    其他費用明細（Part V Other Expenses）資料結構。
+    包含單筆項目的 ID、名稱、金額、來源文件 ID 以及置信度。
+    """
     def __init__(self, **kwargs):
         self.item_id = str(kwargs.get("item_id", ""))
         self.name = str(kwargs.get("name", ""))
@@ -21,6 +25,10 @@ class OtherExpenseItemV1:
         }
 
 class ScheduleCIncomeV1:
+    """
+    Part I 營業收入輸入資料。
+    包含 Line 1 毛收入、Line 2 退貨折讓及 Line 6 其他收入。
+    """
     def __init__(self, **kwargs):
         self.line_1_gross_receipts = Decimal(str(kwargs.get("line_1_gross_receipts"))) if kwargs.get("line_1_gross_receipts") is not None else None
         self.line_2_returns_allowances = Decimal(str(kwargs.get("line_2_returns_allowances", "0.00")))
@@ -34,6 +42,10 @@ class ScheduleCIncomeV1:
         }
 
 class ScheduleCExpenseInputsV1:
+    """
+    Part II 營業費用輸入資料（包含 Lines 8-27 的原始申報金額、
+    餐飲與娛樂來源總額，以及由外部模組計算完成傳入的特別科目數據如 COGS、折舊、家庭辦公室等）。
+    """
     def __init__(self, **kwargs):
         self.line_8_advertising = Decimal(str(kwargs.get("line_8_advertising", "0.00")))
         self.line_9_car_truck_expenses_final = Decimal(str(kwargs.get("line_9_car_truck_expenses_final"))) if kwargs.get("line_9_car_truck_expenses_final") is not None else None
@@ -98,6 +110,11 @@ class ScheduleCExpenseInputsV1:
         }
 
 class ScheduleCSpecialCaseFlagsV1:
+    """
+    V1 特殊案件偵測旗標（Boolean flags）。
+    用於判斷是否含有 V1 引擎未支援的進階稅務計算情境（如車輛里程、折舊 Form 4562、
+    家庭辦公室 Form 8829、COGS 庫存等），以決定是否阻斷申報或提示人工審查。
+    """
     def __init__(self, **kwargs):
         self.has_inventory_or_cogs = bool(kwargs.get("has_inventory_or_cogs", False))
         self.has_vehicle_expense_requiring_calculation = bool(kwargs.get("has_vehicle_expense_requiring_calculation", False))
@@ -120,6 +137,11 @@ class ScheduleCSpecialCaseFlagsV1:
         return {k: getattr(self, k) for k in self.__dict__}
 
 class ScheduleCInputsV1:
+    """
+    Schedule C 完整輸入模型。
+    封裝基本身份、問卷選項、營業收入（Income）、營業費用（Expenses）、
+    其他費用列表（Other Expenses）與特殊案件偵測旗標（Flags）。
+    """
     def __init__(self, **kwargs):
         self.proprietor_name = str(kwargs.get("proprietor_name", ""))
         self.taxpayer_ssn = str(kwargs.get("taxpayer_ssn", ""))
@@ -187,6 +209,11 @@ class ScheduleCInputsV1:
         }
 
 class ScheduleCResultV1:
+    """
+    Schedule C 計算與校驗結果模型。
+    包含所有算出的表單表面欄位（Lines 1-31）、總計數值、
+    身分掩碼資料、校驗阻斷錯誤（blocking_errors）與審查警告（review_warnings）。
+    """
     def __init__(self, **kwargs):
         self.proprietor_name = kwargs.get("proprietor_name", "")
         self.taxpayer_ssn_masked = kwargs.get("taxpayer_ssn_masked", "")
