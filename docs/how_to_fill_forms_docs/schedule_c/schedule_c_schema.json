@@ -1,6 +1,7 @@
 {
   "form_id": "Schedule_C",
   "tax_year": 2025,
+  "description": "IRS Schedule C (Form 1040) — V1 一般 P&L 案件填表器規格",
   "inputs": [
     {
       "id": "proprietor_name",
@@ -8,9 +9,14 @@
       "description": "Name: Proprietor's legal name (獨資經營者法定姓名，與 Form 1040 一致)"
     },
     {
-      "id": "ssn",
+      "id": "taxpayer_ssn",
       "type": "string",
       "description": "SSN: Social Security Number or ITIN (社會安全號碼)"
+    },
+    {
+      "id": "tax_year",
+      "type": "int",
+      "description": "Tax Year: 申報之稅務年度"
     },
     {
       "id": "principal_business",
@@ -18,7 +24,7 @@
       "description": "Field A: Principal business or profession description (主要業務或專業描述)"
     },
     {
-      "id": "line_b_principal_activity_code",
+      "id": "principal_activity_code",
       "type": "string",
       "description": "Field B: Principal Activity Code (6位數字 NAICS 行業代碼；請根據行業描述映射填寫，若無則為 null)"
     },
@@ -30,539 +36,62 @@
     {
       "id": "ein",
       "type": "string",
-      "description": "Field D: Employer ID Number (雇主識別號 EIN；若無則為 null。⚠️ 請檢查所有上傳的文件，包括 W-2 表單的雇主欄位可能包含自營商的 EIN，切勿只看 P&L)"
+      "description": "Field D: Employer ID Number (雇主識別號 EIN；若無則為 null)"
     },
     {
       "id": "business_address",
       "type": "string",
-      "description": "Field E: Business address (營業地址；如與居住地址相同且未申報家庭辦公室可為 null。⚠️ 請檢查 W-2 表單的雇主地址以取得正確的營業地址，切勿只看 P&L)"
+      "description": "Field E: Business address (營業地址；如與居住地址相同且未申報家庭辦公室可為 null)"
     },
     {
       "id": "accounting_method",
       "type": "string",
-      "description": "Field F: Accounting method (會計方法；必須為 'Cash', 'Accrual' 或 'Other')"
-    },
-    {
-      "id": "started_acquired_2025",
-      "type": "boolean",
-      "description": "Field H: Started or acquired business in 2025 (是否於 2025 年新成立或收購)"
-    },
-    {
-      "id": "line_1_gross_receipts",
-      "type": "float",
-      "description": "Line 1: Gross receipts or sales (營業毛收入；不含代收銷售稅)"
-    },
-    {
-      "id": "line_2_returns_allowances",
-      "type": "float",
-      "description": "Line 2: Returns and allowances (退貨折讓與顧客退款)"
-    },
-    {
-      "id": "line_6_other_income",
-      "type": "float",
-      "description": "Line 6: Other income (其他營業相關雜項收入)"
-    },
-    {
-      "id": "line_8_advertising",
-      "type": "float",
-      "description": "Line 8: Advertising (廣告宣傳與推廣費用)"
-    },
-    {
-      "id": "line_10_commissions_fees",
-      "type": "float",
-      "description": "Line 10: Commissions and fees (⚠️ 路由注意：Stripe手續費、銀行費不可放此行)"
-    },
-    {
-      "id": "line_11_contract_labor",
-      "type": "float",
-      "description": "Line 11: Contract labor (外包/約聘人員工資)"
-    },
-    {
-      "id": "line_12_depletion",
-      "type": "float",
-      "description": "Line 12: Depletion (天然資源耗竭折舊)"
-    },
-    {
-      "id": "line_14_employee_benefit_programs",
-      "type": "float",
-      "description": "Line 14: Employee benefit programs (員工福利支出，不含退休金)"
-    },
-    {
-      "id": "line_15_insurance",
-      "type": "float",
-      "description": "Line 15: Insurance other than health (商業責任與財產險，不含個人健保)"
-    },
-    {
-      "id": "line_16a_mortgage_interest",
-      "type": "float",
-      "description": "Line 16a: Mortgage interest paid to banks (商業房貸利息)"
-    },
-    {
-      "id": "line_16b_other_interest",
-      "type": "float",
-      "description": "Line 16b: Other business interest (商業信貸或信用卡利息)"
-    },
-    {
-      "id": "line_17_legal_professional",
-      "type": "float",
-      "description": "Line 17: Legal & professional services (律師、CPA 等專業諮詢服務費)"
-    },
-    {
-      "id": "line_18_office_expense",
-      "type": "float",
-      "description": "Line 18: Office expense (辦公室費用。⚠️ 包含 Office Supplies與 Postage & Shipping。請與 line_22_supplies 互斥，切勿重複計算，亦不可將 Office Supplies 錯置於 Line 22)"
-    },
-    {
-      "id": "line_19_pension_profit_sharing",
-      "type": "float",
-      "description": "Line 19: Pension & profit-sharing plans (員工退休金計劃提撥)"
-    },
-    {
-      "id": "line_20a_rent_machinery_equipment",
-      "type": "float",
-      "description": "Line 20a: Rent of machinery and equipment (機器設備租金)"
-    },
-    {
-      "id": "line_20b_rent_other_property",
-      "type": "float",
-      "description": "Line 20b: Rent of other business property (店鋪、辦公室實體租金)"
-    },
-    {
-      "id": "line_21_repairs_maintenance",
-      "type": "float",
-      "description": "Line 21: Repairs and maintenance (⚠️ 路由注意：清潔清潔清運費不可放此行)"
-    },
-    {
-      "id": "line_22_supplies",
-      "type": "float",
-      "description": "Line 22: Supplies (營業直接消耗品/小工具。⚠️ ⚠️ 絕對不包括辦公耗材 Office Supplies。辦公耗材與郵資必須統一分類至 Line 18。在無直接工具/營業物料消耗下應填 0.0)"
-    },
-    {
-      "id": "line_23_taxes_licenses",
-      "type": "float",
-      "description": "Line 23: Taxes and licenses (稅金與執照費；⚠️ 絕對不可含所得稅、自營稅、自住房產稅、車輛相關稅與代收銷售稅)"
-    },
-    {
-      "id": "line_25_utilities",
-      "type": "float",
-      "description": "Line 25: Utilities (營業場所水電與電信費)"
-    },
-    {
-      "id": "line_33_inventory_valuation_method",
-      "type": "string",
-      "description": "Line 33: Inventory valuation method (存貨計價方法；'Cost', 'Lower of cost or market' 或 'Other')"
-    },
-    {
-      "id": "line_34_change_in_valuation",
-      "type": "boolean",
-      "description": "Line 34: Change in inventory valuation this year (計價法是否有變更)"
-    },
-    {
-      "id": "line_36_purchases_less_personal",
-      "type": "float",
-      "description": "Line 36: Purchases less cost of items withdrawn for personal use (本期進貨金額，需扣除自用)"
-    },
-    {
-      "id": "line_38_materials_supplies",
-      "type": "float",
-      "description": "Line 38: Materials and supplies (直接生產材料與包裝成本)"
-    },
-    {
-      "id": "line_39_other_costs",
-      "type": "float",
-      "description": "Line 39: Other costs (其他直接生產與運入成本)"
-    },
-    {
-      "id": "line_41_ending_inventory",
-      "type": "float",
-      "description": "Line 41: Inventory at end of year (期末實地盤點存貨成本)"
-    },
-    {
-      "id": "line_43_date_placed_in_service",
-      "type": "string",
-      "description": "Line 43: Date vehicle placed in service (車輛開始商用日期 MM/DD/YYYY)"
-    },
-    {
-      "id": "line_44a_business_miles",
-      "type": "float",
-      "description": "Line 44a: Business miles (年度商用里程數。⚠️ 絕對不可填寫金額或報銷金額。如果沒有明確的里程英里數紀錄，必須填寫 0.0)"
-    },
-    {
-      "id": "line_44b_commuting_miles",
-      "type": "float",
-      "description": "Line 44b: Commuting miles (年度通勤里程數)"
-    },
-    {
-      "id": "line_44c_other_miles",
-      "type": "float",
-      "description": "Line 44c: Other miles (其他個人里程數)"
-    },
-    {
-      "id": "line_45_available_for_personal_use",
-      "type": "boolean",
-      "description": "Line 45: Available for personal use (是否可用於個人用途)"
-    },
-    {
-      "id": "line_46_another_vehicle_available",
-      "type": "boolean",
-      "description": "Line 46: Another vehicle available for personal use (是否有其他車輛可用)"
-    },
-    {
-      "id": "line_47a_evidence_to_support",
-      "type": "boolean",
-      "description": "Line 47a: Evidence to support deduction (是否有相關里程憑證/Log book)"
-    },
-    {
-      "id": "line_47b_evidence_written",
-      "type": "boolean",
-      "description": "Line 47b: Written evidence (里程憑證是否為書面/電子記錄)"
-    },
-    {
-      "id": "owner_annual_hours",
-      "type": "float",
-      "description": "業務經營者當年度工作總工時 (用於實質參與 Line G 判定，若無資訊預設 0.0)"
-    },
-    {
-      "id": "is_sole_participant",
-      "type": "boolean",
-      "description": "經營者是否為該業務的唯一/幾乎全部參與者 (用於實質參與 Line G 判定)"
-    },
-    {
-      "id": "others_annual_hours",
-      "type": "float",
-      "description": "其他所有參與該業務人員的總工時 (用於實質參與 Line G 判定)"
-    },
-    {
-      "id": "any_contractor_paid_600_or_more",
-      "type": "boolean",
-      "description": "本年度是否向任何個人或獨立承包商支付累計超過或等於 $600 的服務費 (用於 Line I 1099 申報義務判定)"
-    },
-    {
-      "id": "is_1099_filed",
-      "type": "boolean",
-      "description": "是否已經或將要向國稅局提交 Form 1099 (用於 Line J)"
-    },
-    {
-      "id": "actual_car_expenses",
-      "type": "float",
-      "description": "車輛實際維運總費用，包含汽油、保險、維修等 (用於 Line 9 實際費用法計算)"
-    },
-    {
-      "id": "parking_and_tolls",
-      "type": "float",
-      "description": "車輛在商務行程中產生的停車費與過路費 (Line 9 標準法與實際法皆可 100% 扣除)"
-    },
-    {
-      "id": "selected_mileage_method",
-      "type": "string",
-      "description": "車輛費用折抵方法選擇：必須為 'standard' (標準里程法) 或 'actual' (實際費用法)；若無則預設 'standard'"
-    },
-    {
-      "id": "macrs_depreciation",
-      "type": "float",
-      "description": "本年度常規 MACRS 資產折舊費用總額 (不含 Sec 179 一次性扣除，用於 Line 13)"
-    },
-    {
-      "id": "sec179_asset_cost",
-      "type": "float",
-      "description": "本年度購置欲申請 Section 179 一次性全額扣除之合格資產總成本 (用於 Line 13)"
-    },
-    {
-      "id": "use_sec179",
-      "type": "boolean",
-      "description": "本年度是否選擇對合格資產使用 Section 179 扣除 (用於 Line 13)"
-    },
-    {
-      "id": "travel_transit_cost",
-      "type": "float",
-      "description": "差旅往返大交通原始總費用，如機票、火車票。⚠️ 絕對不要乘以商務天數比例，填寫原始總金額，折算由公式端處理 (用於 Line 24a)"
-    },
-    {
-      "id": "travel_lodging_cost",
-      "type": "float",
-      "description": "差旅期間之實體住宿原始總費用。⚠️ 絕對不要乘以商務天數比例，填寫原始總金額，折算由公式端處理 (用於 Line 24a)"
-    },
-    {
-      "id": "total_trip_days",
-      "type": "float",
-      "description": "差旅總天數 (包含交通日與個人休閒日，用於 Line 24a)"
-    },
-    {
-      "id": "business_days",
-      "type": "float",
-      "description": "差旅中實際進行商務活動的天數 (用於 Line 24a)"
-    },
-    {
-      "id": "is_international",
-      "type": "boolean",
-      "description": "該次差旅是否為國外差旅 (跨越美國國境，用於 Line 24a)"
-    },
-    {
-      "id": "meals_50_pct",
-      "type": "float",
-      "description": "一般商務宴客餐飲、出差餐飲以及員工加班餐費等原始總費用，依法折半扣除 50% (用於 Line 24b)。⚠️ 注意：必須包含員工加班餐費與商務餐費；與 meals_100_pct 互斥，切勿重複。"
-    },
-    {
-      "id": "meals_100_pct",
-      "type": "float",
-      "description": "員工年終尾牙聚餐、聖誕派對等全體員工社交活動之餐飲費用，可 100% 全額扣除 (用於 Line 24b)。⚠️ 絕對不可包含加班餐費或一般商務餐飲，且不可直接複製 meals_50_pct 的數值。"
-    },
-    {
-      "id": "entertainment_cost",
-      "type": "float",
-      "description": "商務娛樂支出，如球賽演唱會門票等，依法完全不可扣除 0% (用於 Line 24b)"
-    },
-    {
-      "id": "w2_gross_wages",
-      "type": "float",
-      "description": "給雇員發放的 W-2 薪資總額 (用於 Line 26；⚠️ 絕對不可含獨資業主自己的薪資或提款)"
-    },
-    {
-      "id": "employment_credits",
-      "type": "float",
-      "description": "本年度適用之薪資稅務抵免額 (用於 Line 26，會減少可扣除薪資)"
-    },
-    {
-      "id": "owner_salary_or_draw",
-      "type": "float",
-      "description": "獨資業主從本自營業務中給自己發放的提款 (Owner's Draw) 或薪水。⚠️ 必須從自營業務費用中剔除；請注意，這與 W-2 表單上的外部公司僱員薪資 (Sample 01/02) 完全無關，切勿混淆"
-    },
-    {
-      "id": "improved_building_sqft",
-      "type": "float",
-      "description": "符合 §179D 節能標準的商業建築改善總面積平方英尺 (用於 Line 27a)"
-    },
-    {
-      "id": "certified_deduction_rate",
-      "type": "float",
-      "description": "IRC §179D 認證扣除率，每平方英尺最高可達 $5.00+ (用於 Line 27a)"
-    },
-    {
-      "id": "home_office_sqft",
-      "type": "float",
-      "description": "家庭辦公室專用空間面積平方英尺 (用於 Line 30)"
-    },
-    {
-      "id": "total_home_sqft",
-      "type": "float",
-      "description": "住家總建築面積平方英尺 (用於 Line 30)"
-    },
-    {
-      "id": "allowable_home_expenses",
-      "type": "float",
-      "description": "住家本年度房租、水電、房屋保險等可分配總費用 (用於 Line 30 實際費用法)"
-    },
-    {
-      "id": "is_exclusive_and_regular",
-      "type": "boolean",
-      "description": "家庭辦公室空間是否符合「專用且定期 (Exclusive and Regular Use)」之抵稅前提 (用於 Line 30)"
-    },
-    {
-      "id": "selected_home_method",
-      "type": "string",
-      "description": "家庭辦公室折抵方法選擇：必須為 'simplified' (簡化法) 或 'actual' (實際費用法)；若無則預設 'simplified'"
-    },
-    {
-      "id": "nonrecourse_debt",
-      "type": "float",
-      "description": "業務負債中的無追索權債務 (Nonrecourse Debt；用於 Line 32 At-Risk 判定)"
-    },
-    {
-      "id": "guaranteed_non_risk_funding",
-      "type": "float",
-      "description": "獲保證之非風險性資金來源 (用於 Line 32 At-Risk 判定)"
-    },
-    {
-      "id": "prior_year_ending_inventory",
-      "type": "float",
-      "description": "上一年申報之期末存貨金額，依法必須作為本年期初存貨 (用於 Line 35)"
-    },
-    {
-      "id": "book_beginning_inventory",
-      "type": "float",
-      "description": "本年度帳簿記錄之期初存貨金額 (用於 Line 35 對照校驗)"
-    },
-    {
-      "id": "production_labor_wages",
-      "type": "float",
-      "description": "直接生產人工薪資成本，僅適用於製造/手工業 (用於 Line 37；⚠️ 絕對不可含業主自己的人工工資)"
-    },
-    {
-      "id": "owner_production_labor_pay",
-      "type": "float",
-      "description": "生產人工成本中支付給業主自己的自營工資。⚠️ 必須從自營業務的直接人工成本中扣除；請注意，這與 W-2 表單上的僱員薪資 (Employer wages) 無關，W-2 是外部工作的薪水，切勿混淆"
-    },
-    {
-      "id": "stripe_merchant_fees",
-      "type": "float",
-      "description": "Stripe/PayPal 等線上收款平台手續費 (Merchant Fees；路由至 Line 48/27b)"
-    },
-    {
-      "id": "software_subscriptions",
-      "type": "float",
-      "description": "軟體服務訂閱、SaaS 與 AWS/雲端主機費 (路由至 Line 48/27b)"
-    },
-    {
-      "id": "cleaning_services",
-      "type": "float",
-      "description": "營業場所日常清潔、垃圾清運費用 (路由至 Line 48/27b)"
-    },
-    {
-      "id": "book_amortization",
-      "type": "float",
-      "description": "帳簿無形資產攤銷費用，如專利權、開辦費攤銷 (用於 Line 48)"
-    },
-    {
-      "id": "book_bad_debts",
-      "type": "float",
-      "description": "商業壞帳 (僅限應計制 Accrual 下確信無法收回者，用於 Line 48)"
-    },
-    {
-      "id": "de_minimis_safe_harbor_cost",
-      "type": "float",
-      "description": "符合小額安全港 de minimis 規定直接費用化之固定資產總額 (無 AFS 單件上限 $2500，有 AFS 上限 $5000；用於 Line 48)"
-    },
-    {
-      "id": "other_misc_expenses_list",
-      "type": "array",
-      "description": "其他未分類之合理雜項營業費用明細清單。僅收納未分類的行政或業務雜費（例如：Security Monitoring, Bank Charges, Conference Fees）。格式為對象陣列：[{\"name\": string, \"value\": float}]，若無則為空陣列 []。絕對不可包含已被分類至 Line 25 Utilities 的 Internet & Phone 費用，亦不可包含罰金項目"
-    }
-  ],
-  "formulas": [
-    {
-      "id": "line_b_principal_activity_code_val",
-      "expr": "line_b_principal_activity_code",
-      "description": "Line B: Principal Activity Code"
+      "description": "Field F: Accounting method (會計方法；必須為 'CASH', 'ACCRUAL' 或 'OTHER')"
     },
     {
       "id": "line_g_material_participation",
-      "expr": "owner_annual_hours > 500 or is_sole_participant or (owner_annual_hours > 100 and owner_annual_hours >= others_annual_hours) or (True if owner_annual_hours == 0.0 and others_annual_hours == 0.0 else False)",
-      "description": "Line G: Material participation status (是否實質參與)"
+      "type": "boolean",
+      "description": "Line G: Material participation in this business (是否實質參與)"
+    },
+    {
+      "id": "line_h_started_or_acquired",
+      "type": "boolean",
+      "description": "Line H: Started or acquired business in the tax year (是否於當前年度新成立或收購)"
     },
     {
       "id": "line_i_payment_requiring_1099",
-      "expr": "any_contractor_paid_600_or_more",
-      "description": "Line I: Did you make any payments in 2025 that would require you to file Form(s) 1099?"
+      "type": "boolean",
+      "description": "Line I: Did you make any payments in the tax year that would require you to file Form(s) 1099?"
     },
     {
-      "id": "line_j_filed_1099",
-      "expr": "is_1099_filed if line_i_payment_requiring_1099 else False",
-      "description": "Line J: If 'Yes' to Line I, did you or will you file required Form(s) 1099?"
+      "id": "line_j_filed_required_1099",
+      "type": "boolean",
+      "description": "Line J: If 'Yes' to Line I, did you or will you file required Forms 1099?"
     },
     {
-      "id": "line_9_car_truck_expenses",
-      "expr": "(line_44a_business_miles * 0.70 + parking_and_tolls) if selected_mileage_method == 'standard' else (actual_car_expenses * (line_44a_business_miles / (line_44a_business_miles + line_44b_commuting_miles + line_44c_other_miles + 0.0001)) + parking_and_tolls)",
-      "description": "Line 9: Car and truck expenses (使用 2025 標準里程率 $0.70/mile 或實際比例計算)"
+      "id": "income",
+      "type": "object",
+      "description": "Part I 營業收入資訊。結構包含: line_1_gross_receipts (Decimal, 毛收入), line_2_returns_allowances (Decimal, 退貨與折讓), line_6_other_income (Decimal, 其他收入)"
     },
     {
-      "id": "line_24a_travel",
-      "expr": "((travel_transit_cost if business_days > total_trip_days / 2 else 0) + travel_lodging_cost * (business_days / total_trip_days if total_trip_days > 0 else 0)) if not is_international else ((travel_transit_cost if (total_trip_days <= 7 or (total_trip_days - business_days) / total_trip_days < 0.25) else (travel_transit_cost * (business_days / total_trip_days))) + travel_lodging_cost * (business_days / total_trip_days if total_trip_days > 0 else 0))",
-      "description": "Line 24a: Travel (商用差旅費大交通與住宿比例計算)"
+      "id": "expenses",
+      "type": "object",
+      "description": "Part II 營業費用資訊。結構包含: line_8_advertising (Decimal), line_9_car_truck_expenses_final (Decimal | null), line_10_commissions_fees (Decimal), line_11_contract_labor (Decimal), line_12_depletion (Decimal), line_14_employee_benefit_programs (Decimal), line_15_insurance (Decimal), line_16a_mortgage_interest (Decimal), line_16b_other_interest (Decimal), line_17_legal_professional (Decimal), line_18_office_expense (Decimal), line_19_pension_profit_sharing (Decimal), line_20a_rent_machinery_equipment (Decimal), line_20b_rent_other_property (Decimal), line_21_repairs_maintenance (Decimal), line_22_supplies (Decimal), line_23_taxes_licenses (Decimal), line_24a_travel_final (Decimal | null), meals_50_percent_source_amount (Decimal), meals_100_percent_source_amount (Decimal), entertainment_source_amount (Decimal), line_25_utilities (Decimal), line_26_wages_final (Decimal | null), line_13_depreciation_from_form4562 (Decimal | null), line_30_home_office_from_module (Decimal | null), line_4_cogs_from_module (Decimal | null)"
     },
     {
-      "id": "line_24b_deductible_meals",
-      "expr": "meals_50_pct * 0.50 + meals_100_pct * 1.00 + entertainment_cost * 0.00",
-      "description": "Line 24b: Deductible meals (一般餐飲扣 50%，尾牙全扣，娛樂不扣)"
+      "id": "other_expense_items",
+      "type": "array",
+      "description": "Part V 其他營業費用清單。每個項目為物件: {item_id: string, name: string, amount: Decimal, source_document_id: string | null, confidence: 'HIGH' | 'MEDIUM' | 'LOW'}"
     },
     {
-      "id": "line_26_wages",
-      "expr": "w2_gross_wages - employment_credits",
-      "description": "Line 26: Wages (扣除抵免且排除業主提款的薪資)"
+      "id": "loss_at_risk_answer",
+      "type": "string",
+      "description": "Line 32: If net loss, are all investments at risk? (必須為 'ALL_AT_RISK' 或 'SOME_NOT_AT_RISK')"
     },
     {
-      "id": "line_27a_energy_efficient_deduction",
-      "expr": "improved_building_sqft * certified_deduction_rate",
-      "description": "Line 27a: Energy efficient commercial buildings deduction (§179D / Form 7205)"
-    },
-    {
-      "id": "line_35_beginning_inventory",
-      "expr": "prior_year_ending_inventory",
-      "description": "Line 35: Inventory at beginning of year"
-    },
-    {
-      "id": "line_37_cost_of_labor",
-      "expr": "production_labor_wages",
-      "description": "Line 37: Cost of labor (排除業主工資)"
-    },
-    {
-      "id": "line_48_other_expenses_total",
-      "expr": "stripe_merchant_fees + software_subscriptions + cleaning_services + book_amortization + book_bad_debts + de_minimis_safe_harbor_cost + sum(item['value'] for item in other_misc_expenses_list)",
-      "description": "Line 48: Total other expenses"
-    },
-    {
-      "id": "line_40_total_cost_of_goods",
-      "expr": "line_35_beginning_inventory + line_36_purchases_less_personal + line_37_cost_of_labor + line_38_materials_supplies + line_39_other_costs",
-      "description": "Line 40: Total cost of goods"
-    },
-    {
-      "id": "line_42_cogs",
-      "expr": "line_40_total_cost_of_goods - line_41_ending_inventory",
-      "description": "Line 42: Cost of goods sold"
-    },
-    {
-      "id": "line_3_net_receipts",
-      "expr": "line_1_gross_receipts - line_2_returns_allowances",
-      "description": "Line 3: Net receipts"
-    },
-    {
-      "id": "line_4_cogs",
-      "expr": "line_42_cogs",
-      "description": "Line 4: Cost of goods sold"
-    },
-    {
-      "id": "line_5_gross_profit",
-      "expr": "line_3_net_receipts - line_4_cogs",
-      "description": "Line 5: Gross profit"
-    },
-    {
-      "id": "line_7_gross_income",
-      "expr": "line_5_gross_profit + line_6_other_income",
-      "description": "Line 7: Gross income"
-    },
-    {
-      "id": "line_27b_other_expenses",
-      "expr": "line_48_other_expenses_total",
-      "description": "Line 27b: Other expenses"
-    },
-    {
-      "id": "net_income_before_sec179",
-      "expr": "line_7_gross_income - (line_8_advertising + line_9_car_truck_expenses + line_10_commissions_fees + line_11_contract_labor + line_12_depletion + line_14_employee_benefit_programs + line_15_insurance + line_16a_mortgage_interest + line_16b_other_interest + line_17_legal_professional + line_18_office_expense + line_19_pension_profit_sharing + line_20a_rent_machinery_equipment + line_20b_rent_other_property + line_21_repairs_maintenance + line_22_supplies + line_23_taxes_licenses + line_24a_travel + line_24b_deductible_meals + line_25_utilities + line_26_wages + line_27a_energy_efficient_deduction + line_27b_other_expenses)",
-      "description": "Intermediate: Net business income before Section 179 deduction limit check"
-    },
-    {
-      "id": "sec179_deduction",
-      "expr": "min(sec179_asset_cost, 1150000.0, max(0.0, net_income_before_sec179)) if use_sec179 else 0.0",
-      "description": "Section 179 deduction amount (limited to net business income)"
-    },
-    {
-      "id": "line_13_depreciation_sec179",
-      "expr": "macrs_depreciation + sec179_deduction",
-      "description": "Line 13: Depreciation and section 179 expense"
-    },
-    {
-      "id": "line_28_total_expenses",
-      "expr": "line_8_advertising + line_9_car_truck_expenses + line_10_commissions_fees + line_11_contract_labor + line_12_depletion + line_13_depreciation_sec179 + line_14_employee_benefit_programs + line_15_insurance + line_16a_mortgage_interest + line_16b_other_interest + line_17_legal_professional + line_18_office_expense + line_19_pension_profit_sharing + line_20a_rent_machinery_equipment + line_20b_rent_other_property + line_21_repairs_maintenance + line_22_supplies + line_23_taxes_licenses + line_24a_travel + line_24b_deductible_meals + line_25_utilities + line_26_wages + line_27a_energy_efficient_deduction + line_27b_other_expenses",
-      "description": "Line 28: Total expenses before business use of home"
-    },
-    {
-      "id": "line_29_tentative_profit",
-      "expr": "line_7_gross_income - line_28_total_expenses",
-      "description": "Line 29: Tentative profit or loss"
-    },
-    {
-      "id": "line_30_business_use_of_home",
-      "expr": "0.0 if not is_exclusive_and_regular else (min(300.0, home_office_sqft) * 5.0 if selected_home_method == 'simplified' else allowable_home_expenses * (home_office_sqft / (total_home_sqft + 0.0001)))",
-      "description": "Line 30: Business use of home (家庭辦公室折抵)"
-    },
-    {
-      "id": "line_31_net_profit",
-      "expr": "line_29_tentative_profit - line_30_business_use_of_home",
-      "description": "Line 31: Net profit or loss"
-    },
-    {
-      "id": "line_32_at_risk",
-      "expr": "'32a' if (nonrecourse_debt == 0.0 and guaranteed_non_risk_funding == 0.0) else '32b'",
-      "description": "Line 32: At-risk checks"
+      "id": "special_case_flags",
+      "type": "object",
+      "description": "V1 特殊案件偵測旗標。包含: has_inventory_or_cogs (bool), has_vehicle_expense_requiring_calculation (bool), has_depreciation_or_section179 (bool), has_home_office (bool), has_mixed_travel (bool), has_uncertain_meals_or_entertainment (bool), has_employee_wages_or_payroll_credit (bool), has_owner_draw_in_expenses (bool), has_uncertain_expense_category (bool), has_rental_or_royalty_activity (bool), has_farm_activity (bool), has_business_asset_sale (bool), has_passive_activity_issue (bool), has_at_risk_limitation_issue (bool), has_qbi_request (bool), has_schedule_se_request (bool)"
     }
   ]
 }
