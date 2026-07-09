@@ -111,3 +111,11 @@ def validate_questionnaire(inputs: ScheduleCInputsV1, errors: List[ValidationIss
                 "line_j_filed_required_1099",
                 message="Line J (whether required Forms 1099 were filed) must be answered when Line I is Yes."
             ))
+
+def validate_meals_and_entertainment(inputs: ScheduleCInputsV1, warnings: List[ValidationIssue]):
+    if inputs.expenses.meals_100_percent_source_amount > Decimal("0.00"):
+        warnings.append(ValidationIssue(
+            "REVIEW_100_PCT_MEALS",
+            "meals_100_percent_source_amount",
+            message="100% deductible meals (e.g. employee holiday party) are claimed; please verify they meet the IRS requirements for full deduction."
+        ))

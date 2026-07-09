@@ -7,6 +7,7 @@ from processors.validators.schedule_c import (
     validate_nonnegative_amounts,
     detect_unsupported_cases,
     validate_questionnaire,
+    validate_meals_and_entertainment,
 )
 
 def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
@@ -19,6 +20,7 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
     validate_nonnegative_amounts(inputs, errors)
     detect_unsupported_cases(inputs, errors)
     validate_questionnaire(inputs, errors)
+    validate_meals_and_entertainment(inputs, warnings)
 
     # 2. Check for low confidence other expenses
     for item in inputs.other_expense_items:
