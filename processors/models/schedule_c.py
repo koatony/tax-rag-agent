@@ -5,7 +5,9 @@ from processors.models.schedule_a import ValidationIssue
 
 def to_decimal(value: Any, default: Optional[str] = "0.00") -> Optional[Decimal]:
     """
-    將輸入數值轉換為 Decimal。如果為 None 且 default 為 None，則返回 None。
+    將輸入數值 (如 float 或 str) 轉換為高精度的 Decimal。
+    藉由字串中介轉換，避免 float 浮點誤差與型別不一致。
+    如果數值為 None 且預設值為 None，則回傳 None。
     """
     if value is None or value == "":
         return Decimal(default) if default is not None else None
