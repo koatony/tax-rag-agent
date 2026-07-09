@@ -29,6 +29,9 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
                 message=f"Other expense item '{item.name}' has LOW confidence."
             ))
 
+    def coalesce_decimal(val) -> Decimal:
+        return val if val is not None else Decimal("0.00")
+
     # 3. Calculate Income
     line_1_gross_receipts = inputs.income.line_1_gross_receipts
     line_2_returns_allowances = inputs.income.line_2_returns_allowances
@@ -37,22 +40,34 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
         errors.append(ValidationIssue("NEGATIVE_NET_RECEIPTS", "line_3_net_receipts", message="Net receipts cannot be negative."))
 
     # 4. COGS
-    if not inputs.special_case_flags.has_inventory_or_cogs:
-        line_4_cogs = ZERO
+    if inputs.special_case_flags.has_inventory_or_cogs:
+        line_4_cogs = inputs.expenses.line_4_cogs_from_module
     else:
-        line_4_cogs = inputs.expenses.line_4_cogs_from_module or ZERO
+        line_4_cogs = Decimal("0.00")
 
-    line_5_gross_profit = line_3_net_receipts - line_4_cogs
+    line_3_net_receipts_coalesce = coalesce_decimal(line_3_net_receipts)
+    line_4_cogs_coalesce = coalesce_decimal(line_4_cogs)
+    line_5_gross_profit = line_3_net_receipts_coalesce - line_4_cogs_coalesce
     line_6_other_income = inputs.income.line_6_other_income
-    line_7_gross_income = line_5_gross_profit + line_6_other_income
+    line_7_gross_income = line_5_gross_profit + coalesce_decimal(line_6_other_income)
 
     # 5. Expenses (Lines 8-27)
     line_8 = inputs.expenses.line_8_advertising
-    line_9 = inputs.expenses.line_9_car_truck_expenses_final or ZERO
+    
+    if inputs.special_case_flags.has_vehicle_expense_requiring_calculation:
+        line_9 = inputs.expenses.line_9_car_truck_expenses_final
+    else:
+        line_9 = inputs.expenses.line_9_car_truck_expenses_final or Decimal("0.00")
+        
     line_10 = inputs.expenses.line_10_commissions_fees
     line_11 = inputs.expenses.line_11_contract_labor
     line_12 = inputs.expenses.line_12_depletion
-    line_13 = inputs.expenses.line_13_depreciation_from_form4562 or ZERO
+    
+    if inputs.special_case_flags.has_depreciation_or_section179:
+        line_13 = inputs.expenses.line_13_depreciation_from_form4562
+    else:
+        line_13 = inputs.expenses.line_13_depreciation_from_form4562 or Decimal("0.00")
+        
     line_14 = inputs.expenses.line_14_employee_benefit_programs
     line_15 = inputs.expenses.line_15_insurance
     line_16a = inputs.expenses.line_16a_mortgage_interest
@@ -65,13 +80,22 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
     line_21 = inputs.expenses.line_21_repairs_maintenance
     line_22 = inputs.expenses.line_22_supplies
     line_23 = inputs.expenses.line_23_taxes_licenses
-    line_24a = inputs.expenses.line_24a_travel_final or ZERO
+    
+    if inputs.special_case_flags.has_mixed_travel:
+        line_24a = inputs.expenses.line_24a_travel_final
+    else:
+        line_24a = inputs.expenses.line_24a_travel_final or Decimal("0.00")
     
     # Meals & Entertainment
     line_24b = inputs.expenses.meals_50_percent_source_amount * Decimal("0.50") + inputs.expenses.meals_100_percent_source_amount
 
     line_25 = inputs.expenses.line_25_utilities
-    line_26 = inputs.expenses.line_26_wages_final or ZERO
+    
+    if inputs.special_case_flags.has_employee_wages_or_payroll_credit:
+        line_26 = inputs.expenses.line_26_wages_final
+    else:
+        line_26 = inputs.expenses.line_26_wages_final or Decimal("0.00")
+        
     line_27a_energy_efficient_building_deduction = ZERO
 
     # Other Expenses Part V
@@ -80,16 +104,26 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
 
     # Total Expenses (Line 28)
     line_28_total_expenses = (
-        line_8 + line_9 + line_10 + line_11 + line_12 + line_13 + line_14 + line_15 +
-        line_16a + line_16b + line_17 + line_18 + line_19 + line_20a + line_20b + line_21 +
-        line_22 + line_23 + line_24a + line_24b + line_25 + line_26 +
-        line_27a_energy_efficient_building_deduction + line_27b
+        coalesce_decimal(line_8) + coalesce_decimal(line_9) + coalesce_decimal(line_10) +
+        coalesce_decimal(line_11) + coalesce_decimal(line_12) + coalesce_decimal(line_13) +
+        coalesce_decimal(line_14) + coalesce_decimal(line_15) + coalesce_decimal(line_16a) +
+        coalesce_decimal(line_16b) + coalesce_decimal(line_17) + coalesce_decimal(line_18) +
+        coalesce_decimal(line_19) + coalesce_decimal(line_20a) + coalesce_decimal(line_20b) +
+        coalesce_decimal(line_21) + coalesce_decimal(line_22) + coalesce_decimal(line_23) +
+        coalesce_decimal(line_24a) + coalesce_decimal(line_24b) + coalesce_decimal(line_25) +
+        coalesce_decimal(line_26) + coalesce_decimal(line_27a_energy_efficient_building_deduction) +
+        coalesce_decimal(line_27b)
     )
 
     # 6. Profit or Loss
     line_29_tentative_profit_or_loss = line_7_gross_income - line_28_total_expenses
-    line_30 = inputs.expenses.line_30_home_office_from_module or ZERO
-    line_31_net_profit_or_loss = line_29_tentative_profit_or_loss - line_30
+    
+    if inputs.special_case_flags.has_home_office:
+        line_30 = inputs.expenses.line_30_home_office_from_module
+    else:
+        line_30 = inputs.expenses.line_30_home_office_from_module or Decimal("0.00")
+        
+    line_31_net_profit_or_loss = line_29_tentative_profit_or_loss - coalesce_decimal(line_30)
 
     # 7. Loss case, At-Risk & Passive activities
     line_32_at_risk_surface = None
