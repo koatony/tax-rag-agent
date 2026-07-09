@@ -134,7 +134,7 @@ def calculate_salt_limit_v1(tax_year: int, filing_status: str, agi: Decimal, lin
         errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", field="tax_year", message=f"Tax year {tax_year} is not supported."))
         return None
 
-def calculate_simple_form_1098(mortgage_interest_items: List[MortgageInterestItemV1], errors: List[ValidationIssue]) -> Decimal:
+def calculate_simple_form_1098(mortgage_interest_items: List[MortgageInterestItemV1], errors: List[ValidationIssue], warnings: List[ValidationIssue]) -> Decimal:
     ZERO = Decimal("0.00")
     if not mortgage_interest_items:
         return ZERO
@@ -144,7 +144,30 @@ def calculate_simple_form_1098(mortgage_interest_items: List[MortgageInterestIte
     total_deductible = ZERO
     for item in mortgage_interest_items:
         validate_paid_year(item, errors)
-        
+
+        # 防禦層：依 property_use_context 阻斷非自用房產利息
+        ctx = item.property_use_context  # None / MAIN_HOME / SECOND_HOME / RENTAL_PROPERTY / BUSINESS_PROPERTY / UNKNOWN
+        if ctx in MortgageInterestItemV1.NON_DEDUCTIBLE_CONTEXTS:
+            warnings.append(ValidationIssue(
+                "MORTGAGE_INTEREST_NON_PERSONAL_USE",
+                field="property_use_context",
+                item_id=item.item_id,
+                source_document_id=item.source_document_id,
+                message=f"Mortgage interest excluded from Schedule A: property_use_context={ctx}. "
+                        f"Rental property interest belongs on Schedule E; business property interest on Schedule C."
+            ))
+            continue
+        elif ctx not in MortgageInterestItemV1.DEDUCTIBLE_CONTEXTS:
+            # None 或 UNKNOWN：警告但仍依 simple_mortgage_status 繼續處理
+            warnings.append(ValidationIssue(
+                "MORTGAGE_INTEREST_USE_CONTEXT_UNKNOWN",
+                field="property_use_context",
+                item_id=item.item_id,
+                source_document_id=item.source_document_id,
+                message=f"property_use_context is '{ctx}'; cannot confirm this is a personal-use home. "
+                        f"Proceeding based on simple_mortgage_status."
+            ))
+
         if item.simple_mortgage_status == "UNKNOWN":
             errors.append(ValidationIssue("UNKNOWN_TAX_CHARACTER", field="simple_mortgage_status", item_id=item.item_id, source_document_id=item.source_document_id, message="Unknown mortgage status."))
             continue
@@ -153,6 +176,7 @@ def calculate_simple_form_1098(mortgage_interest_items: List[MortgageInterestIte
             total_deductible += item.form_1098_box_1_mortgage_interest + item.deductible_points_reported_on_1098
             
     return total_deductible
+
 
 def calculate_cash_charity(cash_charity_items: List[CashCharityItemV1], errors: List[ValidationIssue], warnings: List[ValidationIssue], tax_year: int = 2024) -> Decimal:
     total = Decimal("0.00")
@@ -426,7 +450,7 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
     # - Line 8c: 未申報於 Form 1098 的點數 (設為 0)
     # - Line 9: 投資利息支出 / Form 4952 (設為 0)
     # - 多筆房貸、房貸本金超額限額計算、共享利息、賣方融資房貸等 (由特別 Flag 阻斷)
-    line_8a = calculate_simple_form_1098(inputs.mortgage_interest_items, errors=errors)
+    line_8a = calculate_simple_form_1098(inputs.mortgage_interest_items, errors=errors, warnings=warnings)
     line_8b = ZERO
     line_8c = ZERO
     line_8e = line_8a + line_8b + line_8c

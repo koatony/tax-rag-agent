@@ -1,84 +1,105 @@
 # Schedule B (利息與普通股利) API
 
-提供從上傳的憑證（如 Form 1099-INT、Form 1099-DIV、國外銀行對帳單等）中自動提取財務事實，並自動進行 Schedule B 表單試算的 API 服務。
+從上傳的憑證（如 Form 1099-INT、Form 1099-DIV 等）自動提取財務事實，
+並透過 V1 確定性計算引擎完成 Schedule B 試算。
 
 ---
 
-## 1. 提取並試算 API
+## POST `/schedule-b/extract-and-calculate`
 
-傳入納稅人檔案與未結構化的文件內容，系統將使用 LLM 自動識別並提取 Schedule B 相關數值，隨後自動帶入 V1 確定性計算引擎完成試算。
+**驗證**：Request Header 需夾帶 `X-API-Token`。
 
-* **端點**：`POST /schedule-b/extract-and-calculate`
-* **驗證方式**：必須在 Request Header 中夾帶 `X-API-Token`。
+### Request Body
 
-### 請求參數 (Request Body)
+| 參數 | 類型 | 必填 | 說明 |
+|---|---|---|---|
+| `taxpayer_profile` | object | ✅ | 納稅人基本資料（姓名、報稅年度等） |
+| `uploaded_documents` | list[object] | ✅ | 文件列表，每個物件含 `file_name`（檔名）與 `content`（文字內容） |
+| `model_name` | string | ❌ | 指定 LLM 模型（預設 `gemini-2.5-pro`） |
 
-| 參數名稱 | 類型 | 必填 | 說明 |
-| :--- | :--- | :--- | :--- |
-| `taxpayer_profile` | object | **是** | 納稅人一般資訊與配置（如姓名、報稅年度等）。 |
-| `uploaded_documents` | list[object] | **是** | 已上傳的文件列表。每個物件包含 `file_name` (檔名) 與 `content` (文字內容)。 |
-| `model_name` | string | 否 | 指定使用的 LLM 模型名稱 (預設為 `"gemini-2.5-pro"`)。 |
+#### Request 範例
 
-#### 請求 Payload 範例
 ```json
 {
   "taxpayer_profile": {
     "name": "Marcus Rivera",
-    "tax_year": 2025
+    "ssn": "XXX-XX-1234",
+    "tax_year": 2024,
+    "filing_status": "MFJ"
   },
   "uploaded_documents": [
     {
-      "file_name": "Chase_1099_INT.txt",
-      "content": "Form 1099-INT Interest Income. Payer: Chase Bank. Taxpayer: Marcus Rivera. Box 1 Interest Income: $120.0."
+      "file_name": "Chase_1099_INT_2024.txt",
+      "content": "Form 1099-INT. Payer: Chase Bank NA. Box 1 Interest Income: $348.52. Box 11 Bond Premium: $0."
+    },
+    {
+      "file_name": "Vanguard_1099_DIV_2024.txt",
+      "content": "Form 1099-DIV. Payer: Vanguard. Box 1a Total Ordinary Dividends: $1,240.00. Box 1b Qualified Dividends: $1,050.00."
     }
   ]
 }
 ```
 
-### 回應欄位 (Response Body)
+---
 
-* `success` (boolean)：`true`。
-* `state` (object)：試算最終欄位數值，其結構完全對齊最新 V1 計算結果：
-  * `taxpayer_name` (string)
-  * `taxpayer_ssn_masked` (string)
-  * `tax_year` (int)
-  * `filing_status` (string)
-  * `agi` (float)
-  * `line_1_interest_items` (list[object])
-  * `line_1_subtotal` (float)
-  * `line_2_total_interest` (float)
-  * `line_3_excludable_savings_bond_interest` (float)
-  * `line_4_taxable_interest` (float)
-  * `line_5_dividend_items` (list[object])
-  * `line_6_total_dividends` (float)
-  * `line_7a_foreign_account_authority` (boolean/null)
-  * `line_7a_fbar_required` (boolean/null)
-  * `line_7b_foreign_countries` (list[string])
-  * `line_8_foreign_trust_distribution` (boolean/null)
-  * `is_v1_supported` (boolean)
-  * `can_file` (boolean)
-  * `blocking_errors` (list[object])：阻斷錯誤清單。每個錯誤物件包含以下屬性：
-    * `code` (string)：錯誤代碼（例如 `UNSUPPORTED_SELLER_FINANCED_MORTGAGE`）。
-    * `field` (string | null)：關聯的欄位名稱。
-    * `item_id` (string | null)：關聯的明細項目 ID。
-    * `source_document_id` (string | null)：關聯的來源憑證/檔案名稱。
-    * `message` (string)：詳細的中文錯誤說明。
-  * `review_warnings` (list[object])：警告與人工審核清單。每個警告物件包含以下屬性：
-    * `code` (string)：警告代碼。
-    * `field` (string | null)：關聯的欄位名稱。
-    * `item_id` (string | null)：關聯的明細項目 ID。
-    * `source_document_id` (string | null)：關聯的來源憑證/檔案名稱。
-    * `message` (string)：詳細的中文警告說明。
-* `debug_info` (object)：除錯與日誌資訊物件。包含以下屬性：
-  * `model_name` (string)：執行此次提取所使用的 LLM 模型名稱（例如 `gemini-2.5-pro`）。
-  * `prompt_log` (string)：發送給 LLM 的完整提示詞（Prompt）內容，包含注入的上下文。
-  * `raw_output` (string)：LLM 回傳的原始文字（JSON 格式字串）。
+### Response Body
+
+| 欄位 | 類型 | 說明 |
+|---|---|---|
+| `success` | boolean | 成功時為 `true` |
+| `state` | object | 計算結果，詳見下表 |
+| `debug_info` | object | LLM 模型名稱、完整 prompt、原始輸出 |
+
+#### `state` 欄位明細
+
+| 欄位 | 類型 | 說明 |
+|---|---|---|
+| `taxpayer_name` | string | 納稅人姓名 |
+| `taxpayer_ssn_masked` | string | 遮蔽後的 SSN |
+| `tax_year` | int | 報稅年度 |
+| `filing_status` | string | 申報身份（SINGLE / MFJ / MFS / HOH / QSS） |
+| `line_1_interest_items` | list[object] | Part I 利息明細清單 |
+| `line_1_subtotal` | float \| null | Part I 利息加總（Line 1） |
+| `line_2_total_interest` | float \| null | 應申報總利息（Line 2） |
+| `line_3_excludable_savings_bond_interest` | float \| null | 可排除的教育儲蓄債券利息（Line 3，需 Form 8815） |
+| `line_4_taxable_interest` | float \| null | 應稅利息（Line 4 = Line 2 − Line 3） |
+| `line_5_dividend_items` | list[object] | Part II 股利明細清單 |
+| `line_6_total_dividends` | float \| null | 普通股利合計（Line 6） |
+| `line_7a_foreign_account_authority` | boolean \| null | 是否持有境外金融帳戶（Line 7a） |
+| `line_7a_fbar_required` | boolean \| null | 是否需申報 FinCEN 114（FBAR） |
+| `line_7b_foreign_countries` | list[string] | 持有帳戶的國家清單（Line 7b） |
+| `line_8_foreign_trust_distribution` | boolean \| null | 是否收到境外信託分配（Line 8） |
+| `is_v1_supported` | boolean | 本案件是否在 V1 支援範圍內 |
+| `can_file` | boolean | 是否已具備申報條件（無阻斷錯誤） |
+| `blocking_errors` | list[object] | 阻斷錯誤清單（見下） |
+| `review_warnings` | list[object] | 警告與人工審核清單（見下） |
+
+#### `blocking_errors` / `review_warnings` 物件結構
+
+```json
+{
+  "code": "UNSUPPORTED_CASE",
+  "field": "line_3_savings_bond_interest",
+  "item_id": "int_01",
+  "source_document_id": "Chase_1099_INT_2024.txt",
+  "message": "..."
+}
+```
+
+#### `debug_info` 物件結構
+
+```json
+{
+  "model_name": "gemini-2.5-pro",
+  "prompt_log": "...",
+  "raw_output": "..."
+}
+```
 
 ---
 
-## 使用範例
+### cURL 範例
 
-### cURL 指令
 ```bash
 curl -X POST "http://localhost:8088/schedule-b/extract-and-calculate" \
      -H "Content-Type: application/json" \
@@ -86,13 +107,52 @@ curl -X POST "http://localhost:8088/schedule-b/extract-and-calculate" \
      -d '{
        "taxpayer_profile": {
          "name": "Marcus Rivera",
-         "tax_year": 2025
+         "tax_year": 2024,
+         "filing_status": "MFJ"
        },
        "uploaded_documents": [
          {
-           "file_name": "chase_interest.txt",
-           "content": "Chase Bank Savings Interest Income: $120.0"
+           "file_name": "Chase_1099_INT_2024.txt",
+           "content": "Chase Bank NA. Box 1 Interest Income: $348.52."
          }
        ]
      }'
 ```
+
+### 成功 Response 範例
+
+```json
+{
+  "success": true,
+  "state": {
+    "taxpayer_name": "Marcus Rivera",
+    "tax_year": 2024,
+    "filing_status": "MFJ",
+    "line_1_subtotal": 348.52,
+    "line_2_total_interest": 348.52,
+    "line_3_excludable_savings_bond_interest": 0.0,
+    "line_4_taxable_interest": 348.52,
+    "line_6_total_dividends": 1240.0,
+    "is_v1_supported": true,
+    "can_file": true,
+    "blocking_errors": [],
+    "review_warnings": []
+  },
+  "debug_info": {
+    "model_name": "gemini-2.5-pro",
+    "prompt_log": "...",
+    "raw_output": "..."
+  }
+}
+```
+
+---
+
+## V1 引擎支援範圍與限制
+
+| 支援 ✅ | 不支援 ❌（Blocking Error） |
+|---|---|
+| Form 1099-INT 利息收入 | OID (Original Issue Discount) Form 1099-OID |
+| Form 1099-DIV 普通股利 | 儲蓄債券利息排除（Form 8815）→ `UNSUPPORTED_FORM_8815` |
+| FBAR 揭露判斷（Line 7a/7b） | 境外稅額抵免（Form 1116）→ `UNSUPPORTED_FOREIGN_TAX_CREDIT` |
+| 境外信託揭露判斷（Line 8） | ABP 調整（市場折溢價攤銷）→ `UNSUPPORTED_ABP_ADJUSTMENT` |

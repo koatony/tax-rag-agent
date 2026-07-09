@@ -210,7 +210,17 @@ class MortgageInterestItemV1:
     自住房貸利息模型 (Mortgage Interest Item).
     代表 Form 1098 或是符合扣除條件的購屋貸款利息支出。
     目前 V1 只支援單筆且無超額限制的簡單房貸 (CONFIRMED_SIMPLE)。
+
+    property_use_context 合法值：
+        MAIN_HOME        - 納稅人主要住宅（可扣除）
+        SECOND_HOME      - 第二自住宅（可扣除）
+        RENTAL_PROPERTY  - 出租房產（不可列入 Schedule A，應走 Schedule E）
+        BUSINESS_PROPERTY- 商業地產（不可列入 Schedule A，應走 Schedule C）
+        UNKNOWN          - 不明，由 calculator 觸發警告
     """
+    DEDUCTIBLE_CONTEXTS = {"MAIN_HOME", "SECOND_HOME"}
+    NON_DEDUCTIBLE_CONTEXTS = {"RENTAL_PROPERTY", "BUSINESS_PROPERTY"}
+
     def __init__(
         self,
         item_id: str = "",
@@ -220,7 +230,8 @@ class MortgageInterestItemV1:
         form_1098_box_1_mortgage_interest: Decimal = Decimal("0.00"),
         deductible_points_reported_on_1098: Decimal = Decimal("0.00"),
         paid_in_tax_year: Optional[bool] = None,
-        simple_mortgage_status: str = "UNKNOWN"
+        simple_mortgage_status: str = "UNKNOWN",
+        property_use_context: Optional[str] = None
     ):
         self.item_id = item_id
         self.source_document_id = source_document_id
@@ -230,6 +241,8 @@ class MortgageInterestItemV1:
         self.deductible_points_reported_on_1098 = deductible_points_reported_on_1098
         self.paid_in_tax_year = paid_in_tax_year
         self.simple_mortgage_status = simple_mortgage_status
+        # None 表示 LLM 未提供此欄位（視為 UNKNOWN，由 calculator 決策）
+        self.property_use_context: Optional[str] = property_use_context
 
     @classmethod
     def from_dict(cls, mo: Dict[str, Any]) -> "MortgageInterestItemV1":
@@ -238,7 +251,9 @@ class MortgageInterestItemV1:
         if paid_in_year is None:
             paid_in_year = True
         status = mo.get("simple_mortgage_status") or "CONFIRMED_SIMPLE"
-        
+        raw_ctx = mo.get("property_use_context")
+        property_use_context = str(raw_ctx).upper() if raw_ctx else None
+
         return cls(
             item_id=item_id,
             source_document_id=mo.get("source_document_id"),
@@ -247,7 +262,8 @@ class MortgageInterestItemV1:
             form_1098_box_1_mortgage_interest=Decimal(str(mo.get("form_1098_box_1_mortgage_interest") or "0.00")),
             deductible_points_reported_on_1098=Decimal(str(mo.get("deductible_points_reported_on_1098") or "0.00")),
             paid_in_tax_year=paid_in_year,
-            simple_mortgage_status=status
+            simple_mortgage_status=status,
+            property_use_context=property_use_context
         )
 
 
