@@ -92,8 +92,9 @@ def detect_unsupported_cases(inputs: ScheduleCInputsV1, errors: List[ValidationI
         errors.append(ValidationIssue("UNCERTAIN_EXPENSE_CLASSIFICATION", "has_uncertain_expense_category", message="Uncertain expense category requires review."))
 
     # 3. Missing upstream module inputs for special features
-    if flags.has_inventory_or_cogs and exp.line_4_cogs_from_module is None:
-        errors.append(ValidationIssue("UNSUPPORTED_COGS_IN_V1", "line_4_cogs_from_module", message="COGS/inventory is not supported in V1 without upstream module output."))
+    if flags.has_inventory_or_cogs:
+        if not flags.cogs_module_completed or exp.line_4_cogs_from_module is None:
+            errors.append(ValidationIssue("COGS_MODULE_REQUIRED", "line_4_cogs_from_module", message="COGS/inventory is detected but completed COGS module output is missing."))
     if flags.has_vehicle_expense_requiring_calculation and exp.line_9_car_truck_expenses_final is None:
         errors.append(ValidationIssue("UNSUPPORTED_VEHICLE_CALCULATION_IN_V1", "line_9_car_truck_expenses_final", message="Vehicle calculation is not supported in V1 without upstream final amount."))
     if flags.has_depreciation_or_section179 and exp.line_13_depreciation_from_form4562 is None:

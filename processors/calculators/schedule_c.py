@@ -48,7 +48,10 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
 
     # 4. COGS
     if inputs.special_case_flags.has_inventory_or_cogs:
-        line_4_cogs = inputs.expenses.line_4_cogs_from_module
+        if inputs.special_case_flags.cogs_module_completed:
+            line_4_cogs = inputs.expenses.line_4_cogs_from_module
+        else:
+            line_4_cogs = None
     else:
         line_4_cogs = Decimal("0.00")
 

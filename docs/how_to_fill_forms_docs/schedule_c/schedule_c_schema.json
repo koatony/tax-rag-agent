@@ -91,7 +91,7 @@
     {
       "id": "special_case_flags",
       "type": "object",
-      "description": "V1 特殊案件偵測旗標。包含: has_inventory_or_cogs (bool), has_vehicle_expense_requiring_calculation (bool), has_depreciation_or_section179 (bool), has_home_office (bool), has_mixed_travel (bool), has_uncertain_meals_or_entertainment (bool), has_employee_wages_or_payroll_credit (bool), has_owner_draw_in_expenses (bool), has_uncertain_expense_category (bool), has_rental_or_royalty_activity (bool), has_farm_activity (bool), has_business_asset_sale (bool), has_passive_activity_issue (bool), has_at_risk_limitation_issue (bool), has_qbi_request (bool), has_schedule_se_request (bool)"
+      "description": "V1 特殊案件偵測旗標。包含: has_inventory_or_cogs (bool), cogs_module_completed (bool), has_vehicle_expense_requiring_calculation (bool), has_depreciation_or_section179 (bool), has_home_office (bool), has_mixed_travel (bool), has_uncertain_meals_or_entertainment (bool), has_employee_wages_or_payroll_credit (bool), has_owner_draw_in_expenses (bool), has_uncertain_expense_category (bool), has_rental_or_royalty_activity (bool), has_farm_activity (bool), has_business_asset_sale (bool), has_passive_activity_issue (bool), has_at_risk_limitation_issue (bool), has_qbi_request (bool), has_schedule_se_request (bool)"
     }
   ]
 }

@@ -132,6 +132,7 @@ class ScheduleCSpecialCaseFlagsV1:
     """
     def __init__(self, **kwargs):
         self.has_inventory_or_cogs = bool(kwargs.get("has_inventory_or_cogs", False))
+        self.cogs_module_completed = bool(kwargs.get("cogs_module_completed", False))
         self.has_vehicle_expense_requiring_calculation = bool(kwargs.get("has_vehicle_expense_requiring_calculation", False))
         self.has_depreciation_or_section179 = bool(kwargs.get("has_depreciation_or_section179", False))
         self.has_home_office = bool(kwargs.get("has_home_office", False))
