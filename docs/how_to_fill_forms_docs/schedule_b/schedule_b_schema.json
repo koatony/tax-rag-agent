@@ -1,6 +1,7 @@
 {
   "form_id": "Schedule_B",
   "tax_year": 2025,
+  "supported_tax_years": [2024, 2025],
   "description": "IRS Schedule B (Form 1040) — V1 一般案件填表器規格",
   "inputs": [
     {

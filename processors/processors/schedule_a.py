@@ -1,21 +1,9 @@
-# =====================================================================
-# REVIEW 重點 1: 設計模式 —— 適配器模式 (Adapter Pattern)
-# =====================================================================
-# 【為什麼需要適配器（相容層）？】
-# 1. 系統重構過程中，最忌諱一次性將前後端、資料庫、測試系統全部重寫（Big Bang Rewrite），這極易引發線上災難。
-# 2. 我們在此處保留原本弱型別 `calculate_schedule_a_dynamic(inputs: Dict[str, Any])` 接口作為「適配器」。
-# 3. 在其內部，將輸入轉化為新版的強型別 Inputs 物件，執行核心計算後再轉回舊版期望的輸出格式。
-# 4. 這使得我們能平滑過渡到新架構，而對上層系統零干擾。
-# =====================================================================
-
 import json
 import os
 import re
 from typing import Dict, Any, List, Tuple
 from decimal import Decimal
 from dotenv import load_dotenv
-from llm_wrappers import GeminiLLM, OllamaLLM
-from langchain_core.messages import SystemMessage, HumanMessage
 
 # Import from modular OOP layers
 from processors.models.schedule_a import (
@@ -49,19 +37,29 @@ from processors.calculators.schedule_a import (
 )
 from processors.parsers.schedule_a import ScheduleALLMParser
 
-# 載入環境變數
 load_dotenv()
 
-SCHEMA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "docs", "how_to_fill_forms_docs", "schedule_a", "schedule_a_schema.json"))
+SCHEMA_PATH = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "docs",
+        "how_to_fill_forms_docs",
+        "schedule_a",
+        "schedule_a_schema.json",
+    )
+)
+
 
 def load_schedule_a_schema() -> Dict[str, Any]:
     """載入外部的 Schedule A 欄位與計算規則設定檔 (schedule_a_schema.json)。"""
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 def extract_schedule_a_inputs_with_logs(
-    document_context: str, 
-    model_name: str = "gemini-2.5-pro"
+    document_context: str, model_name: str = "gemini-2.5-pro"
 ) -> Tuple[Dict[str, Any], str, str]:
     """呼叫 LLM 進行 Schedule A 數據提取，並回傳: (提取 JSON, 發送 Prompt, LLM 原始輸出)。"""
     parser = ScheduleALLMParser(model_name=model_name)
@@ -75,8 +73,8 @@ def coalesce_decimal(*args):
             return Decimal(str(arg))
     return Decimal("0.00")
 
+
 def dict_to_v1_inputs(inputs_dict: Dict[str, Any]) -> ScheduleAInputsV1:
-    # 載入外部 AGI 配置檔以保留接口，後續可改為讀取 Form 1040 成果
     config_path = os.path.join(os.path.dirname(SCHEMA_PATH), "agi_config.json")
     if os.path.exists(config_path):
         try:
@@ -88,13 +86,18 @@ def dict_to_v1_inputs(inputs_dict: Dict[str, Any]) -> ScheduleAInputsV1:
             pass
     return ScheduleAInputsV1.from_dict(inputs_dict)
 
+
 def calculate_schedule_a_dynamic(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """主動態執行接口，將傳入字典轉為 V1 結構並執行 Python 確定性計算，保證相容性。"""
     v1_inputs = dict_to_v1_inputs(inputs)
-    res = calculate_schedule_a_v1(v1_inputs)
+    try:
+        schema = load_schedule_a_schema()
+        allowed_years = set(schema.get("supported_tax_years", [2024, 2025]))
+    except Exception:
+        allowed_years = {2024, 2025}
+    res = calculate_schedule_a_v1(v1_inputs, allowed_years=allowed_years)
     res_dict = res.to_dict()
-    
-    # 建立舊版 Schema / UI 對應的扁平欄位映射
+
     compat_mapping = {
         "line_1_medical_and_dental_expenses_net": res.line_1_medical_and_dental_expenses,
         "line_3_agi_threshold_7_5_percent": res.line_3_medical_threshold,
@@ -123,27 +126,36 @@ def calculate_schedule_a_dynamic(inputs: Dict[str, Any]) -> Dict[str, Any]:
         "ssn": res.taxpayer_ssn_masked,
         "tax_year": res.tax_year,
         "filing_status": res.filing_status,
-        "agi": res.line_2_agi
+        "agi": res.line_2_agi,
     }
-    
+
     for old_k, val in compat_mapping.items():
         if isinstance(val, Decimal):
             res_dict[old_k] = float(val)
         else:
             res_dict[old_k] = val
-            
+
     if res.is_itemizing is True:
-        res_dict["final_deduction_used"] = float(res.line_17_total_itemized_deductions) if res.line_17_total_itemized_deductions is not None else 0.0
+        res_dict["final_deduction_used"] = (
+            float(res.line_17_total_itemized_deductions)
+            if res.line_17_total_itemized_deductions is not None
+            else 0.0
+        )
     elif res.is_itemizing is False:
-        res_dict["final_deduction_used"] = float(res.standard_deduction_amount) if res.standard_deduction_amount is not None else 0.0
+        res_dict["final_deduction_used"] = (
+            float(res.standard_deduction_amount)
+            if res.standard_deduction_amount is not None
+            else 0.0
+        )
     else:
         res_dict["final_deduction_used"] = 0.0
-        
+
     has_charity_pending = any(
-        isinstance(err, dict) and err.get("code") in ("MISSING_250_ACKNOWLEDGMENT", "CHARITY_CONTRIBUTION_DATE_MISSING")
+        isinstance(err, dict)
+        and err.get("code") in ("MISSING_250_ACKNOWLEDGMENT", "CHARITY_CONTRIBUTION_DATE_MISSING")
         for err in res_dict.get("blocking_errors", [])
     )
     if has_charity_pending:
         res_dict["line_11_cash_contributions_status"] = "excluded_pending_documentation"
-        
+
     return res_dict

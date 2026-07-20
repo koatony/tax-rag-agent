@@ -161,8 +161,9 @@ EXAMPLE_IRA = {
 }
 
 EXAMPLE2_PATH = Path(__file__).resolve().parent.parent / "Flag" / "example" / "example2.json"
+EXAMPLE3_PATH = Path(__file__).resolve().parent.parent / "Flag" / "example" / "example3.json"
 
-col1, col2, col3, col4 = st.columns([4, 1, 1, 1])
+col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
 with col1:
     st.caption("Financial data (JSON)")
 with col2:
@@ -174,6 +175,9 @@ with col3:
 with col4:
     if st.button("Load example2", use_container_width=True, key="_fm2_load_example2"):
         st.session_state["_fm2_json_text"] = EXAMPLE2_PATH.read_text(encoding="utf-8")
+with col5:
+    if st.button("Load example3", use_container_width=True, key="_fm2_load_example3"):
+        st.session_state["_fm2_json_text"] = EXAMPLE3_PATH.read_text(encoding="utf-8")
 
 json_input = st.text_area(
     "json_input",
@@ -231,6 +235,15 @@ c4.metric("📋 TOTAL",  summary.get("total",  len(flags)))
 
 RISK_COLOR = {"high": "🔴", "medium": "🟡", "low": "🟢"}
 
+risk_filter = st.multiselect(
+    "Filter by risk level",
+    options=["high", "medium", "low"],
+    default=["high", "medium", "low"],
+    format_func=lambda r: f"{RISK_COLOR.get(r, '⚪')} {r.upper()}",
+    key="_fm2_risk_filter",
+)
+flags = [f for f in flags if (f.get("risk_level") or "").lower() in risk_filter]
+
 for f in flags:
     risk  = (f.get("risk_level") or "").lower()
     icon  = RISK_COLOR.get(risk, "⚪")
@@ -253,6 +266,8 @@ for f in flags:
         mc2.markdown(f"**Missing docs:** {docs}")
         mc2.markdown(f"**Source:** {f.get('source_document') or 'N/A'}")
         st.info(f.get("ai_finding", ""))
+        if f.get("why_it_matters"):
+            st.warning(f"Why it matters: {f['why_it_matters']}")
         st.caption(f"CPA Action: {f.get('cpa_action','')}")
 
 if needs:

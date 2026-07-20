@@ -437,7 +437,7 @@ if run_btn:
                         "properties": properties_list
                     }
 
-                    from schedule_e_processor import calculate_schedule_e_dynamic
+                    from processors.processors.schedule_e import calculate_schedule_e_dynamic
                     calc_result = calculate_schedule_e_dynamic(calc_inputs)
 
                     total_latency = time.time() - t_start

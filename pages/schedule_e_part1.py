@@ -84,7 +84,7 @@ def get_docx_text(path: str) -> str:
 
 # ─── 載入模組 ─────────────────────────────────────────────────────────────
 from processors.parsers.schedule_e import ScheduleELLMParser
-from schedule_e_processor import calculate_schedule_e_dynamic
+from processors.processors.schedule_e import calculate_schedule_e_dynamic
 
 # ─── 主頁面渲染 ───────────────────────────────────────────────────────────
 st.title("📄 Schedule E Part I — LLM Schema Extraction & Rules Engine")

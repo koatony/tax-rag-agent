@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Set, Optional
 from decimal import Decimal
 from processors.models.schedule_a import ValidationIssue # reuse ValidationIssue since it is a general class
 from processors.models.schedule_b import ScheduleBInputsV1, SpecialCaseFlagsBV1
@@ -14,12 +14,13 @@ def validate_identity(inputs: ScheduleBInputsV1, errors: List[ValidationIssue]):
     if not inputs.taxpayer_ssn.strip():
         errors.append(ValidationIssue("MISSING_TAXPAYER_SSN", "taxpayer_ssn", message="Taxpayer SSN is missing."))
 
-def validate_tax_year(tax_year: int, allowed: Set[int], errors: List[ValidationIssue]):
+def validate_tax_year(tax_year: Optional[int], allowed: Set[int], errors: List[ValidationIssue]):
     """
     驗證申報年度是否在支援範圍內。
-    - 目前 V1 版本僅支援 2024 2025 年。
     """
-    if tax_year not in allowed:
+    if tax_year is None:
+        errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message="Tax year is missing in input data."))
+    elif tax_year not in allowed:
         errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message=f"Tax year {tax_year} is not supported."))
 
 def detect_unsupported_cases(inputs: ScheduleBInputsV1, errors: List[ValidationIssue]):

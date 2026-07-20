@@ -27,6 +27,7 @@ def format_column_tax_input_to_text(biz, tp_profile):
     lines = []
     lines.append(f"Proprietor Legal Name: {tp_profile.get('name', '')}")
     lines.append(f"Proprietor SSN: {tp_profile.get('ssn', '')}")
+    lines.append("Tax Year: 2024")
     
     # 業務基本資訊
     lines.append(f"Business Activity Description: {biz.get('business_act', {}).get('value', '')}")

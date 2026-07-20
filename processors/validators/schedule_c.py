@@ -1,14 +1,18 @@
-from typing import List, Set
+from typing import List, Set, Optional
 from decimal import Decimal
 from processors.models.schedule_a import ValidationIssue
 from processors.models.schedule_c import ScheduleCInputsV1
 
-def validate_identity(inputs: ScheduleCInputsV1, errors: List[ValidationIssue]):
+def validate_identity(inputs: ScheduleCInputsV1, errors: List[ValidationIssue], allowed: Optional[Set[int]] = None):
     if not inputs.proprietor_name.strip():
         errors.append(ValidationIssue("MISSING_PROPRIETOR_NAME", "proprietor_name", message="Proprietor name is missing."))
     if not inputs.taxpayer_ssn.strip():
         errors.append(ValidationIssue("MISSING_SSN", "taxpayer_ssn", message="SSN is missing."))
-    if inputs.tax_year not in (2024, 2025):
+    
+    allowed_set = allowed if allowed is not None else {2024, 2025}
+    if inputs.tax_year is None:
+        errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message="Tax year is missing in input data."))
+    elif inputs.tax_year not in allowed_set:
         errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message=f"Tax year {inputs.tax_year} is not supported."))
     if inputs.income.line_1_gross_receipts is None:
         errors.append(ValidationIssue("MISSING_GROSS_RECEIPTS", "line_1_gross_receipts", message="Gross receipts are missing."))

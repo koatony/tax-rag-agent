@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Set, Optional
 from decimal import Decimal
 from processors.models.schedule_e import (
     ScheduleEPart1InputsV1,
@@ -13,8 +13,10 @@ def validate_identity(inputs: ScheduleEPart1InputsV1, errors: List[ValidationIss
     if not inputs.taxpayer_ssn.strip():
         errors.append(ValidationIssue("MISSING_TAXPAYER_SSN", "taxpayer_ssn", message="Taxpayer SSN is missing."))
 
-def validate_tax_year(tax_year: int, allowed: Set[int], errors: List[ValidationIssue]):
-    if tax_year not in allowed:
+def validate_tax_year(tax_year: Optional[int], allowed: Set[int], errors: List[ValidationIssue]):
+    if tax_year is None:
+        errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message="Tax year is missing in input data."))
+    elif tax_year not in allowed:
         errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message=f"Tax year {tax_year} is not supported."))
 
 def validate_accounting_method(method: str, expected: str, errors: List[ValidationIssue]):

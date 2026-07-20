@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Set, Optional
 from decimal import Decimal
 from processors.models.schedule_a import (
     ScheduleAInputsV1,
@@ -36,9 +36,11 @@ def validate_identity(inputs: ScheduleAInputsV1, errors: List[ValidationIssue]):
         elif not re.match(r"^\d{4}-\d{2}-\d{2}$", spouse_dob.strip()):
             errors.append(ValidationIssue("UNKNOWN_AGE_STATUS", "spouse_date_of_birth", message="Spouse date of birth format is invalid (expected YYYY-MM-DD); cannot determine if over 65."))
 
-#目前只支援2024 2025
-def validate_tax_year(tax_year: int, allowed: Set[int], errors: List[ValidationIssue]):
-    if tax_year not in allowed:
+#目前只支援動態載入的年份
+def validate_tax_year(tax_year: Optional[int], allowed: Set[int], errors: List[ValidationIssue]):
+    if tax_year is None:
+        errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message="Tax year is missing in input data."))
+    elif tax_year not in allowed:
         errors.append(ValidationIssue("UNSUPPORTED_TAX_YEAR", "tax_year", message=f"Tax year {tax_year} is not supported."))
 
 def validate_nonnegative_amounts(inputs: ScheduleAInputsV1, errors: List[ValidationIssue]):

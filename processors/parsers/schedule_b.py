@@ -15,12 +15,14 @@ class ScheduleBLLMParser(BaseLLMParser):
     def get_form_name(self) -> str:
         return "Schedule B (Form 1040)"
 
+    # 給LLM看的
     def get_custom_rules(self) -> List[str]:
         return [
             "遇到 Nominee、Accrued Interest、OID、ABP 調整等，請在 special_case_flags 中相應標示。",
             "若 Form 1099-B 或 Form 8949 交易明細中含有 accrued market discount (或市場折價)，請將該筆交易原始的 proceeds, cost_basis, 與 accrued_market_discount 數值提取並寫入 market_discount_items 陣列中，且 special_case_flags.has_market_discount 需標示為 true。"
         ]
 
+    # 給LLM看得
     def get_example_json(self) -> Dict[str, Any]:
         return {
     "taxpayer_name": "Marcus Rivera",

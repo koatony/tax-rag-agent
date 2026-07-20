@@ -1,5 +1,6 @@
 {
   "form_id": "Schedule_A",
+  "supported_tax_years": [2024, 2025],
   "description": "IRS Schedule A (Form 1040) V1 Schema",
   "inputs": [
     {

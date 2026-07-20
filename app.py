@@ -10,21 +10,21 @@ load_dotenv()
 
 from retriever import IRACRetriever
 import missing_form_detector
-from schedule_c_processor import (
+from processors.processors.schedule_c import (
     extract_schedule_c_inputs_with_logs,
     calculate_schedule_c_dynamic,
-    extract_and_calculate_schedule_c
+    extract_and_calculate_schedule_c as run_extract_and_calculate_schedule_c
 )
-from schedule_a_processor import (
+from processors.processors.schedule_a import (
     extract_schedule_a_inputs_with_logs,
     calculate_schedule_a_dynamic
 )
-from schedule_b_processor import (
+from processors.processors.schedule_b import (
     extract_schedule_b_inputs_with_logs,
     calculate_schedule_b_dynamic,
-    extract_and_calculate_schedule_b
+    extract_and_calculate_schedule_b as run_extract_and_calculate_schedule_b
 )
-from schedule_e_processor import (
+from processors.processors.schedule_e import (
     extract_schedule_e_inputs_with_logs,
     calculate_schedule_e_dynamic
 )
@@ -42,7 +42,7 @@ from mapper import (
     ScheduleEMapper,
     aggregate_form_1040_line_1a
 )
-from Flag.analyzer_core import analyze as flag_analyze
+from Flag.analyzer_core_v2 import analyze as flag_analyze
 
 
 
@@ -334,7 +334,7 @@ async def extract_and_calculate_schedule_c(
             else:
                 model_name = "gemini-2.5-pro"
                 
-        e2e_res = extract_and_calculate_schedule_c(
+        e2e_res = run_extract_and_calculate_schedule_c(
             document_context=doc_ctx_str,
             model_name=model_name
         )
@@ -436,7 +436,7 @@ async def extract_and_calculate_schedule_b(
             else:
                 model_name = "gemini-2.5-pro"
                 
-        e2e_res = extract_and_calculate_schedule_b(
+        e2e_res = run_extract_and_calculate_schedule_b(
             document_context=doc_ctx_str,
             model_name=model_name
         )

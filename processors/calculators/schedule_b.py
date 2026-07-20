@@ -22,7 +22,7 @@
 
 import re
 from decimal import Decimal
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Set, Optional
 from processors.models.schedule_a import ValidationIssue
 from processors.models.schedule_b import (
     InterestItemV1,
@@ -169,13 +169,36 @@ def any_special_case(flags, interest_items: List[InterestItemV1] = None, dividen
                 return True
     return False
 
-def calculate_schedule_b_v1(inputs: ScheduleBInputsV1) -> ScheduleBResultV1:
+def calculate_schedule_b_v1(inputs: ScheduleBInputsV1, allowed_years: Optional[Set[int]] = None) -> ScheduleBResultV1:
     errors: List[ValidationIssue] = []
     
+    if allowed_years is None:
+        try:
+            import os
+            import json
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            schema_path = os.path.abspath(os.path.join(current_dir, "..", "..", "docs", "how_to_fill_forms_docs", "schedule_b", "schedule_b_schema.json"))
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_data = json.load(f)
+            allowed_years = set(schema_data.get("supported_tax_years", [2024, 2025]))
+        except Exception:
+            allowed_years = {2024, 2025}
+
     # 1. Validation identity & tax year
     # 檢測是否符合基本資料與稅務年度
     validate_identity(inputs, errors)
-    validate_tax_year(inputs.tax_year, {2024, 2025}, errors)
+    validate_tax_year(inputs.tax_year, allowed_years, errors)
+
+    if any(e.code == "UNSUPPORTED_TAX_YEAR" for e in errors):
+        raw_ssn = str(inputs.taxpayer_ssn or "")
+        ssn_masked = f"***-**-{raw_ssn[-4:]}" if len(raw_ssn) >= 4 else "***-**-XXXX"
+        return ScheduleBResultV1(
+            taxpayer_name=inputs.taxpayer_name,
+            taxpayer_ssn_masked=ssn_masked,
+            tax_year=inputs.tax_year,
+            blocking_errors=errors,
+            can_file=False
+        )
     
     # 2. Process interest and dividend items
     # 先計算出扣除accrued_market_discount的利息收入

@@ -224,7 +224,10 @@ class ScheduleBInputsV1:
         self.taxpayer_name = str(kwargs.get("taxpayer_name", ""))
         self.taxpayer_ssn = str(kwargs.get("taxpayer_ssn", ""))
         ty = kwargs.get("tax_year")
-        self.tax_year = int(ty) if ty is not None else 2024
+        try:
+            self.tax_year = int(float(ty)) if ty is not None else None
+        except (ValueError, TypeError):
+            self.tax_year = None
         
         # 映射利息明細項目列表 (若缺失 item_id 則以 index 自動生成，維持與 Schedule A 相同防禦邏輯)
         interest_items = []
@@ -306,7 +309,10 @@ class ScheduleBResultV1:
         self.taxpayer_name = kwargs.get("taxpayer_name", "")
         self.taxpayer_ssn_masked = kwargs.get("taxpayer_ssn_masked", "")  # 去敏感後的 masked SSN
         ty = kwargs.get("tax_year")
-        self.tax_year = int(ty) if ty is not None else 2024
+        try:
+            self.tax_year = int(float(ty)) if ty is not None else None
+        except (ValueError, TypeError):
+            self.tax_year = None
         
         # 已處理且做完 Decimal 格式化的明細資料
         self.processed_interest_items = kwargs.get("processed_interest_items") or []

@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Set, Optional
 from processors.models.schedule_e import (
     ScheduleEPart1InputsV1,
     ScheduleEPart1ResultV1,
@@ -57,15 +57,39 @@ UNSUPPORTED_CODES = {
     "FORM_1099_FILING_STATUS_UNKNOWN"
 }
 
-def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1) -> ScheduleEPart1ResultV1:
+def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years: Optional[Set[int]] = None) -> ScheduleEPart1ResultV1:
     global_errors: List[ValidationIssue] = []
     global_warnings: List[ValidationIssue] = []
 
+    if allowed_years is None:
+        try:
+            import os
+            import json
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            schema_path = os.path.abspath(os.path.join(current_dir, "..", "..", "docs", "how_to_fill_forms_docs", "schedule_e", "schedule_e_schema.json"))
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_data = json.load(f)
+            allowed_years = set(schema_data.get("supported_tax_years", [2024, 2025]))
+        except Exception:
+            allowed_years = {2024, 2025}
+
     # 1. Run validations on input wrapper level
     validate_identity(inputs, global_errors)
-    validate_tax_year(inputs.tax_year, {2024, 2025}, global_errors)
+    validate_tax_year(inputs.tax_year, allowed_years, global_errors)
     validate_accounting_method(inputs.accounting_method, "CASH", global_errors)
     validate_nonnegative_amounts(inputs, global_errors)
+
+    if any(e.code == "UNSUPPORTED_TAX_YEAR" for e in global_errors):
+        return ScheduleEPart1ResultV1(
+            taxpayer_name=inputs.taxpayer_name,
+            taxpayer_ssn=inputs.taxpayer_ssn,
+            tax_year=inputs.tax_year,
+            filing_status=inputs.filing_status,
+            blocking_errors=global_errors,
+            review_warnings=global_warnings,
+            can_file=False,
+            is_v1_supported=False
+        )
     detect_unsupported_cases(inputs.special_case_flags, global_errors)
     validate_1099_compliance(inputs, global_errors)
     validate_properties(inputs, global_errors)

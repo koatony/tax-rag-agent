@@ -40,6 +40,7 @@ def format_column_tax_input_to_text(data):
     lines = []
     lines.append(f"Taxpayer: {profile.get('tp_first_name', {}).get('value', '')} {profile.get('tp_last_name', {}).get('value', '')}")
     lines.append(f"Filing Status: {profile.get('filing_status', {}).get('value', '')}")
+    lines.append("Tax Year: 2024")
     
     # 載入所有 1099-INT
     for idx, item in enumerate(int_list):

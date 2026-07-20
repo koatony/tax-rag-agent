@@ -277,7 +277,10 @@ class ScheduleEPart1InputsV1:
     def __init__(self, **kwargs):
         self.taxpayer_name = str(kwargs.get("taxpayer_name", ""))
         self.taxpayer_ssn = str(kwargs.get("taxpayer_ssn", ""))
-        self.tax_year = int(kwargs.get("tax_year", 0))
+        try:
+            self.tax_year = int(float(kwargs.get("tax_year"))) if kwargs.get("tax_year") is not None else None
+        except (ValueError, TypeError):
+            self.tax_year = None
         self.filing_status = str(kwargs.get("filing_status", "SINGLE")).upper()
         self.accounting_method = str(kwargs.get("accounting_method", "CASH")).upper()
 
@@ -411,7 +414,10 @@ class ScheduleEPart1ResultV1:
     def __init__(self, **kwargs):
         self.taxpayer_name = kwargs.get("taxpayer_name", "")
         self.taxpayer_ssn_masked = mask_ssn(kwargs.get("taxpayer_ssn", ""))
-        self.tax_year = int(kwargs.get("tax_year", 0))
+        try:
+            self.tax_year = int(float(kwargs.get("tax_year"))) if kwargs.get("tax_year") is not None else None
+        except (ValueError, TypeError):
+            self.tax_year = None
         self.filing_status = kwargs.get("filing_status", "")
 
         self.line_a_form_1099_required = kwargs.get("line_a_form_1099_required")

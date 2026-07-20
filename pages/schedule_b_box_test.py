@@ -25,7 +25,7 @@ schedule_a_ui_helper.inject_custom_css()
 
 # 載入核心模組
 from missing_form_detector import format_input_data
-from schedule_b_processor import (
+from processors.processors.schedule_b import (
     extract_schedule_b_inputs_with_logs,
     calculate_schedule_b_dynamic,
     load_schedule_b_schema

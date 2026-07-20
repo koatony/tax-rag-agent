@@ -27,7 +27,7 @@ schedule_c_ui_helper.inject_custom_css()
 # 載入核心模組與 LLM 封裝
 from missing_form_detector import format_input_data
 from llm_wrappers import GeminiLLM
-from schedule_c_processor import (
+from processors.processors.schedule_c import (
     calculate_schedule_c_dynamic,
     load_schedule_c_schema
 )

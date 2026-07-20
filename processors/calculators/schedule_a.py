@@ -9,7 +9,7 @@
 # =====================================================================
 
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Set, Optional
 from decimal import Decimal
 from processors.models.schedule_a import (
     ScheduleAInputsV1,
@@ -333,7 +333,7 @@ def classify_tax_items(tax_items: List[TaxPaymentItemV1], errors: List[Validatio
 
 
 # 需要手動輸入agi 後續再想辦法結合1040
-def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
+def calculate_schedule_a_v1(inputs: ScheduleAInputsV1, allowed_years: Optional[Set[int]] = None) -> ScheduleAResultV1:
 
 
 
@@ -342,10 +342,35 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1) -> ScheduleAResultV1:
     ZERO = Decimal("0.00")
     MEDICAL_RATE = Decimal("0.075")
 
+    if allowed_years is None:
+        try:
+            import os
+            import json
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            schema_path = os.path.abspath(os.path.join(current_dir, "..", "..", "docs", "how_to_fill_forms_docs", "schedule_a", "schedule_a_schema.json"))
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_data = json.load(f)
+            allowed_years = set(schema_data.get("supported_tax_years", [2024, 2025]))
+        except Exception:
+            allowed_years = {2024, 2025}
+
     # 1. 校驗基本與阻斷規則
     validate_identity(inputs, errors)
-    validate_tax_year(inputs.tax_year, allowed={2024, 2025}, errors=errors)
+    validate_tax_year(inputs.tax_year, allowed=allowed_years, errors=errors)
     validate_nonnegative_amounts(inputs, errors)
+
+    if any(e.code == "UNSUPPORTED_TAX_YEAR" for e in errors):
+        raw_ssn = str(inputs.taxpayer_ssn or "")
+        ssn_masked = f"***-**-{raw_ssn[-4:]}" if len(raw_ssn) >= 4 else "***-**-XXXX"
+        return ScheduleAResultV1(
+            taxpayer_name=inputs.taxpayer_name,
+            taxpayer_ssn_masked=ssn_masked,
+            tax_year=inputs.tax_year,
+            filing_status=inputs.filing_status,
+            blocking_errors=errors,
+            review_warnings=warnings,
+            can_file=False
+        )
 
 
     # 抓目前input看出的問題，丟回不支援的解釋

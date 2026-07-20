@@ -1,6 +1,7 @@
 {
   "form_id": "Schedule_C",
   "tax_year": 2025,
+  "supported_tax_years": [2024, 2025],
   "description": "IRS Schedule C (Form 1040) — V1 一般 P&L 案件填表器規格",
   "inputs": [
     {

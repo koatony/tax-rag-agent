@@ -452,7 +452,7 @@ class ScheduleAInputsV1:
         taxpayer_blind: bool = False,
         spouse_date_of_birth: Optional[str] = None,
         spouse_blind: bool = False,
-        tax_year: int = 2025,
+        tax_year: Optional[int] = None,
         filing_status: str = "SINGLE",
         adjusted_gross_income: Decimal = Decimal("0.00"),
         medical_items: Optional[List[MedicalExpenseItemV1]] = None,
@@ -488,7 +488,11 @@ class ScheduleAInputsV1:
         spouse_blind = bool(inputs_dict.get("spouse_blind", False))
         taxpayer_date_of_birth = inputs_dict.get("taxpayer_date_of_birth")
         spouse_date_of_birth = inputs_dict.get("spouse_date_of_birth")
-        tax_year = int(inputs_dict.get("tax_year") or 2025)
+        raw_year = inputs_dict.get("tax_year")
+        try:
+            tax_year = int(float(raw_year)) if raw_year is not None else None
+        except (ValueError, TypeError):
+            tax_year = None
         filing_status = str(inputs_dict.get("filing_status") or "SINGLE").upper()
         adjusted_gross_income = Decimal(str(inputs_dict.get("adjusted_gross_income") or inputs_dict.get("agi") or "0.00"))
         
@@ -639,7 +643,14 @@ class ScheduleAResultV1:
     def __init__(self, **kwargs):
         self.taxpayer_name = kwargs.get("taxpayer_name", "")
         self.taxpayer_ssn_masked = kwargs.get("taxpayer_ssn_masked", "")
-        self.tax_year = kwargs.get("tax_year", 2025)
+        raw_year = kwargs.get("tax_year")
+        if raw_year is not None:
+            try:
+                self.tax_year = int(float(raw_year))
+            except (ValueError, TypeError):
+                self.tax_year = None
+        else:
+            self.tax_year = None
         self.filing_status = kwargs.get("filing_status", "SINGLE")
 
         self.line_1_medical_and_dental_expenses = kwargs.get("line_1_medical_and_dental_expenses", Decimal("0.00"))

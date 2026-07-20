@@ -163,7 +163,10 @@ class ScheduleCInputsV1:
     def __init__(self, **kwargs):
         self.proprietor_name = str(kwargs.get("proprietor_name", ""))
         self.taxpayer_ssn = str(kwargs.get("taxpayer_ssn", ""))
-        self.tax_year = int(kwargs.get("tax_year", 2025))
+        try:
+            self.tax_year = int(float(kwargs.get("tax_year"))) if kwargs.get("tax_year") is not None else None
+        except (ValueError, TypeError):
+            self.tax_year = None
 
         self.principal_business = kwargs.get("principal_business")
         self.principal_activity_code = kwargs.get("principal_activity_code")
@@ -231,7 +234,11 @@ class ScheduleCResultV1:
     def __init__(self, **kwargs):
         self.proprietor_name = kwargs.get("proprietor_name", "")
         self.taxpayer_ssn_masked = kwargs.get("taxpayer_ssn_masked", "")
-        self.tax_year = kwargs.get("tax_year", 2025)
+        ty = kwargs.get("tax_year")
+        try:
+            self.tax_year = int(float(ty)) if ty is not None else None
+        except (ValueError, TypeError):
+            self.tax_year = None
 
         self.principal_business = kwargs.get("principal_business")
         self.principal_activity_code = kwargs.get("principal_activity_code")

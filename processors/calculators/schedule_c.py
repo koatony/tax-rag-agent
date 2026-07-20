@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Set, Optional
 from processors.models.schedule_a import ValidationIssue
 from processors.models.schedule_c import ScheduleCInputsV1, ScheduleCResultV1
 from processors.validators.schedule_c import (
@@ -10,17 +10,42 @@ from processors.validators.schedule_c import (
     validate_meals_and_entertainment,
 )
 
-def calculate_schedule_c_v1(inputs: ScheduleCInputsV1) -> ScheduleCResultV1:
+def calculate_schedule_c_v1(inputs: ScheduleCInputsV1, allowed_years: Optional[Set[int]] = None) -> ScheduleCResultV1:
     errors: List[ValidationIssue] = []
     warnings: List[ValidationIssue] = []
     ZERO = Decimal("0.00")
 
+    if allowed_years is None:
+        try:
+            import os
+            import json
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            schema_path = os.path.abspath(os.path.join(current_dir, "..", "..", "docs", "how_to_fill_forms_docs", "schedule_c", "schedule_c_schema.json"))
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_data = json.load(f)
+            allowed_years = set(schema_data.get("supported_tax_years", [2024, 2025]))
+        except Exception:
+            allowed_years = {2024, 2025}
+
     # 1. Run Validators
-    validate_identity(inputs, errors)
+    validate_identity(inputs, errors, allowed_years)
     validate_nonnegative_amounts(inputs, errors)
     detect_unsupported_cases(inputs, errors)
     validate_questionnaire(inputs, errors)
     validate_meals_and_entertainment(inputs, warnings)
+
+    if any(e.code == "UNSUPPORTED_TAX_YEAR" for e in errors):
+        raw_ssn = str(inputs.taxpayer_ssn or "")
+        ssn_masked = f"***-**-{raw_ssn[-4:]}" if len(raw_ssn) >= 4 else "***-**-XXXX"
+        return ScheduleCResultV1(
+            proprietor_name=inputs.proprietor_name,
+            taxpayer_ssn_masked=ssn_masked,
+            tax_year=inputs.tax_year,
+            can_file=False,
+            is_v1_supported=False,
+            blocking_errors=errors,
+            review_warnings=warnings
+        )
 
     # 2. Check for low confidence other expenses
     for item in inputs.other_expense_items:
