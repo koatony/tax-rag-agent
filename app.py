@@ -53,6 +53,20 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# --- 模型名稱統一解析 ---
+def resolve_model_name(requested: Optional[str]) -> str:
+    """
+    統一模型名稱解析邏輯：
+    - 若 caller 明確傳入 model_name，直接使用。
+    - 若環境變數 LLM_PROVIDER=ollama，使用 LLM_MODEL_NAME（預設 gemma4:31b）。
+    - 其餘情況（包含未設定任何環境變數），一律回傳 gemini-2.5-pro。
+    """
+    if requested:
+        return requested
+    if os.environ.get("LLM_PROVIDER", "").lower() == "ollama":
+        return os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
+    return "gemini-2.5-pro"
+
 # --- 快取機制 ---
 retriever_cache = {}
 
@@ -211,21 +225,14 @@ async def detect_missing_forms(request: MissingFormsRequest, x_api_token: str = 
     if not question_str.strip():
         raise HTTPException(status_code=400, detail="Input content cannot be empty")
         
-    llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-    
-    model_name = request.model_name
-    if not model_name:
-        if llm_provider == "ollama":
-            model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
-        else:
-            model_name = "gemini-2.5-pro"
+    model_name = resolve_model_name(request.model_name)
         
     strategy = request.strategy
     if not strategy:
         strategy = os.environ.get("MISSING_FORM_STRATEGY", "Map-Reduce")
         
     api_key = os.environ.get("GEMINI_API_KEY")
-    is_ollama = llm_provider == "ollama" or (model_name and ":" in model_name)
+    is_ollama = ":" in model_name
     if not is_ollama and not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
         
@@ -327,14 +334,8 @@ async def extract_and_calculate_schedule_c(
         )
         
     try:
-        llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-        model_name = request.model_name
-        if not model_name:
-            if llm_provider == "ollama":
-                model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
-            else:
-                model_name = "gemini-2.5-pro"
-                
+        model_name = resolve_model_name(request.model_name)
+
         e2e_res = run_extract_and_calculate_schedule_c(
             document_context=doc_ctx_str,
             model_name=model_name
@@ -377,14 +378,8 @@ async def extract_and_calculate_schedule_a(
         )
         
     try:
-        llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-        model_name = request.model_name
-        if not model_name:
-            if llm_provider == "ollama":
-                model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
-            else:
-                model_name = "gemini-2.5-pro"
-                
+        model_name = resolve_model_name(request.model_name)
+
         extracted_inputs, prompt_log, raw_output = extract_schedule_a_inputs_with_logs(
             document_context=doc_ctx_str,
             model_name=model_name
@@ -429,14 +424,8 @@ async def extract_and_calculate_schedule_b(
         )
         
     try:
-        llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-        model_name = request.model_name
-        if not model_name:
-            if llm_provider == "ollama":
-                model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
-            else:
-                model_name = "gemini-2.5-pro"
-                
+        model_name = resolve_model_name(request.model_name)
+
         e2e_res = run_extract_and_calculate_schedule_b(
             document_context=doc_ctx_str,
             model_name=model_name
@@ -479,14 +468,8 @@ async def extract_and_calculate_schedule_e(
         )
         
     try:
-        llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-        model_name = request.model_name
-        if not model_name:
-            if llm_provider == "ollama":
-                model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
-            else:
-                model_name = "gemini-2.5-pro"
-                
+        model_name = resolve_model_name(request.model_name)
+
         e2e_res = run_extract_and_calculate_schedule_e(
             document_context=doc_ctx_str,
             model_name=model_name
@@ -550,18 +533,11 @@ async def extract_and_map_schedule_a(
         raise HTTPException(status_code=400, detail="No documents provided")
     
     api_key = os.environ.get("GEMINI_API_KEY")
-    llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-    model_name = request.model_name
-    if not model_name:
-        if llm_provider == "ollama":
-            model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
-        else:
-            model_name = "gemini-2.5-pro"
-            
-    is_ollama = llm_provider == "ollama" or (model_name and ":" in model_name)
+    model_name = resolve_model_name(request.model_name)
+    is_ollama = ":" in model_name
     if not is_ollama and not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
-        
+
     t_start = time.time()
     try:
         def extract_single(doc):
@@ -635,18 +611,11 @@ async def extract_and_map_schedule_d(
         raise HTTPException(status_code=400, detail="No documents provided")
     
     api_key = os.environ.get("GEMINI_API_KEY")
-    llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-    model_name = request.model_name
-    if not model_name:
-        if llm_provider == "ollama":
-            model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
-        else:
-            model_name = "gemini-2.5-pro"
-            
-    is_ollama = llm_provider == "ollama" or (model_name and ":" in model_name)
+    model_name = resolve_model_name(request.model_name)
+    is_ollama = ":" in model_name
     if not is_ollama and not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
-        
+
     t_start = time.time()
     try:
         profile = taxpayer_profile or {}
@@ -726,18 +695,11 @@ async def extract_and_map_schedule_e(
         raise HTTPException(status_code=400, detail="No documents provided")
     
     api_key = os.environ.get("GEMINI_API_KEY")
-    llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-    model_name = request.model_name
-    if not model_name:
-        if llm_provider == "ollama":
-            model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
-        else:
-            model_name = "gemini-2.5-pro"
-            
-    is_ollama = llm_provider == "ollama" or (model_name and ":" in model_name)
+    model_name = resolve_model_name(request.model_name)
+    is_ollama = ":" in model_name
     if not is_ollama and not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
-        
+
     t_start = time.time()
     try:
         def extract_single(doc):
@@ -810,18 +772,11 @@ async def extract_and_map_form_1040_wages(
         raise HTTPException(status_code=400, detail="No documents provided")
     
     api_key = os.environ.get("GEMINI_API_KEY")
-    llm_provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-    model_name = request.model_name
-    if not model_name:
-        if llm_provider == "ollama":
-            model_name = os.environ.get("LLM_MODEL_NAME", "gemma4:31b")
-        else:
-            model_name = "gemini-2.5-pro"
-            
-    is_ollama = llm_provider == "ollama" or (model_name and ":" in model_name)
+    model_name = resolve_model_name(request.model_name)
+    is_ollama = ":" in model_name
     if not is_ollama and not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
-        
+
     t_start = time.time()
     try:
         profile = taxpayer_profile or {}
@@ -941,12 +896,9 @@ async def flag_analyze_endpoint(
 
 
 class Form1040AssembleRequest(BaseModel):
-    tax_year: int
-    filing_status: str
-    raw_llm_direct_income: Dict[str, Any]
-    raw_schedule_b_input: Optional[Dict[str, Any]] = None
-    raw_schedule_d_input: Optional[Dict[str, Any]] = None
-    raw_schedule_1_input: Optional[Dict[str, Any]] = None
+    taxpayer_profile: Dict[str, Any]
+    uploaded_documents: List[Dict[str, Any]]
+    model_name: Optional[str] = None
 
 
 @app.post("/form-1040/assemble")
@@ -959,13 +911,10 @@ async def assemble_form_1040(
     
     t_start = time.time()
     try:
-        res = Form1040Orchestrator.assemble(
-            tax_year=request.tax_year,
-            filing_status=request.filing_status,
-            raw_llm_direct_income=request.raw_llm_direct_income,
-            raw_schedule_b_input=request.raw_schedule_b_input,
-            raw_schedule_d_input=request.raw_schedule_d_input,
-            raw_schedule_1_input=request.raw_schedule_1_input,
+        res = Form1040Orchestrator.extract_and_assemble(
+            taxpayer_profile=request.taxpayer_profile,
+            uploaded_documents=request.uploaded_documents,
+            model_name=request.model_name
         )
         res["success"] = True
         res["latency"] = time.time() - t_start
@@ -980,4 +929,5 @@ if __name__ == "__main__":
     import uvicorn
     # 移除預先初始化 retriever，改為 lazy load（第一次 API 請求時才連線）
     # 這樣即使 Neo4j 7687 暫時不可用，API server 也能正常啟動
-    uvicorn.run(app, host="0.0.0.0", port=8088)
+    port = int(os.environ.get("PORT", 8088))
+    uvicorn.run(app, host="0.0.0.0", port=port)

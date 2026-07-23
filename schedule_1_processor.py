@@ -58,11 +58,8 @@ def calculate_schedule_1_dynamic(inputs: Dict[str, Any]) -> Dict[str, Any]:
     inputs_copied = dict(inputs)
 
     v1_inputs = Schedule1InputsV1.from_dict(inputs_copied)
-    try:
-        schema = load_schedule_1_schema()
-        allowed_years = set(schema.get("supported_tax_years", [2024, 2025]))
-    except Exception:
-        allowed_years = {2024, 2025}
+    schema = load_schedule_1_schema()
+    allowed_years = set(schema.get("supported_tax_years", []))
     res = calculate_schedule_1_v1(v1_inputs, allowed_years=allowed_years)
     return res.to_dict()
 

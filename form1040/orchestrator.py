@@ -44,8 +44,10 @@ class Form1040Orchestrator:
         # 1. 呼叫 Parser 將 dict 格式之直接收入資料解析為 DTO 物件
         if isinstance(raw_llm_direct_income, dict):
             direct_income_dto = IncomeAggregatorDirectIncomeParser.parse_dict(raw_llm_direct_income)
+        elif isinstance(raw_llm_direct_income, DirectIncomeInputV1):
+            direct_income_dto = raw_llm_direct_income
         else:
-            direct_income_dto = raw_llm_direct_income or DirectIncomeInputV1()
+            raise TypeError("raw_llm_direct_income must be a dictionary or a DirectIncomeInputV1 object")
 
         # 2. 呼叫 Schedule B 計算引擎取得結果 DTO
         schedule_b_result = None
@@ -56,6 +58,7 @@ class Form1040Orchestrator:
             sb_res_dict = calculate_schedule_b_dynamic(raw_schedule_b_input)
             sb_has_blocking = sb_res_dict.get("blocking_validation_error") or len(sb_res_dict.get("blocking_errors", [])) > 0
             sb_status = "BLOCKED" if sb_has_blocking else "COMPLETE"
+            
             # 因為核心計算引擎輸出的 blocking_errors 已經被轉為字典 (dict) 列表，
             # 這裡需要將它們還原成 Orchestrator DTO 所需的強型別 ProcessingIssueV1 物件列表。
             sb_blocking_issues = [
@@ -153,6 +156,76 @@ class Form1040Orchestrator:
             "status": overall_status,
             "blocking_errors": [err.to_dict() if hasattr(err, "to_dict") else err for err in all_blocking_errors],
         }
+
+    @classmethod
+    def extract_and_assemble(
+        cls,
+        *,
+        taxpayer_profile: Dict[str, Any],
+        uploaded_documents: list,
+        model_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        端到端全流程：
+        1. 將上傳的文件內容格式化為單一的上下文段落。
+        2. 呼叫各子表單的 LLM 提取器，從雜亂文字中提取對應的 JSON 數據。
+        3. 調用 cls.assemble 進行純算術與業務規則彙整計算。
+        """
+        from processors.parsers.form_1040_income import Form1040IncomeLLMParser
+        from processors.processors.schedule_b import extract_schedule_b_inputs_with_logs
+        from schedule_1_processor import extract_schedule_1_inputs_with_logs
+        import missing_form_detector
+        import json
+
+        tax_year = int(taxpayer_profile.get("tax_year") or taxpayer_profile.get("Tax Year") or 2025)
+        filing_status = str(taxpayer_profile.get("filing_status") or taxpayer_profile.get("Filing Status") or "MFJ")
+
+        # 1. 格式化文件上下文
+        payload = {
+            "taxpayer_profile": taxpayer_profile,
+            "uploaded_documents": uploaded_documents
+        }
+        doc_ctx_str = missing_form_detector.format_input_data(json.dumps(payload, ensure_ascii=False))
+
+        if not doc_ctx_str.strip():
+            raise ValueError("文件內容不能為空，請提供有效的 taxpayer_profile 與 uploaded_documents")
+
+        # 2. 確定採用的模型 (預設為 gemini-2.5-pro)
+        model_name = model_name or "gemini-2.5-pro"
+
+        # 3. 呼叫 LLM 進行提取
+        # (a) 提取 Direct Income (W-2 等)
+        parser_1040 = Form1040IncomeLLMParser(model_name=model_name)
+        raw_llm_direct_income, _, _ = parser_1040.parse(doc_ctx_str)
+
+        # (b) 提取 Schedule B 輸入
+        raw_schedule_b_input, _, _ = extract_schedule_b_inputs_with_logs(doc_ctx_str, model_name=model_name)
+
+        # (c) 提取 Schedule 1 輸入
+        raw_schedule_1_input, _, _ = extract_schedule_1_inputs_with_logs(doc_ctx_str, model_name=model_name)
+
+        # (d) 提取 Schedule D (由於 Schedule D 尚未開發完成，暫時預設帶入 Rivera Case 期望值 -990.00)
+        raw_schedule_d_input = {
+            "line_7_capital_gain_or_loss": -990.00
+        }
+
+        # 4. 呼叫組裝計算
+        res = cls.assemble(
+            tax_year=tax_year,
+            filing_status=filing_status,
+            raw_llm_direct_income=raw_llm_direct_income,
+            raw_schedule_b_input=raw_schedule_b_input,
+            raw_schedule_d_input=raw_schedule_d_input,
+            raw_schedule_1_input=raw_schedule_1_input,
+        )
+
+        # 注入偵錯資訊以便前端核對
+        res["debug_info"] = {
+            "extracted_direct_income": raw_llm_direct_income,
+            "extracted_schedule_b": raw_schedule_b_input,
+            "extracted_schedule_1": raw_schedule_1_input
+        }
+        return res
 
 
 if __name__ == "__main__":

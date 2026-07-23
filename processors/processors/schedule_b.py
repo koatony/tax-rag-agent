@@ -80,11 +80,8 @@ def calculate_schedule_b_dynamic(inputs: Dict[str, Any]) -> Dict[str, Any]:
                 pass
 
     v1_inputs = ScheduleBInputsV1.from_dict(inputs_copied)
-    try:
-        schema = load_schedule_b_schema()
-        allowed_years = set(schema.get("supported_tax_years", [2024, 2025]))
-    except Exception:
-        allowed_years = {2024, 2025}
+    schema = load_schedule_b_schema()
+    allowed_years = set(schema.get("supported_tax_years", []))
     res = calculate_schedule_b_v1(v1_inputs, allowed_years=allowed_years)
     return res.to_dict()
 

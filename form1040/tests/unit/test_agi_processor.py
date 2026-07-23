@@ -7,7 +7,7 @@ from decimal import Decimal
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from form1040.models.agi_model import AGIProcessorInputV1
-from form1040.processors.agi_processor import process, AGIProcessor
+from form1040.processors.agi_processor import AGIProcessor
 
 
 class TestAGIProcessor(unittest.TestCase):
@@ -27,7 +27,7 @@ class TestAGIProcessor(unittest.TestCase):
         self.assertEqual(result.blocking_errors, [])
 
     def test_agi_001_normal(self):
-        result = process(
+        result = AGIProcessor.process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100555"),
                 schedule_1_result={"line26": Decimal("7000")},
@@ -40,7 +40,7 @@ class TestAGIProcessor(unittest.TestCase):
         )
 
     def test_agi_002_zero_adjustments(self):
-        result = process(
+        result = AGIProcessor.process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("1000"),
                 schedule_1_result={"line26": Decimal("0")},
@@ -51,7 +51,7 @@ class TestAGIProcessor(unittest.TestCase):
         self.assertEqual(result.status, "COMPLETE")
 
     def test_agi_003_missing_line_9(self):
-        result = process(
+        result = AGIProcessor.process(
             AGIProcessorInputV1(
                 line_9_total_income=None,
                 schedule_1_result={"line26": Decimal("7000")},
@@ -64,7 +64,7 @@ class TestAGIProcessor(unittest.TestCase):
         self.assertTrue(any(err.code == "MISSING_LINE_9" for err in result.blocking_errors))
 
     def test_agi_004_missing_schedule1_line_26(self):
-        result = process(
+        result = AGIProcessor.process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100555"),
                 schedule_1_result={"line26": None},
@@ -77,7 +77,7 @@ class TestAGIProcessor(unittest.TestCase):
         self.assertTrue(any(err.code == "MISSING_SCHEDULE1_LINE_26" for err in result.blocking_errors))
 
     def test_agi_005_negative_adjustments(self):
-        result = process(
+        result = AGIProcessor.process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100555"),
                 schedule_1_result={"line26": Decimal("-1")},
@@ -88,7 +88,7 @@ class TestAGIProcessor(unittest.TestCase):
         self.assertTrue(any(err.code == "NEGATIVE_ADJUSTMENTS" for err in result.blocking_errors))
 
     def test_agi_006_negative_agi_result(self):
-        result = process(
+        result = AGIProcessor.process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100"),
                 schedule_1_result={"line26": Decimal("200")},
@@ -105,7 +105,7 @@ class TestAGIProcessor(unittest.TestCase):
                 self.line_26_adjustments_to_income = Decimal(str(val))
                 self.status = status
 
-        result = process(
+        result = AGIProcessor.process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100000"),
                 schedule_1_result=DummySchedule1Result(8500)
@@ -115,7 +115,7 @@ class TestAGIProcessor(unittest.TestCase):
         self.assertEqual(result.line_11_adjusted_gross_income, Decimal("91500"))
 
         # Case B: schedule_1_result is a dictionary
-        result2 = process(
+        result2 = AGIProcessor.process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100000"),
                 schedule_1_result={"line26": 9000}
@@ -124,7 +124,7 @@ class TestAGIProcessor(unittest.TestCase):
         self.assertEqual(result2.line_10_adjustments_to_income, Decimal("9000"))
 
     def test_agi_schedule_1_blocked(self):
-        result = process(
+        result = AGIProcessor.process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100000"),
                 schedule_1_result={"status": "BLOCKED"}

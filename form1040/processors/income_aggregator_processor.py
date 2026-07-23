@@ -55,5 +55,11 @@ class IncomeAggregatorProcessor:
                 errors=blocking_errors,
             )
 
-        # 4. 執行純算術加總
+        # 4. 執行純算術加總：
+        # - Line 1a & Line 1z: W-2 薪資總和
+        # - Line 2b & Line 3b: Schedule B 的應稅利息與普通股利
+        # - Line 4b, 5b, 6b: IRA/退休金/社福金的應稅金額
+        # - Line 7a: Schedule D 的資本損益
+        # - Line 8: Schedule 1 Line 10 的額外收入
+        # - Line 9 (總收入) = Line 1z + 2b + 3b + 4b + 5b + 6b + 7a + 8
         return IncomeAggregatorCalculator.calculate(input_dto)

@@ -177,21 +177,28 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
                     message=f"Expense item {item.item_id} excluded because of deductibility status ({item.deductibility_status}) or timing."
                 ))
 
-        # Line 18 — Depreciation
+        # ==========================================
+        # PM 業務邏輯說明與資料結構解析：
+        # 1. prop: 代表單一棟出租房產（RentalPropertyInputV1 物件）。
+        # 2. prop.depreciation_result: 從外部 Form 4562 (折舊模組) 計算後注入的折舊結果。
+        # 3. calculation_status: 由整合層 `processors/processors/schedule_e.py` (L90-L93) 決定：
+        #    - 如果 Form 4562 執行時有阻斷錯誤 (e.g. 稅務年度不符、特殊申報)，會標記為 "BLOCKED"。
+        #    - 如果 Form 4562 順利完成且無阻斷錯誤，會標記為 "CALCULATED"。
+        # ==========================================
+
+        # Line 18 — 折舊費用 (Depreciation)
+        # 來源唯一：Form 4562 的 Line 22（當年度總折舊與攤銷金額）
+        # 只有在折舊模組狀態為 "CALCULATED" 成功計算時才採用，其餘狀態（BLOCKED / NOT_APPLICABLE）另行處理
         line_18 = None
         dep_source_id = None
         if prop.depreciation_result:
             dep_source_id = prop.depreciation_result.source_result_id
             if prop.depreciation_result.calculation_status == "CALCULATED":
-                # Prioritize Form 4562 Line 22 (line_22_total_depreciation_and_amortization) over general depreciation_amount
-                line_22_val = getattr(prop.depreciation_result, "line_22_total_depreciation_and_amortization", None)
-                if line_22_val is not None:
-                    line_18 = line_22_val
-                else:
-                    line_18 = prop.depreciation_result.depreciation_amount
+                line_18 = getattr(prop.depreciation_result, "line_22_total_depreciation_and_amortization", None)
             elif prop.depreciation_result.calculation_status == "NOT_APPLICABLE":
                 line_18 = ZERO
             else:
+                # 若折舊模組被阻斷 (BLOCKED)，此處也同步記錄阻斷錯誤，Line 18 保持為 None
                 prop_errors.append(ValidationIssue(
                     "DEPRECIATION_MODULE_BLOCKED",
                     property_id=prop.property_id,
@@ -199,13 +206,23 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
                     message="Depreciation module execution was blocked."
                 ))
         else:
+            # 根本沒有注入任何折舊計算結果
             prop_errors.append(ValidationIssue(
                 "DEPRECIATION_RESULT_MISSING",
                 property_id=prop.property_id,
                 message="Depreciation result is missing."
             ))
 
-        # Line 20 — Total expenses
+        # ==========================================
+        # PM 業務邏輯說明與資料結構解析：
+        # 1. buckets: 字典型態，累計了該房產當年度所有符合抵扣條件的各類營業費用
+        #    (例如: 廣告費、保險費、房貸利息、水電費等，已排除折舊與其他未歸類費用)。
+        # 2. Line 20 總費用計算邏輯：
+        #    - 稅務規範上，Line 20 (Total Expenses) 必須包含 Line 18 (折舊)。
+        #    - 因此，若 Line 18 為 None (計算被阻斷)，Line 20 也必須保持 None，以防低估費用造成報稅錯誤。
+        # ==========================================
+
+        # Line 20 — 總營業費用 (Total expenses)
         line_20 = None
         if line_18 is not None:
             line_20 = (

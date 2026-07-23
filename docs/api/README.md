@@ -27,6 +27,7 @@
 * [Schedule B 提取並試算 API (`POST /schedule-b/extract-and-calculate`)](schedule_b.md) — 傳入未結構化文件與納稅人檔案，提取並試算利息與普通股利。
 * [Schedule C 提取並試算 API (`POST /schedule-c/extract-and-calculate`)](schedule_c.md) — 傳入未結構化文件與納稅人檔案，提取並試算自營職業利潤與虧損。
 * [Schedule E 提取並試算 API (`POST /schedule-e/extract-and-calculate`)](schedule_e.md) — 傳入未結構化文件與納稅人檔案，提取並試算租賃房地產淨利潤與虧損。
+* [Form 1040 彙整計算 API (`POST /form-1040/assemble`)](form_1040_assemble.md) — 傳入原始憑證進行端到端提取、各子表單調度與 AGI 計算。
 
 ### 📄 文件 Facts 提取與表單映射 (兩步驟處理)
 * [Schedule A 扣除額映射 (`POST /schedule-a/deductions/extract-and-map`)](schedule_a_deductions.md) — 從捐贈收據、1098 房貸表單中提取事實並映射至 Schedule A 行號。

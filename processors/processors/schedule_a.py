@@ -90,11 +90,8 @@ def dict_to_v1_inputs(inputs_dict: Dict[str, Any]) -> ScheduleAInputsV1:
 def calculate_schedule_a_dynamic(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """主動態執行接口，將傳入字典轉為 V1 結構並執行 Python 確定性計算，保證相容性。"""
     v1_inputs = dict_to_v1_inputs(inputs)
-    try:
-        schema = load_schedule_a_schema()
-        allowed_years = set(schema.get("supported_tax_years", [2024, 2025]))
-    except Exception:
-        allowed_years = {2024, 2025}
+    schema = load_schedule_a_schema()
+    allowed_years = set(schema.get("supported_tax_years", []))
     res = calculate_schedule_a_v1(v1_inputs, allowed_years=allowed_years)
     res_dict = res.to_dict()
 

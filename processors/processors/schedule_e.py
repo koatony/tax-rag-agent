@@ -46,11 +46,8 @@ def extract_schedule_e_inputs_with_logs(
 def calculate_schedule_e_dynamic(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """相容舊版接口之總入口，執行 Schedule E V1 計算引擎。"""
     v1_inputs = ScheduleEPart1InputsV1.from_dict(inputs)
-    try:
-        schema = load_schedule_e_schema()
-        allowed_years = set(schema.get("supported_tax_years", [2024, 2025]))
-    except Exception:
-        allowed_years = {2024, 2025}
+    schema = load_schedule_e_schema()
+    allowed_years = set(schema.get("supported_tax_years", []))
     res = calculate_schedule_e_part1_v1(v1_inputs, allowed_years=allowed_years)
     res_dict = res.to_dict()
     return res_dict
@@ -97,10 +94,16 @@ def extract_and_calculate_schedule_e(
             
             ban = form_4562_state.get("business_activity_name", "").strip().lower()
             
-            # 尋找與 Form 4562 計算結果（透過 business_activity_name）匹配的 Schedule E 房產 (Property)
+            # 【為什麼需要進行房產匹配與關聯？】
+            # 1. 報稅人可能擁有多間租賃房產（Schedule E Part I 支援多欄申報 A, B, C）。
+            # 2. 每間房產的折舊計算各自記錄在獨立的 Form 4562 中。
+            # 3. Form 4562 使用 `business_activity_name` 來識別該折舊標的物，而 Schedule E 使用 `physical_address`（實體地址）來識別。
+            # 4. 因此，我們必須透過地址與業務名稱的比對，將 Form 4562 的折舊金額正確注入到對應的 Schedule E 房產中。
+            #
+            # 【匹配演算法流程】：
             matched_prop = None
             if len(properties) == 1:
-                # 只有一間房產時直接匹配，免去比對邏輯
+                # 情況一：如果 Schedule E 中只有一間房產，則不需比對，直接匹配該唯一房產
                 matched_prop = properties[0]
             else:
                 for prop in properties:

@@ -1,8 +1,7 @@
-from .agi_processor import process, AGIProcessor
+from .agi_processor import AGIProcessor
 from .income_aggregator_processor import IncomeAggregatorProcessor
 
 __all__ = [
-    "process",
     "AGIProcessor",
     "IncomeAggregatorProcessor",
 ]

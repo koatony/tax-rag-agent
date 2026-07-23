@@ -39,11 +39,8 @@ def extract_schedule_c_inputs_with_logs(
 def calculate_schedule_c_dynamic(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """相容舊版接口之總入口，執行 V1 計算引擎。"""
     v1_inputs = ScheduleCInputsV1.from_dict(inputs)
-    try:
-        schema = load_schedule_c_schema()
-        allowed_years = set(schema.get("supported_tax_years", [2024, 2025]))
-    except Exception:
-        allowed_years = {2024, 2025}
+    schema = load_schedule_c_schema()
+    allowed_years = set(schema.get("supported_tax_years", []))
     res = calculate_schedule_c_v1(v1_inputs, allowed_years=allowed_years)
     return res.to_dict()
 
