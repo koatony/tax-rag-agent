@@ -7,9 +7,9 @@ from form1040.models.income_aggregator_model import (
 )
 
 
-class DirectIncomeParser:
+class IncomeAggregatorDirectIncomeParser:
     """
-    Direct Income 解析器與轉譯器
+    Income Aggregator Direct Income 解析器與轉譯器
     將 LLM 或外層傳入之 Dict／Data 解析為結構化的 DirectIncomeInputV1 DTO
     """
 
@@ -18,13 +18,11 @@ class DirectIncomeParser:
         if not data:
             return DirectIncomeInputV1()
 
-        # 1. Parse W-2 明細項目
+        # 1. Parse W-2 明細項目 (由 LLM 產出的 raw dict 統一轉換為 W2ItemV1 DTO 物件)
         raw_w2_items = data.get("w2_items") or []
         parsed_w2_items: List[W2ItemV1] = []
         for w2 in raw_w2_items:
-            if isinstance(w2, W2ItemV1):
-                parsed_w2_items.append(w2)
-            elif isinstance(w2, dict):
+            if isinstance(w2, dict):
                 box1 = w2.get("box_1_wages")
                 box2 = w2.get("box_2_federal_withholding")
                 parsed_w2_items.append(
@@ -40,12 +38,20 @@ class DirectIncomeParser:
                 )
 
         # 2. Parse 隨選直接收入項目 (IRA, Pension, Social Security)
+        # 由於這三個項目的結構與欄位完全相同，因此使用統一的輔助函式進行 dict 到 DTO 物件的解析與轉換
         def _parse_item(key: str) -> Optional[DirectIncomeItemV1]:
+            """
+            解析特定的直接收入項目 (例如 'ira_distribution', 'pension_annuity', 'social_security')。
+            
+            從輸入的 raw dict 中提取以下欄位：
+              - gross_amount: 總額 (轉換為 Decimal，預設 "0")
+              - taxable_amount: 應稅金額 (轉換為 Decimal，預設 "0")
+              - status: 提取狀態 (字串，預設 "EXPLICIT_VALUE")
+            最後包裝成結構化的 DirectIncomeItemV1 DTO 物件回傳。
+            """
             item_raw = data.get(key)
             if item_raw is None:
                 return None
-            if isinstance(item_raw, DirectIncomeItemV1):
-                return item_raw
             if isinstance(item_raw, dict):
                 gross = item_raw.get("gross_amount", "0")
                 taxable = item_raw.get("taxable_amount", "0")

@@ -1,3 +1,3 @@
-from .direct_income_parser import DirectIncomeParser
+from .income_aggregator_direct_income_parser import IncomeAggregatorDirectIncomeParser
 
-__all__ = ["DirectIncomeParser"]
+__all__ = ["IncomeAggregatorDirectIncomeParser"]

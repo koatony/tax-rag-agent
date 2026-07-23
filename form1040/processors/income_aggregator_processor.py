@@ -1,4 +1,4 @@
-from typing import Optional, Union, Dict, Any
+from typing import Optional
 from form1040.models.income_aggregator_model import (
     IncomeAggregatorInputV1,
     IncomeSectionResultV1,
@@ -7,7 +7,7 @@ from form1040.models.income_aggregator_model import (
     ScheduleDResultV1,
     Schedule1ResultV1,
 )
-from form1040.parsers.direct_income_parser import DirectIncomeParser
+
 from form1040.validators.income_aggregator_validator import IncomeAggregatorValidator
 from form1040.calculators.income_aggregator_calculator import IncomeAggregatorCalculator
 
@@ -24,7 +24,7 @@ class IncomeAggregatorProcessor:
         *,
         tax_year: int,
         filing_status: str,
-        direct_income_input: Union[DirectIncomeInputV1, Dict[str, Any]],
+        direct_income_input: DirectIncomeInputV1,
         schedule_b_result: Optional[ScheduleBResultV1] = None,
         schedule_d_result: Optional[ScheduleDResultV1] = None,
         schedule_1_result: Optional[Schedule1ResultV1] = None,
@@ -33,11 +33,8 @@ class IncomeAggregatorProcessor:
         核心計算進入點 (Pure, Stateless)
         """
 
-        # 1. Parsing & Normalization (將 Dict 適配轉為 DirectIncomeInputV1)
-        if isinstance(direct_income_input, dict):
-            parsed_direct_income = DirectIncomeParser.parse_dict(direct_income_input)
-        else:
-            parsed_direct_income = direct_income_input or DirectIncomeInputV1()
+        # 1. Normalization (確保不為 None)
+        parsed_direct_income = direct_income_input or DirectIncomeInputV1()
 
         # 2. 建立標準 Input DTO
         input_dto = IncomeAggregatorInputV1(

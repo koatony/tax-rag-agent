@@ -8,7 +8,7 @@ import time
 # 將工作路徑加入系統中以載入專案模組
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from schedule_b_processor import extract_schedule_b_inputs_with_logs, calculate_schedule_b_dynamic
+from processors.processors.schedule_b import extract_schedule_b_inputs_with_logs, calculate_schedule_b_dynamic
 
 # 13 個 Schedule B 相關的真實案例清單
 SCH_B_CASES = [

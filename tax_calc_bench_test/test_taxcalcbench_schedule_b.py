@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 # 將工作路徑加入系統中以載入專案模組
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from schedule_b_processor import extract_schedule_b_inputs_with_logs, calculate_schedule_b_dynamic
+from processors.processors.schedule_b import extract_schedule_b_inputs_with_logs, calculate_schedule_b_dynamic
 
 def format_column_tax_input_to_text(data):
     """

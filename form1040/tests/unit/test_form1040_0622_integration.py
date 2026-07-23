@@ -13,7 +13,7 @@ class TestForm10400622Integration(unittest.TestCase):
     """
     Form 1040 Case 0622 完整端到端整合測試 (End-to-End Integration Test)
     模擬 LLM 讀取 0622 Word 憑證後提取出的 JSON Dict，經過完整 Pipeline
-    (DirectIncomeParser -> IncomeAggregatorValidator -> IncomeAggregatorCalculator -> AGIValidator -> AGICalculator)
+    (IncomeAggregatorDirectIncomeParser -> IncomeAggregatorValidator -> IncomeAggregatorCalculator -> AGIValidator -> AGICalculator)
     驗證最終 Form 1040 Line 9 與 Line 11 之精確結果。
     """
 
@@ -57,32 +57,46 @@ class TestForm10400622Integration(unittest.TestCase):
             },
         }
 
-        # 2. 模擬上游 Schedule B, Schedule D, Schedule 1 計算完成後的 Raw Result 物件
-        sb_result = ScheduleBResultV1(
-            form_1040_line_2a=Decimal("0.00"),
-            line_4_surface_value=Decimal("150.00"),            # Line 2b Taxable Interest
-            total_qualified_dividends=Decimal("0.00"),
-            line_6_total_ordinary_dividends=Decimal("405.00"), # Line 3b Ordinary Dividends
-            status="COMPLETE",
-        )
+        # 2. 準備上游各表單的原始輸入 Dict 資料
+        sb_inputs = {
+            'taxpayer_name': 'MARCUS & ELENA RIVERA',
+            'taxpayer_ssn': '123-45-6789',
+            'tax_year': 2025,
+            'interest_items': [{'payer_name': 'CHASE', 'amount': 150.0, 'tax_character': 'TAXABLE_INTEREST'}],
+            'dividend_items': [{'payer_name': 'VANGUARD', 'ordinary_dividends': 405.0}],
+            'foreign_accounts_interest': False,
+            'fbar_required': False,
+            'foreign_countries_list': [],
+            'foreign_trust_distribution': False
+        }
 
-        sd_result = ScheduleDResultV1(
-            line_7_capital_gain_or_loss=Decimal("-990.00"),     # Line 7a Capital Loss
-            status="COMPLETE",
-        )
+        sd_inputs = {
+            "line_7_capital_gain_or_loss": -990.00
+        }
 
-        s1_result = Schedule1ResultV1(
-            line_10_additional_income=Decimal("0.00"),           # Line 8 Additional Income
-            line_26_adjustments_to_income=Decimal("7000.00"),     # Line 10 Adjustments to Income
-            status="COMPLETE",
-        )
+        s1_inputs = {
+            "taxpayer_name": "Marcus & Elena Rivera",
+            "taxpayer_ssn": "123-45-6789",
+            "tax_year": 2025,
+            "adjustment_items": [
+                {
+                    "item_id": "adj_ira",
+                    "line_code": "20",
+                    "description": "IRA deduction",
+                    "amount": 7000.0
+                }
+            ],
+            "special_case_flags": {}
+        }
 
-        # 3. 執行 Form 1040 全流程組裝
-        assembly_result = Form1040Orchestrator.assemble_0622_case(
+        # 3. 執行 Form 1040 全流程組裝 (由 Orchestrator 內部調度子計算引擎)
+        assembly_result = Form1040Orchestrator.assemble(
+            tax_year=2025,
+            filing_status="MFJ",
             raw_llm_direct_income=llm_extracted_dict,
-            schedule_b_result=sb_result,
-            schedule_d_result=sd_result,
-            schedule_1_result=s1_result,
+            raw_schedule_b_input=sb_inputs,
+            raw_schedule_d_input=sd_inputs,
+            raw_schedule_1_input=s1_inputs,
         )
 
         # 4. 驗證全流程計算狀態

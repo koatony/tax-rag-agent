@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")))
-from schedule_b_processor import calculate_schedule_b_dynamic
+from processors.processors.schedule_b import calculate_schedule_b_dynamic
 
 def test_rivera():
     rivera_inputs = {
