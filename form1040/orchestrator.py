@@ -56,9 +56,14 @@ class Form1040Orchestrator:
             sb_res_dict = calculate_schedule_b_dynamic(raw_schedule_b_input)
             sb_has_blocking = sb_res_dict.get("blocking_validation_error") or len(sb_res_dict.get("blocking_errors", [])) > 0
             sb_status = "BLOCKED" if sb_has_blocking else "COMPLETE"
-            
+            # 因為核心計算引擎輸出的 blocking_errors 已經被轉為字典 (dict) 列表，
+            # 這裡需要將它們還原成 Orchestrator DTO 所需的強型別 ProcessingIssueV1 物件列表。
             sb_blocking_issues = [
-                ProcessingIssueV1(code=err.get("code", "ERROR"), field=err.get("field"), message=err.get("message", ""))
+                ProcessingIssueV1(
+                    code=err.get("code", "ERROR"),
+                    field=err.get("field"),
+                    message=err.get("message", "")
+                )
                 for err in sb_res_dict.get("blocking_errors", []) if isinstance(err, dict)
             ]
             schedule_b_result = ScheduleBResultV1(
@@ -84,11 +89,22 @@ class Form1040Orchestrator:
         schedule_1_result = None
         if raw_schedule_1_input:
             from schedule_1_processor import calculate_schedule_1_dynamic
-            from form1040.models.income_aggregator_model import Schedule1ResultV1
+            from form1040.models.income_aggregator_model import ProcessingIssueV1, Schedule1ResultV1
             
             s1_res_dict = calculate_schedule_1_dynamic(raw_schedule_1_input)
             s1_has_blocking = s1_res_dict.get("blocking_validation_error") or len(s1_res_dict.get("blocking_errors", [])) > 0
             s1_status = "BLOCKED" if s1_has_blocking else "COMPLETE"
+            
+            # 因為核心計算引擎輸出的 blocking_errors 已經被轉為字典 (dict) 列表，
+            # 這裡需要將它們還原成 Orchestrator DTO 所需的強型別 ProcessingIssueV1 物件列表。
+            s1_blocking_issues = [
+                ProcessingIssueV1(
+                    code=err.get("code", "ERROR"),
+                    field=err.get("field"),
+                    message=err.get("message", "")
+                )
+                for err in s1_res_dict.get("blocking_errors", []) if isinstance(err, dict)
+            ]
             
             schedule_1_result = Schedule1ResultV1(
                 taxpayer_name=s1_res_dict.get("taxpayer_name"),
@@ -97,7 +113,7 @@ class Form1040Orchestrator:
                 line_10_additional_income=Decimal(f"{s1_res_dict.get('line_10_additional_income', 0):.2f}"),
                 line_26_adjustments_to_income=Decimal(f"{s1_res_dict.get('line_26_adjustments_to_income', 0):.2f}"),
                 status=s1_status,
-                blocking_errors=s1_res_dict.get("blocking_errors", []),
+                blocking_errors=s1_blocking_issues,
                 review_warnings=s1_res_dict.get("review_warnings", [])
             )
 
@@ -111,14 +127,6 @@ class Form1040Orchestrator:
             schedule_1_result=schedule_1_result,
         )
 
-        if income_result.status == "BLOCKED":
-            return {
-                "income_section": income_result.to_dict(),
-                "agi_section": None,
-                "status": "BLOCKED",
-                "blocking_errors": income_result.to_dict()["blocking_errors"],
-            }
-
         # 6. 將 Line 9 與 Schedule 1 Line 26 傳入 AGIProcessor 計算 Line 11
         agi_input = AGIProcessorInputV1(
             line_9_total_income=income_result.line_9,
@@ -127,11 +135,23 @@ class Form1040Orchestrator:
 
         agi_result: AGIProcessorResultV1 = AGIProcessor.process(agi_input)
 
+        # 彙整最終狀態：如果 AGI 或是 Income Section 任一處阻斷，則整體為 BLOCKED
+        overall_status = "BLOCKED" if (income_result.status == "BLOCKED" or agi_result.status == "BLOCKED") else "COMPLETE"
+        
+        # 合併所有的阻斷錯誤
+        all_blocking_errors = []
+        if income_result.blocking_errors:
+            all_blocking_errors.extend(income_result.blocking_errors)
+        if agi_result.blocking_errors:
+            for err in agi_result.blocking_errors:
+                if err not in all_blocking_errors:
+                    all_blocking_errors.append(err)
+
         return {
             "income_section": income_result.to_dict(),
             "agi_section": agi_result.to_dict(),
-            "status": agi_result.status,
-            "blocking_errors": agi_result.blocking_errors,
+            "status": overall_status,
+            "blocking_errors": [err.to_dict() if hasattr(err, "to_dict") else err for err in all_blocking_errors],
         }
 
 

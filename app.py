@@ -940,6 +940,42 @@ async def flag_analyze_endpoint(
         raise HTTPException(status_code=500, detail=f"Flag Analyze Failed: {str(e)}")
 
 
+class Form1040AssembleRequest(BaseModel):
+    tax_year: int
+    filing_status: str
+    raw_llm_direct_income: Dict[str, Any]
+    raw_schedule_b_input: Optional[Dict[str, Any]] = None
+    raw_schedule_d_input: Optional[Dict[str, Any]] = None
+    raw_schedule_1_input: Optional[Dict[str, Any]] = None
+
+
+@app.post("/form-1040/assemble")
+async def assemble_form_1040(
+    request: Form1040AssembleRequest,
+    x_api_token: str = Header(None)
+):
+    await verify_token(x_api_token)
+    from form1040.orchestrator import Form1040Orchestrator
+    
+    t_start = time.time()
+    try:
+        res = Form1040Orchestrator.assemble(
+            tax_year=request.tax_year,
+            filing_status=request.filing_status,
+            raw_llm_direct_income=request.raw_llm_direct_income,
+            raw_schedule_b_input=request.raw_schedule_b_input,
+            raw_schedule_d_input=request.raw_schedule_d_input,
+            raw_schedule_1_input=request.raw_schedule_1_input,
+        )
+        res["success"] = True
+        res["latency"] = time.time() - t_start
+        return res
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Form 1040 Assembly Failed: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     # 移除預先初始化 retriever，改為 lazy load（第一次 API 請求時才連線）
