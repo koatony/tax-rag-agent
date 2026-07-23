@@ -297,5 +297,40 @@ class TestScheduleEProcessor(unittest.TestCase):
         self.assertTrue(res["requires_form_8582_attachment"])
         self.assertTrue(res["requires_form_461_review"])
 
+    def test_form_4562_line_22_prioritization(self):
+        # Case A: depreciation_result contains line_22_total_depreciation_and_amortization
+        inputs = dict(self.base_inputs)
+        inputs["properties"] = [dict(inputs["properties"][0])]
+        inputs["properties"][0]["depreciation_result"] = {
+            "property_id": "prop_river_oak",
+            "tax_year": 2025,
+            "calculation_status": "CALCULATED",
+            "depreciation_amount": 8000.0,
+            "line_22_total_depreciation_and_amortization": 9500.0,
+            "form_4562_attachment_required": True,
+            "source_result_id": "dep_res_02"
+        }
+        
+        res = calculate_schedule_e_dynamic(inputs)
+        prop = res["properties"][0]
+        # Should prioritize 9500.0 over 8000.0
+        self.assertEqual(prop["line_18_depreciation"], 9500.0)
+
+        # Case B: depreciation_result contains line22 alias
+        inputs["properties"][0]["depreciation_result"] = {
+            "property_id": "prop_river_oak",
+            "tax_year": 2025,
+            "calculation_status": "CALCULATED",
+            "depreciation_amount": 8000.0,
+            "line22": 9600.0,
+            "form_4562_attachment_required": True,
+            "source_result_id": "dep_res_03"
+        }
+        
+        res2 = calculate_schedule_e_dynamic(inputs)
+        prop2 = res2["properties"][0]
+        # Should prioritize 9600.0 over 8000.0
+        self.assertEqual(prop2["line_18_depreciation"], 9600.0)
+
 if __name__ == "__main__":
     unittest.main()

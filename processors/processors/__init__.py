@@ -15,6 +15,7 @@ from .schedule_c import (
 from .schedule_e import (
     calculate_schedule_e_dynamic,
     extract_schedule_e_inputs_with_logs,
+    extract_and_calculate_schedule_e,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "extract_and_calculate_schedule_c",
     "calculate_schedule_e_dynamic",
     "extract_schedule_e_inputs_with_logs",
+    "extract_and_calculate_schedule_e",
 ]

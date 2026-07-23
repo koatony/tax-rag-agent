@@ -76,10 +76,38 @@ class Form1040Orchestrator:
             )
 
         if schedule_1_result is None:
+            # 引入並呼叫真實的 Schedule 1 計算引擎
+            from schedule_1_processor import calculate_schedule_1_dynamic
+            s1_inputs = {
+                "taxpayer_name": "Marcus & Elena Rivera",
+                "taxpayer_ssn": "123-45-6789",
+                "tax_year": 2025,
+                "adjustment_items": [
+                    {
+                        "item_id": "adj_ira",
+                        "line_code": "20",
+                        "description": "IRA deduction",
+                        "amount": 7000.0
+                    }
+                ],
+                "special_case_flags": {}
+            }
+            s1_res_dict = calculate_schedule_1_dynamic(s1_inputs)
+            
+            # 計算 status (依據有無阻斷錯誤)
+            s1_has_blocking = s1_res_dict.get("blocking_validation_error") or len(s1_res_dict.get("blocking_errors", [])) > 0
+            s1_status = "BLOCKED" if s1_has_blocking else "COMPLETE"
+            
+            # 手動轉換型別以符合 Orchestrator 對 Schedule1ResultV1 的型別期望
             schedule_1_result = Schedule1ResultV1(
-                line_10_additional_income=Decimal("0"),       # Line 8 Additional Income
-                line_26_adjustments_to_income=Decimal("7000"),  # Line 10 Adjustments to Income
-                status="COMPLETE",
+                taxpayer_name=s1_res_dict.get("taxpayer_name"),
+                taxpayer_ssn_masked=s1_res_dict.get("taxpayer_ssn_masked"),
+                tax_year=s1_res_dict.get("tax_year"),
+                line_10_additional_income=Decimal(str(s1_res_dict.get("line_10_additional_income", 0))),
+                line_26_adjustments_to_income=Decimal(str(s1_res_dict.get("line_26_adjustments_to_income", 0))),
+                status=s1_status,
+                blocking_errors=s1_res_dict.get("blocking_errors", []),
+                review_warnings=s1_res_dict.get("review_warnings", [])
             )
 
         # 3. 步驟一：呼叫 IncomeAggregatorProcessor 彙整 Lines 1–9
@@ -103,7 +131,7 @@ class Form1040Orchestrator:
         # 4. 步驟二：將 Line 9 與 Schedule 1 Line 26 傳入 AGIProcessor 計算 Line 11
         agi_input = AGIProcessorInputV1(
             line_9_total_income=income_result.line_9,
-            schedule1_line_26_adjustments=schedule_1_result.line_26_adjustments_to_income,
+            schedule_1_result=schedule_1_result
         )
 
         agi_result: AGIProcessorResultV1 = AGIProcessor.process(agi_input)

@@ -40,8 +40,11 @@ def validate_nonnegative_amounts(inputs: ScheduleEPart1InputsV1, errors: List[Va
             if item.nonrental_allocated_amount < ZERO:
                 errors.append(ValidationIssue("NEGATIVE_AMOUNT", "nonrental_allocated_amount", property_id=prop.property_id, item_id=item.item_id, source_document_id=item.source_document_id, message="Non-rental allocated amount cannot be negative."))
 
-        if prop.depreciation_result and prop.depreciation_result.depreciation_amount:
-            if prop.depreciation_result.depreciation_amount < ZERO:
+        if prop.depreciation_result:
+            dep_val = getattr(prop.depreciation_result, "line_22_total_depreciation_and_amortization", None)
+            if dep_val is None:
+                dep_val = prop.depreciation_result.depreciation_amount
+            if dep_val is not None and dep_val < ZERO:
                 errors.append(ValidationIssue("NEGATIVE_AMOUNT", "depreciation_amount", property_id=prop.property_id, source_result_id=prop.depreciation_result.source_result_id, message="Depreciation amount cannot be negative."))
 
 def detect_unsupported_cases(flags: ScheduleEPart1SpecialCaseFlagsV1, errors: List[ValidationIssue]):

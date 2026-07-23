@@ -23,9 +23,9 @@ def calculate_schedule_c_v1(inputs: ScheduleCInputsV1, allowed_years: Optional[S
             schema_path = os.path.abspath(os.path.join(current_dir, "..", "..", "docs", "how_to_fill_forms_docs", "schedule_c", "schedule_c_schema.json"))
             with open(schema_path, "r", encoding="utf-8") as f:
                 schema_data = json.load(f)
-            allowed_years = set(schema_data.get("supported_tax_years", [2024, 2025]))
+            allowed_years = set(schema_data.get("supported_tax_years", []))
         except Exception:
-            allowed_years = {2024, 2025}
+            allowed_years = {}
 
     # 1. Run Validators
     validate_identity(inputs, errors, allowed_years)

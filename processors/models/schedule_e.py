@@ -123,6 +123,15 @@ class ExternalDepreciationResultV1:
         if self.form_4562_attachment_required is not None:
             self.form_4562_attachment_required = bool(self.form_4562_attachment_required)
             
+        # Support extracting line 22 total depreciation from Form 4562 processor result
+        self.line_22_total_depreciation_and_amortization = kwargs.get("line_22_total_depreciation_and_amortization")
+        if self.line_22_total_depreciation_and_amortization is not None:
+            self.line_22_total_depreciation_and_amortization = Decimal(str(self.line_22_total_depreciation_and_amortization))
+        else:
+            line22 = kwargs.get("line22")
+            if line22 is not None:
+                self.line_22_total_depreciation_and_amortization = Decimal(str(line22))
+
         self.source_result_id = str(kwargs.get("source_result_id", ""))
         self.source_document_ids = kwargs.get("source_document_ids") or []
         self.blocking_errors = kwargs.get("blocking_errors") or []

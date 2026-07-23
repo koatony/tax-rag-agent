@@ -180,9 +180,9 @@ def calculate_schedule_b_v1(inputs: ScheduleBInputsV1, allowed_years: Optional[S
             schema_path = os.path.abspath(os.path.join(current_dir, "..", "..", "docs", "how_to_fill_forms_docs", "schedule_b", "schedule_b_schema.json"))
             with open(schema_path, "r", encoding="utf-8") as f:
                 schema_data = json.load(f)
-            allowed_years = set(schema_data.get("supported_tax_years", [2024, 2025]))
+            allowed_years = set(schema_data.get("supported_tax_years", []))
         except Exception:
-            allowed_years = {2024, 2025}
+            allowed_years = {}
 
     # 1. Validation identity & tax year
     # 檢測是否符合基本資料與稅務年度

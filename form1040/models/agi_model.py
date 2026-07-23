@@ -31,11 +31,21 @@ ValidationIssue = ProcessingIssueV1
 class AGIProcessorInputV1(BaseModel):
     """
     AGI 處理器的輸入 DTO 模型
+    
+    【model_config = ConfigDict(...) 的作用】
+    - model_config 是 Pydantic v2 用來設定模型全域行為的配置字典（等同 v1 的 Inner Config Class）。
+    
+    【arbitrary_types_allowed=True 啥意思？】
+    - 預設情況下，Pydantic 只對標準 Python 原生型別（如 int, str, float）進行嚴格驗證。
+    - 當我們的欄位使用了非 Pydantic 原生預設支援的任意型別（如 Python 的 decimal.Decimal 或自定義 Class）時，
+      開啟 arbitrary_types_allowed=True 即可允許這些任意型別直接通過驗證，不會跳出 Invalid Type 錯誤。
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     line_9_total_income: Optional[Decimal] = None
-    schedule1_line_26_adjustments: Optional[Decimal] = None
+    
+    # 關聯的 Schedule 1 計算結果
+    schedule_1_result: Optional[Any] = None
 
 
 class AGIProcessorResultV1(BaseModel):

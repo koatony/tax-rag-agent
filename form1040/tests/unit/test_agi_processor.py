@@ -15,7 +15,7 @@ class TestAGIProcessor(unittest.TestCase):
         """0622 case integration test using mock upstream data."""
         input_data = AGIProcessorInputV1(
             line_9_total_income=Decimal("100555"),
-            schedule1_line_26_adjustments=Decimal("7000"),
+            schedule_1_result={"line26": Decimal("7000")},
         )
         result = AGIProcessor.process(input_data)
 
@@ -30,7 +30,7 @@ class TestAGIProcessor(unittest.TestCase):
         result = process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100555"),
-                schedule1_line_26_adjustments=Decimal("7000"),
+                schedule_1_result={"line26": Decimal("7000")},
             )
         )
         self.assertEqual(result.line_11_adjusted_gross_income, Decimal("93555"))
@@ -43,7 +43,7 @@ class TestAGIProcessor(unittest.TestCase):
         result = process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("1000"),
-                schedule1_line_26_adjustments=Decimal("0"),
+                schedule_1_result={"line26": Decimal("0")},
             )
         )
         self.assertEqual(result.line_10_adjustments_to_income, Decimal("0"))
@@ -54,7 +54,7 @@ class TestAGIProcessor(unittest.TestCase):
         result = process(
             AGIProcessorInputV1(
                 line_9_total_income=None,
-                schedule1_line_26_adjustments=Decimal("7000"),
+                schedule_1_result={"line26": Decimal("7000")},
             )
         )
         self.assertEqual(result.status, "BLOCKED")
@@ -67,7 +67,7 @@ class TestAGIProcessor(unittest.TestCase):
         result = process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100555"),
-                schedule1_line_26_adjustments=None,
+                schedule_1_result={"line26": None},
             )
         )
         self.assertEqual(result.status, "BLOCKED")
@@ -80,7 +80,7 @@ class TestAGIProcessor(unittest.TestCase):
         result = process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100555"),
-                schedule1_line_26_adjustments=Decimal("-1"),
+                schedule_1_result={"line26": Decimal("-1")},
             )
         )
         self.assertEqual(result.status, "BLOCKED")
@@ -91,12 +91,48 @@ class TestAGIProcessor(unittest.TestCase):
         result = process(
             AGIProcessorInputV1(
                 line_9_total_income=Decimal("100"),
-                schedule1_line_26_adjustments=Decimal("200"),
+                schedule_1_result={"line26": Decimal("200")},
             )
         )
         self.assertEqual(result.status, "COMPLETE")
         self.assertTrue(result.can_continue)
         self.assertEqual(result.line_11_adjusted_gross_income, Decimal("-100"))
+
+    def test_agi_schedule_1_parsing(self):
+        # Case A: schedule_1_result (object) contains line_26_adjustments_to_income
+        class DummySchedule1Result:
+            def __init__(self, val, status="COMPLETE"):
+                self.line_26_adjustments_to_income = Decimal(str(val))
+                self.status = status
+
+        result = process(
+            AGIProcessorInputV1(
+                line_9_total_income=Decimal("100000"),
+                schedule_1_result=DummySchedule1Result(8500)
+            )
+        )
+        self.assertEqual(result.line_10_adjustments_to_income, Decimal("8500"))
+        self.assertEqual(result.line_11_adjusted_gross_income, Decimal("91500"))
+
+        # Case B: schedule_1_result is a dictionary
+        result2 = process(
+            AGIProcessorInputV1(
+                line_9_total_income=Decimal("100000"),
+                schedule_1_result={"line26": 9000}
+            )
+        )
+        self.assertEqual(result2.line_10_adjustments_to_income, Decimal("9000"))
+
+    def test_agi_schedule_1_blocked(self):
+        result = process(
+            AGIProcessorInputV1(
+                line_9_total_income=Decimal("100000"),
+                schedule_1_result={"status": "BLOCKED"}
+            )
+        )
+        self.assertEqual(result.status, "BLOCKED")
+        self.assertFalse(result.can_continue)
+        self.assertTrue(any(err.code == "SCHEDULE_1_MODULE_BLOCKED" for err in result.blocking_errors))
 
 
 if __name__ == "__main__":

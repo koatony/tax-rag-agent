@@ -8,6 +8,8 @@ from form1040.calculators.agi_calculator import AGICalculator
 
 def process(data: AGIProcessorInputV1) -> AGIProcessorResultV1:
     """AGI 處理邏輯進入點，調度 Validator 與 Calculator"""
+
+
     errors = AGIValidator.validate(data)
     if errors:
         return AGIProcessorResultV1(

@@ -39,30 +39,67 @@ class AGIValidator:
                 )
             )
 
+        # 必須從 schedule_1_result 中取得 Line 26 調整值，不接受任何其他回退方式
+        adjustments = None
+        s1_res = data.schedule_1_result
+        if s1_res is None:
+            errors.append(
+                ProcessingIssueV1(
+                    code="MISSING_SCHEDULE_1_RESULT",
+                    field="schedule_1_result",
+                    message="Schedule 1 result is required to compute adjustments to income (Line 10).",
+                )
+            )
+        else:
+            # 檢查上游 Schedule 1 是否執行阻斷
+            s1_status = getattr(s1_res, "status", None) or (s1_res.get("status") if isinstance(s1_res, dict) else None)
+            if s1_status == "BLOCKED":
+                errors.append(
+                    ProcessingIssueV1(
+                        code="SCHEDULE_1_MODULE_BLOCKED",
+                        field="schedule_1_result",
+                        message="Schedule 1 module execution was blocked.",
+                    )
+                )
+            
+            if hasattr(s1_res, "line_26_adjustments_to_income"):
+                adjustments = getattr(s1_res, "line_26_adjustments_to_income")
+            elif isinstance(s1_res, dict):
+                adjustments = s1_res.get("line_26_adjustments_to_income")
+                if adjustments is None:
+                    adjustments = s1_res.get("line26")
+            
+            if adjustments is not None:
+                try:
+                    adjustments = Decimal(str(adjustments))
+                except Exception:
+                    pass
+
         # Schedule 1 Line 26 validation
-        if data.schedule1_line_26_adjustments is None:
+        if s1_res is not None and adjustments is None:
             errors.append(
                 ProcessingIssueV1(
                     code="MISSING_SCHEDULE1_LINE_26",
-                    field="schedule1_line_26_adjustments",
+                    field="schedule_1_result",
                     message="Schedule 1 Line 26 adjustments is required before AGI can be calculated.",
                 )
             )
-        elif not is_finite_decimal(data.schedule1_line_26_adjustments):
-            errors.append(
-                ProcessingIssueV1(
-                    code="INVALID_AMOUNT",
-                    field="schedule1_line_26_adjustments",
-                    message="Schedule 1 Line 26 adjustments must be a valid finite Decimal.",
+        elif adjustments is not None:
+            if not is_finite_decimal(adjustments):
+                errors.append(
+                    ProcessingIssueV1(
+                        code="INVALID_AMOUNT",
+                        field="schedule_1_result",
+                        message="Schedule 1 Line 26 adjustments must be a valid finite Decimal.",
+                    )
                 )
-            )
-        elif data.schedule1_line_26_adjustments < Decimal("0"):
-            errors.append(
-                ProcessingIssueV1(
-                    code="NEGATIVE_ADJUSTMENTS",
-                    field="schedule1_line_26_adjustments",
-                    message="Schedule 1 Line 26 adjustments cannot be negative.",
+            elif adjustments < Decimal("0"):
+                errors.append(
+                    ProcessingIssueV1(
+                        code="NEGATIVE_ADJUSTMENTS",
+                        field="schedule_1_result",
+                        message="Schedule 1 Line 26 adjustments cannot be negative.",
+                    )
                 )
-            )
 
         return errors

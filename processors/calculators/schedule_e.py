@@ -69,9 +69,9 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
             schema_path = os.path.abspath(os.path.join(current_dir, "..", "..", "docs", "how_to_fill_forms_docs", "schedule_e", "schedule_e_schema.json"))
             with open(schema_path, "r", encoding="utf-8") as f:
                 schema_data = json.load(f)
-            allowed_years = set(schema_data.get("supported_tax_years", [2024, 2025]))
+            allowed_years = set(schema_data.get("supported_tax_years", []))
         except Exception:
-            allowed_years = {2024, 2025}
+            allowed_years = {}
 
     # 1. Run validations on input wrapper level
     validate_identity(inputs, global_errors)
@@ -183,7 +183,12 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
         if prop.depreciation_result:
             dep_source_id = prop.depreciation_result.source_result_id
             if prop.depreciation_result.calculation_status == "CALCULATED":
-                line_18 = prop.depreciation_result.depreciation_amount
+                # Prioritize Form 4562 Line 22 (line_22_total_depreciation_and_amortization) over general depreciation_amount
+                line_22_val = getattr(prop.depreciation_result, "line_22_total_depreciation_and_amortization", None)
+                if line_22_val is not None:
+                    line_18 = line_22_val
+                else:
+                    line_18 = prop.depreciation_result.depreciation_amount
             elif prop.depreciation_result.calculation_status == "NOT_APPLICABLE":
                 line_18 = ZERO
             else:
