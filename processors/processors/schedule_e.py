@@ -85,6 +85,8 @@ def extract_and_calculate_schedule_e(
         pass
 
     # 3. 將 Form 4562 結果注入對應的 property 中
+    # (提示: matched_prop 是 properties 列表內的字典引用，修改它會原地 (in-place) 變更 extracted_inputs，
+    # 讓接下來的 calculate_schedule_e_dynamic 可以直接讀取到已注入的 depreciation_result)
     if form_4562_state and "properties" in extracted_inputs:
         properties = extracted_inputs["properties"]
         if properties:
