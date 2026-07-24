@@ -82,7 +82,6 @@ def extract_and_calculate_schedule_e(
         pass
 
     # 3. 將 Form 4562 結果注入對應的 property 中
-    # (提示: matched_prop 是 properties 列表內的字典引用，修改它會原地 (in-place) 變更 extracted_inputs，
     # 讓接下來的 calculate_schedule_e_dynamic 可以直接讀取到已注入的 depreciation_result)
     if form_4562_state and "properties" in extracted_inputs:
         properties = extracted_inputs["properties"]
@@ -94,13 +93,9 @@ def extract_and_calculate_schedule_e(
             
             ban = form_4562_state.get("business_activity_name", "").strip().lower()
             
-            # 【為什麼需要進行房產匹配與關聯？】
-            # 1. 報稅人可能擁有多間租賃房產（Schedule E Part I 支援多欄申報 A, B, C）。
-            # 2. 每間房產的折舊計算各自記錄在獨立的 Form 4562 中。
-            # 3. Form 4562 使用 `business_activity_name` 來識別該折舊標的物，而 Schedule E 使用 `physical_address`（實體地址）來識別。
-            # 4. 因此，我們必須透過地址與業務名稱的比對，將 Form 4562 的折舊金額正確注入到對應的 Schedule E 房產中。
-            #
-            # 【匹配演算法流程】：
+            
+            
+           
             matched_prop = None
             if len(properties) == 1:
                 # 情況一：如果 Schedule E 中只有一間房產，則不需比對，直接匹配該唯一房產
