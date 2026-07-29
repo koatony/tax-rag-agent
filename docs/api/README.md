@@ -29,8 +29,3 @@
 * [Schedule E 提取並試算 API (`POST /schedule-e/extract-and-calculate`)](schedule_e.md) — 傳入未結構化文件與納稅人檔案，提取並試算租賃房地產淨利潤與虧損。
 * [Form 1040 彙整計算 API (`POST /form-1040/assemble`)](form_1040_assemble.md) — 傳入原始憑證進行端到端提取、各子表單調度與 AGI 計算。
 
-### 📄 文件 Facts 提取與表單映射 (兩步驟處理)
-* [Schedule A 扣除額映射 (`POST /schedule-a/deductions/extract-and-map`)](schedule_a_deductions.md) — 從捐贈收據、1098 房貸表單中提取事實並映射至 Schedule A 行號。
-* [Schedule D 損失結轉映射 (`POST /schedule-d/carryover/extract-and-map`)](schedule_d_carryover.md) — 從上年度申報 summary 中提取資本損失結轉並映射至 Schedule D 行號。
-* [Schedule E 租賃收入映射 (`POST /schedule-e/rental/extract-and-map`)](schedule_e_rental.md) — 從租賃房產收支單中提取事實並映射至 Schedule E 行號。
-* [Form 1040 Wages 薪資映射 (`POST /form-1040/wages/extract-and-map`)](form_1040_wages.md) — 從 W-2 表單中提取薪資並彙整 Form 1040 Line 1a 總額。

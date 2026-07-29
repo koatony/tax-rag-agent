@@ -323,4 +323,23 @@ class ScheduleCResultV1:
             else:
                 # 執行轉型 float 的防禦後，存入結果字典
                 res[k] = to_float(v)
+                
+        # 注入對外 API 文件宣告的相容欄位
+        res["taxpayer_name"] = self.proprietor_name
+        res["business_code"] = self.principal_activity_code
+        res["line_1_gross_receipts_or_sales"] = to_float(self.line_1_gross_receipts)
+        res["line_2_returns_and_allowances"] = to_float(self.line_2_returns_allowances)
+        res["line_4_cost_of_goods_sold"] = to_float(self.line_4_cogs)
+        res["line_9_car_and_truck_expenses"] = to_float(self.line_9_car_truck_expenses)
+        res["line_10_commissions_and_fees"] = to_float(self.line_10_commissions_fees)
+        res["line_17_legal_and_professional"] = to_float(self.line_17_legal_professional)
+        res["line_19_pension_and_profit_sharing"] = to_float(self.line_19_pension_profit_sharing)
+        res["line_20a_rent_or_lease_vehicles"] = to_float(self.line_20a_rent_machinery_equipment)
+        res["line_20b_rent_or_lease_other"] = to_float(self.line_20b_rent_other_property)
+        res["line_21_repairs_and_maintenance"] = to_float(self.line_21_repairs_maintenance)
+        res["line_23_taxes_and_licenses"] = to_float(self.line_23_taxes_licenses)
+        res["line_27a_other_expenses_total"] = to_float(self.line_27b_other_expenses)
+        res["line_27b_reserved"] = 0.0
+        res["line_30_home_office_deduction"] = to_float(self.line_30_home_office)
+        
         return res

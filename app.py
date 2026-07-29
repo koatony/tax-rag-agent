@@ -29,6 +29,16 @@ from processors.processors.schedule_e import (
     calculate_schedule_e_dynamic,
     extract_and_calculate_schedule_e as run_extract_and_calculate_schedule_e
 )
+from processors.processors.schedule_1 import (
+    extract_schedule_1_inputs_with_logs,
+    calculate_schedule_1_dynamic,
+    extract_and_calculate_schedule_1 as run_extract_and_calculate_schedule_1
+)
+from processors.processors.form_4562 import (
+    extract_form_4562_inputs_with_logs,
+    calculate_form_4562_dynamic,
+    extract_and_calculate_form_4562 as run_extract_and_calculate_form_4562
+)
 import concurrent.futures
 from adapter import (
     W2Adapter,
@@ -44,6 +54,7 @@ from mapper import (
     aggregate_form_1040_line_1a
 )
 from Flag.analyzer_core_v2 import analyze as flag_analyze
+from Flag.form_status_analyzer import analyze_form_status as form_status_analyze
 
 
 
@@ -142,6 +153,11 @@ class MissingFormsResponse(BaseModel):
 from fastapi import Header
 
 async def verify_token(x_api_token: str = Header(None)):
+    expected_token = os.environ.get("INTERNAL_TOKEN", "tax-rag-secret-token")
+    if x_api_token != expected_token:
+        raise HTTPException(status_code=403, detail="Invalid or missing API Token")
+
+def verify_token_sync(x_api_token: str = Header(None)):
     expected_token = os.environ.get("INTERNAL_TOKEN", "tax-rag-secret-token")
     if x_api_token != expected_token:
         raise HTTPException(status_code=403, detail="Invalid or missing API Token")
@@ -295,6 +311,16 @@ class ScheduleEExtractRequest(BaseModel):
     uploaded_documents: List[Dict[str, Any]]
     model_name: Optional[str] = None
 
+class Schedule1ExtractRequest(BaseModel):
+    taxpayer_profile: Dict[str, Any]
+    uploaded_documents: List[Dict[str, Any]]
+    model_name: Optional[str] = None
+
+class Form4562ExtractRequest(BaseModel):
+    taxpayer_profile: Dict[str, Any]
+    uploaded_documents: List[Dict[str, Any]]
+    model_name: Optional[str] = None
+
 
 class ExtractMapRequest(BaseModel):
     question: Union[str, Dict[str, Any], List[Any]]
@@ -311,11 +337,11 @@ class FlagAnalyzeRequest(BaseModel):
 
 
 @app.post("/schedule-c/extract-and-calculate")
-async def extract_and_calculate_schedule_c(
+def extract_and_calculate_schedule_c(
     request: ScheduleCExtractRequest, 
     x_api_token: str = Header(None)
 ):
-    await verify_token(x_api_token)
+    verify_token_sync(x_api_token)
     
     # 統一使用結構化的 taxpayer_profile 與 uploaded_documents 格式
     import json
@@ -357,11 +383,11 @@ async def extract_and_calculate_schedule_c(
 
 
 @app.post("/schedule-a/extract-and-calculate")
-async def extract_and_calculate_schedule_a(
+def extract_and_calculate_schedule_a(
     request: ScheduleAExtractRequest, 
     x_api_token: str = Header(None)
 ):
-    await verify_token(x_api_token)
+    verify_token_sync(x_api_token)
     
     import json
     payload = {
@@ -403,11 +429,11 @@ async def extract_and_calculate_schedule_a(
 
 
 @app.post("/schedule-b/extract-and-calculate")
-async def extract_and_calculate_schedule_b(
+def extract_and_calculate_schedule_b(
     request: ScheduleBExtractRequest, 
     x_api_token: str = Header(None)
 ):
-    await verify_token(x_api_token)
+    verify_token_sync(x_api_token)
     
     import json
     payload = {
@@ -447,11 +473,11 @@ async def extract_and_calculate_schedule_b(
 
 
 @app.post("/schedule-e/extract-and-calculate")
-async def extract_and_calculate_schedule_e(
+def extract_and_calculate_schedule_e(
     request: ScheduleEExtractRequest, 
     x_api_token: str = Header(None)
 ):
-    await verify_token(x_api_token)
+    verify_token_sync(x_api_token)
     
     import json
     payload = {
@@ -490,365 +516,95 @@ async def extract_and_calculate_schedule_e(
         raise HTTPException(status_code=500, detail=f"提取或計算失敗: {str(e)}")
 
 
-def sanitize_document_content(content: Any) -> str:
-    """確保文件內容被正確轉換為字串。若為 dict 或 list 則序列化為 JSON 字串。"""
-    if content is None:
-        return ""
-    if isinstance(content, (dict, list)):
-        import json
-        return json.dumps(content, ensure_ascii=False)
-    return str(content)
-
-
-def resolve_extract_map_request(request: Any) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
-    """從 request.question 中解析出 taxpayer_profile 與 uploaded_documents。
-    """
-    question = getattr(request, "question", None)
-    taxpayer_profile = {}
-    uploaded_documents = []
-    
-    if question:
-        q_data = question
-        if isinstance(q_data, str):
-            try:
-                import json
-                q_data = json.loads(q_data)
-            except Exception:
-                pass
-        if isinstance(q_data, dict):
-            taxpayer_profile = q_data.get("taxpayer_profile") or {}
-            uploaded_documents = q_data.get("uploaded_documents") or []
-                
-    return taxpayer_profile, uploaded_documents
-
-
-@app.post("/schedule-a/deductions/extract-and-map")
-async def extract_and_map_schedule_a(
-    request: ExtractMapRequest,
+@app.post("/schedule-1/extract-and-calculate")
+def extract_and_calculate_schedule_1(
+    request: Schedule1ExtractRequest,
     x_api_token: str = Header(None)
 ):
-    await verify_token(x_api_token)
-    taxpayer_profile, docs = resolve_extract_map_request(request)
-    if not docs:
-        raise HTTPException(status_code=400, detail="No documents provided")
-    
-    api_key = os.environ.get("GEMINI_API_KEY")
-    model_name = resolve_model_name(request.model_name)
-    is_ollama = ":" in model_name
-    if not is_ollama and not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
+    verify_token_sync(x_api_token)
 
-    t_start = time.time()
-    try:
-        def extract_single(doc):
-            fname = doc.get("file_name", "Unknown")
-            content = sanitize_document_content(doc.get("content", ""))
-            try:
-                res = ItemizedDeductionAdapter.extract(
-                    filename=fname,
-                    content=content,
-                    model_name=model_name,
-                    api_key=api_key
-                )
+    import json
+    payload = {
+        "taxpayer_profile": request.taxpayer_profile,
+        "uploaded_documents": request.uploaded_documents
+    }
 
-                return fname, res
-            except Exception as e:
-                return fname, {
-                    "source_filename": fname,
-                    "facts": [],
-                    "document_needs_review": True,
-                    "debug_info": {
-                        "system_prompt": "N/A",
-                        "user_prompt": "N/A",
-                        "raw_output": f"Error: {e}"
-                    }
-                }
+    doc_ctx_str = missing_form_detector.format_input_data(json.dumps(payload, ensure_ascii=False))
 
-        adapter_results = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(len(docs), 8))) as executor:
-            futures = [executor.submit(extract_single, doc) for doc in docs]
-            for future in concurrent.futures.as_completed(futures):
-                fname, res = future.result()
-                adapter_results[fname] = res
-
-        docs_for_mapper = []
-        for doc in docs:
-            fname = doc.get("file_name", "")
-            a_res = adapter_results.get(fname, {})
-            docs_for_mapper.append({
-                "source_filename": a_res.get("source_filename", fname),
-                "facts": a_res.get("facts") or [],
-                "document_needs_review": a_res.get("document_needs_review", False)
-            })
-
-        mapper = ScheduleADeductionMapper()
-        mapper_result = mapper.map(
-            mapper_input={"documents": docs_for_mapper},
-            model_name=model_name,
-            api_key=api_key
+    if not doc_ctx_str.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="文件內容不能為空，請提供有效的 taxpayer_profile 與 uploaded_documents 內容"
         )
-        latency = time.time() - t_start
+
+    try:
+        model_name = resolve_model_name(request.model_name)
+
+        e2e_res = run_extract_and_calculate_schedule_1(
+            document_context=doc_ctx_str,
+            model_name=model_name
+        )
+
         return {
             "success": True,
-            "adapter_results": adapter_results,
-            "mapper_result": mapper_result,
-            "latency": latency
+            "state": e2e_res["final_state"],
+            "debug_info": {
+                "model_name": model_name,
+                "prompt_log": e2e_res["prompt_sent"],
+                "raw_output": e2e_res["llm_raw_out"]
+            }
         }
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Schedule A Extract and Map Failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"提取或計算失敗: {str(e)}")
 
 
-@app.post("/schedule-d/carryover/extract-and-map")
-async def extract_and_map_schedule_d(
-    request: ExtractMapRequest,
+@app.post("/form-4562/extract-and-calculate")
+def extract_and_calculate_form_4562(
+    request: Form4562ExtractRequest,
     x_api_token: str = Header(None)
 ):
-    await verify_token(x_api_token)
-    taxpayer_profile, docs = resolve_extract_map_request(request)
-    if not docs:
-        raise HTTPException(status_code=400, detail="No documents provided")
-    
-    api_key = os.environ.get("GEMINI_API_KEY")
-    model_name = resolve_model_name(request.model_name)
-    is_ollama = ":" in model_name
-    if not is_ollama and not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
+    verify_token_sync(x_api_token)
 
-    t_start = time.time()
-    try:
-        profile = taxpayer_profile or {}
-        target_tax_year = int(profile.get("Tax Year") or profile.get("tax_year") or 2024)
+    import json
+    payload = {
+        "taxpayer_profile": request.taxpayer_profile,
+        "uploaded_documents": request.uploaded_documents
+    }
 
-        def extract_single(doc):
-            fname = doc.get("file_name", "Unknown")
-            content = sanitize_document_content(doc.get("content", ""))
-            try:
-                res = PriorYearReturnAdapter.extract(
-                    filename=fname,
-                    content=content,
-                    model_name=model_name,
-                    api_key=api_key
-                )
-                return fname, res
-            except Exception as e:
-                return fname, {
-                    "source_filename": fname,
-                    "detected_tax_year": None,
-                    "extraction_status": "failed",
-                    "facts": [],
-                    "document_needs_review": True,
-                    "document_review_reasons": [str(e)],
-                    "debug_info": {
-                        "system_prompt": "N/A",
-                        "user_prompt": "N/A",
-                        "raw_output": f"Error: {e}"
-                    }
-                }
+    doc_ctx_str = missing_form_detector.format_input_data(json.dumps(payload, ensure_ascii=False))
 
-        adapter_results = {}
-        all_prior_year_facts = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(len(docs), 8))) as executor:
-            futures = [executor.submit(extract_single, doc) for doc in docs]
-            for future in concurrent.futures.as_completed(futures):
-                fname, res = future.result()
-                adapter_results[fname] = res
-                if res.get("extraction_status") != "failed":
-                    for fact in res.get("facts") or []:
-                        fact["source_filename"] = fname
-                    all_prior_year_facts.extend(res.get("facts") or [])
-
-        mapper = ScheduleDMapper(tax_year=target_tax_year)
-        mapper_input = {
-            "tax_year": target_tax_year,
-            "prior_year_facts": all_prior_year_facts,
-            "brokerage_facts": [],
-            "form_8949_facts": []
-        }
-        mapper_result = mapper.map(
-            mapper_input=mapper_input,
-            model_name=model_name,
-            api_key=api_key
+    if not doc_ctx_str.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="文件內容不能為空，請提供有效的 taxpayer_profile 與 uploaded_documents 內容"
         )
-        latency = time.time() - t_start
+
+    try:
+        model_name = resolve_model_name(request.model_name)
+
+        e2e_res = run_extract_and_calculate_form_4562(
+            document_context=doc_ctx_str,
+            model_name=model_name
+        )
+
         return {
             "success": True,
-            "adapter_results": adapter_results,
-            "mapper_result": mapper_result,
-            "latency": latency
+            "state": e2e_res["final_state"],
+            "debug_info": {
+                "model_name": model_name,
+                "prompt_log": e2e_res["prompt_sent"],
+                "raw_output": e2e_res["llm_raw_out"]
+            }
         }
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Schedule D Extract and Map Failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"提取或計算失敗: {str(e)}")
 
 
-@app.post("/schedule-e/rental/extract-and-map")
-async def extract_and_map_schedule_e(
-    request: ExtractMapRequest,
-    x_api_token: str = Header(None)
-):
-    await verify_token(x_api_token)
-    taxpayer_profile, docs = resolve_extract_map_request(request)
-    if not docs:
-        raise HTTPException(status_code=400, detail="No documents provided")
-    
-    api_key = os.environ.get("GEMINI_API_KEY")
-    model_name = resolve_model_name(request.model_name)
-    is_ollama = ":" in model_name
-    if not is_ollama and not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
 
-    t_start = time.time()
-    try:
-        def extract_single(doc):
-            fname = doc.get("file_name", "Unknown")
-            content = sanitize_document_content(doc.get("content", ""))
-            try:
-                res = RentalIncomeAndExpenseAdapter.extract(
-                    filename=fname,
-                    content=content,
-                    model_name=model_name,
-                    api_key=api_key
-                )
-                return fname, res
-            except Exception as e:
-                return fname, {
-                    "source_filename": fname,
-                    "facts": [],
-                    "document_needs_review": True,
-                    "debug_info": {
-                        "system_prompt": "N/A",
-                        "user_prompt": "N/A",
-                        "raw_output": f"Error: {e}"
-                    }
-                }
-
-        adapter_results = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(len(docs), 8))) as executor:
-            futures = [executor.submit(extract_single, doc) for doc in docs]
-            for future in concurrent.futures.as_completed(futures):
-                fname, res = future.result()
-                adapter_results[fname] = res
-
-        docs_for_mapper = []
-        for doc in docs:
-            fname = doc.get("file_name", "")
-            a_res = adapter_results.get(fname, {})
-            docs_for_mapper.append({
-                "source_filename": a_res.get("source_filename", fname),
-                "facts": a_res.get("facts") or [],
-                "document_needs_review": a_res.get("document_needs_review", False)
-            })
-
-        mapper = ScheduleEMapper()
-        mapper_result = mapper.map(
-            mapper_input={"documents": docs_for_mapper},
-            model_name=model_name,
-            api_key=api_key
-        )
-        latency = time.time() - t_start
-        return {
-            "success": True,
-            "adapter_results": adapter_results,
-            "mapper_result": mapper_result,
-            "latency": latency
-        }
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Schedule E Extract and Map Failed: {str(e)}")
-
-
-@app.post("/form-1040/wages/extract-and-map")
-async def extract_and_map_form_1040_wages(
-    request: ExtractMapRequest,
-    x_api_token: str = Header(None)
-):
-    await verify_token(x_api_token)
-    taxpayer_profile, docs = resolve_extract_map_request(request)
-    if not docs:
-        raise HTTPException(status_code=400, detail="No documents provided")
-    
-    api_key = os.environ.get("GEMINI_API_KEY")
-    model_name = resolve_model_name(request.model_name)
-    is_ollama = ":" in model_name
-    if not is_ollama and not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
-
-    t_start = time.time()
-    try:
-        profile = taxpayer_profile or {}
-        tax_year = int(profile.get("Tax Year") or profile.get("tax_year") or 2024)
-
-        def extract_single(doc):
-            fname = doc.get("file_name", "Unknown")
-            content = sanitize_document_content(doc.get("content", ""))
-            try:
-                res = W2Adapter.extract(
-                    filename=fname,
-                    content=content,
-                    model_name=model_name,
-                    api_key=api_key
-                )
-                return fname, res
-            except Exception as e:
-                return fname, {
-                    "source_filename": fname,
-                    "facts": [],
-                    "document_needs_review": True,
-                    "debug_info": {
-                        "system_prompt": "N/A",
-                        "user_prompt": "N/A",
-                        "raw_output": f"Error: {e}"
-                    }
-                }
-
-        adapter_results = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(len(docs), 8))) as executor:
-            futures = [executor.submit(extract_single, doc) for doc in docs]
-            for future in concurrent.futures.as_completed(futures):
-                fname, res = future.result()
-                adapter_results[fname] = res
-
-        w2_docs_for_mapper = []
-        for doc in docs:
-            fname = doc.get("file_name", "")
-            a_res = adapter_results.get(fname, {})
-            w2_docs_for_mapper.append({
-                "source_filename": a_res.get("source_filename", fname),
-                "facts": a_res.get("facts") or [],
-                "document_needs_review": a_res.get("document_needs_review", False)
-            })
-
-        mapper = Form1040WagesMapper(tax_year=tax_year)
-        mapper_input_payload = {
-            "tax_year": tax_year,
-            "w2_documents": w2_docs_for_mapper,
-            "other_fact_categories": {}
-        }
-        mapper_result = mapper.map(
-            mapper_input=mapper_input_payload,
-            model_name=model_name,
-            api_key=api_key
-        )
-        
-        mapped_items = mapper_result.get("items") or []
-        line_1a_result = aggregate_form_1040_line_1a(mapped_items)
-        
-        latency = time.time() - t_start
-        return {
-            "success": True,
-            "adapter_results": adapter_results,
-            "mapper_result": mapper_result,
-            "line_1a_result": line_1a_result,
-            "latency": latency
-        }
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Form 1040 Wages Extract and Map Failed: {str(e)}")
 
 
 FLAG_ALLOWED_MODELS = {"gemini-2.5-flash", "gemini-2.5-pro", "gemma4:31b"}
@@ -871,7 +627,7 @@ async def flag_analyze_endpoint(
     if not isinstance(q_data, dict):
         raise HTTPException(status_code=400, detail="question 必須是 JSON 物件（taxpayer_profile/uploaded_documents 或舊版扁平格式）")
 
-    model_name = request.model_name or os.environ.get("LLM_MODEL_NAME", "gemini-2.5-flash")
+    model_name = request.model_name or os.environ.get("LLM_MODEL_NAME", "gemini-2.5-pro")
     if model_name not in FLAG_ALLOWED_MODELS:
         raise HTTPException(status_code=400, detail=f"Unknown model: {model_name}")
     if model_name.startswith("gemini") and not os.environ.get("GEMINI_API_KEY"):
@@ -893,6 +649,48 @@ async def flag_analyze_endpoint(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Flag Analyze Failed: {str(e)}")
+
+
+@app.post("/flag/form-status")
+async def flag_form_status_endpoint(
+    request: FlagAnalyzeRequest,
+    x_api_token: str = Header(None)
+):
+    await verify_token(x_api_token)
+
+    q_data = request.question
+    if isinstance(q_data, str):
+        import json
+        try:
+            q_data = json.loads(q_data)
+        except Exception:
+            raise HTTPException(status_code=400, detail="question 不是有效的 JSON")
+    if not isinstance(q_data, dict):
+        raise HTTPException(status_code=400, detail="question 必須是 JSON 物件（taxpayer_profile/uploaded_documents 或舊版扁平格式）")
+
+    # 預設為 gemini-2.5-pro
+    model_name = request.model_name or os.environ.get("LLM_MODEL_NAME", "gemini-2.5-pro")
+    if model_name not in FLAG_ALLOWED_MODELS:
+        raise HTTPException(status_code=400, detail=f"Unknown model: {model_name}")
+    if model_name.startswith("gemini") and not os.environ.get("GEMINI_API_KEY"):
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY environment variable is not set")
+
+    t_start = time.time()
+    try:
+        result = await form_status_analyze(
+            extracted_data=q_data,
+            source_filename=request.source_filename or "upload.json",
+            model=model_name,
+            use_kg=request.use_kg,
+            think=request.think,
+        )
+        result["success"] = True
+        result["latency"] = time.time() - t_start
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Form Status Analyze Failed: {str(e)}")
 
 
 class Form1040AssembleRequest(BaseModel):

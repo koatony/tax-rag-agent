@@ -503,6 +503,7 @@ class ScheduleEPart1ResultV1:
             if isinstance(v, Decimal):
                 return float(v)
             return v
+        
         return {
             "taxpayer_name": self.taxpayer_name,
             "taxpayer_ssn_masked": self.taxpayer_ssn_masked,
@@ -524,11 +525,8 @@ class ScheduleEPart1ResultV1:
             "requires_form_6198_attachment": self.requires_form_6198_attachment,
             "requires_form_8582_attachment": self.requires_form_8582_attachment,
             "requires_form_461_review": self.requires_form_461_review,
-            "has_reportable_rental_property": self.has_reportable_rental_property,
             "is_v1_supported": self.is_v1_supported,
-            "should_attach_schedule_e": self.should_attach_schedule_e,
-            "can_finalize_part1": self.can_finalize_part1,
-            "can_transfer_line_26": self.can_transfer_line_26,
+            "can_file": self.is_v1_supported and len(self.blocking_errors) == 0,
             "blocking_errors": [x.to_dict() if hasattr(x, "to_dict") else x for x in self.blocking_errors],
             "review_warnings": [x.to_dict() if hasattr(x, "to_dict") else x for x in self.review_warnings],
         }

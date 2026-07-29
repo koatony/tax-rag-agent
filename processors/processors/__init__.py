@@ -17,6 +17,16 @@ from .schedule_e import (
     extract_schedule_e_inputs_with_logs,
     extract_and_calculate_schedule_e,
 )
+from .schedule_1 import (
+    calculate_schedule_1_dynamic,
+    extract_schedule_1_inputs_with_logs,
+    extract_and_calculate_schedule_1,
+)
+from .form_4562 import (
+    calculate_form_4562_dynamic,
+    extract_form_4562_inputs_with_logs,
+    extract_and_calculate_form_4562,
+)
 
 __all__ = [
     "calculate_schedule_a_dynamic",
@@ -30,4 +40,10 @@ __all__ = [
     "calculate_schedule_e_dynamic",
     "extract_schedule_e_inputs_with_logs",
     "extract_and_calculate_schedule_e",
+    "calculate_schedule_1_dynamic",
+    "extract_schedule_1_inputs_with_logs",
+    "extract_and_calculate_schedule_1",
+    "calculate_form_4562_dynamic",
+    "extract_form_4562_inputs_with_logs",
+    "extract_and_calculate_form_4562",
 ]

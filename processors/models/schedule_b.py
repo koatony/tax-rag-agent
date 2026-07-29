@@ -308,6 +308,7 @@ class ScheduleBResultV1:
         """
         self.taxpayer_name = kwargs.get("taxpayer_name", "")
         self.taxpayer_ssn_masked = kwargs.get("taxpayer_ssn_masked", "")  # 去敏感後的 masked SSN
+        self.filing_status = kwargs.get("filing_status", "")
         ty = kwargs.get("tax_year")
         try:
             self.tax_year = int(float(ty)) if ty is not None else None
@@ -371,10 +372,34 @@ class ScheduleBResultV1:
                 return item.to_dict()
             return item
 
+        # 解析海外國家字串成列表
+        foreign_countries = []
+        if isinstance(self.line_7b_surface, str) and self.line_7b_surface.strip():
+            foreign_countries = [c.strip() for c in self.line_7b_surface.split(",") if c.strip()]
+
         return {
             "taxpayer_name": self.taxpayer_name,
             "taxpayer_ssn_masked": self.taxpayer_ssn_masked,
             "tax_year": self.tax_year,
+            "filing_status": self.filing_status,
+            # 對齊文件的欄位名稱
+            "line_1_interest_items": [convert_item(x) for x in self.processed_interest_items],
+            "line_1_subtotal": to_float(self.interest_subtotal),
+            "line_2_total_interest": to_float(self.line_2_total_interest),
+            "line_3_excludable_savings_bond_interest": to_float(self.line_3_excludable_savings_bond_interest),
+            "line_4_taxable_interest": to_float(self.line_4_surface_value),
+            "line_5_dividend_items": [convert_item(x) for x in self.processed_dividend_items],
+            "line_6_total_dividends": to_float(self.line_6_total_ordinary_dividends),
+            "line_7a_foreign_account_authority": self.line_7a_q1_surface,
+            "line_7a_fbar_required": self.line_7a_q2_surface,
+            "line_7b_foreign_countries": foreign_countries,
+            "line_8_foreign_trust_distribution": self.line_8_surface,
+            "is_v1_supported": self.is_v1_supported,
+            "can_file": self.can_file,
+            "blocking_errors": [err.to_dict() if hasattr(err, "to_dict") else err for err in self.blocking_errors],
+            "review_warnings": [warn.to_dict() if hasattr(warn, "to_dict") else warn for warn in self.review_warnings],
+            
+            # 保留其他可能有用的附加欄位
             "processed_interest_items": [convert_item(x) for x in self.processed_interest_items],
             "processed_dividend_items": [convert_item(x) for x in self.processed_dividend_items],
             "line_1_payer_entries": [
@@ -382,8 +407,6 @@ class ScheduleBResultV1:
                 for entry in self.line_1_payer_entries
             ],
             "interest_subtotal": to_float(self.interest_subtotal),
-            "line_2_total_interest": to_float(self.line_2_total_interest),
-            "line_3_excludable_savings_bond_interest": to_float(self.line_3_excludable_savings_bond_interest),
             "line_4_raw_calculation": to_float(self.line_4_raw_calculation),
             "line_4_surface_value": to_float(self.line_4_surface_value),
             "line_5_payer_entries": [
@@ -402,10 +425,6 @@ class ScheduleBResultV1:
             "line_7a_q2_surface": self.line_7a_q2_surface,
             "line_7b_surface": self.line_7b_surface,
             "line_8_surface": self.line_8_surface,
-            "blocking_errors": [err.to_dict() if hasattr(err, "to_dict") else err for err in self.blocking_errors],
-            "review_warnings": [warn.to_dict() if hasattr(warn, "to_dict") else warn for warn in self.review_warnings],
             "blocking_validation_error": self.blocking_validation_error,
-            "is_v1_supported": self.is_v1_supported,
-            "can_file": self.can_file,
             "should_attach_schedule_b": self.should_attach_schedule_b,
         }

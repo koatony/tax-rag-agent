@@ -103,8 +103,8 @@ def parse_xml_ground_truth(xml_path):
 def main():
     workspace_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     
-    # 使用 .env 裡的模型，預設採用 gemma4:31b (以利 Ollama 本地端運行)
-    model_name = os.environ.get("LLM_MODEL_NAME") or "gemma4:31b"
+    # 使用 .env 裡的模型，預設採用 gemini-2.5-pro
+    model_name = os.environ.get("LLM_MODEL_NAME") or "gemini-2.5-pro"
     print(f"使用的 LLM 評估模型: {model_name}")
     
     print(f"=== 開始執行 2025 年 Schedule A 批次對齊測試 (總共 {len(SCH_A_CASES)} 個案例) ===")
