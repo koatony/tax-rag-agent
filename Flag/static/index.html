@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flag Metaya — Tax Risk Analyzer</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f6fa;
+    --border: #dde0ec;
+    --accent: #2563eb;
+    --accent-dim: #bfdbfe;
+    --high: #dc2626;
+    --medium: #d97706;
+    --low: #16a34a;
+    --text: #111827;
+    --text-dim: #6b7280;
+    --radius: 8px;
+    --font: 'Inter', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3e;
+      --accent: #4f8ef7;
+      --accent-dim: #2a4a8a;
+      --high: #e05c5c;
+      --medium: #e0a04a;
+      --low: #4caf7d;
+      --text: #d4d8f0;
+      --text-dim: #7a7f9a;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  header span { color: var(--text-dim); font-size: 0.85rem; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 0;
+    height: calc(100vh - 57px);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .model-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .model-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    position: relative;
+  }
+  .model-card:hover { border-color: var(--accent-dim); background: rgba(79,142,247,.06); }
+  .model-card.selected { border-color: var(--accent); background: rgba(79,142,247,.1); }
+  .model-card input[type=radio] { position: absolute; opacity: 0; }
+  .model-name { font-weight: 600; font-size: 0.9rem; }
+  .model-desc { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+
+  .option-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+  }
+  .option-label { font-size: 0.85rem; }
+  .option-sublabel { font-size: 0.72rem; color: var(--text-dim); }
+
+  /* Toggle switch */
+  .toggle { position: relative; display: inline-block; width: 42px; height: 22px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0;
+    background: var(--border);
+    border-radius: 22px;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .slider::before {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    left: 3px; top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform .2s;
+  }
+  .toggle input:checked + .slider { background: var(--accent); }
+  .toggle input:checked + .slider::before { transform: translateX(20px); }
+  .toggle input:disabled + .slider { opacity: .4; cursor: not-allowed; }
+
+  .run-btn {
+    width: 100%;
+    padding: 11px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: opacity .15s;
+    margin-top: auto;
+  }
+  .run-btn:hover { opacity: .88; }
+  .run-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Main panel ── */
+  .main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .tab {
+    padding: 12px 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .panel { display: none; flex: 1; overflow: auto; padding: 20px 24px; }
+  .panel.active { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Input tab */
+  .editor-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .editor-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .editor-toolbar button {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    background: var(--border);
+    color: var(--text);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .editor-toolbar button:hover { background: var(--accent-dim); }
+  textarea {
+    flex: 1;
+    min-height: 400px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color .15s;
+  }
+  textarea:focus { border-color: var(--accent); }
+
+  /* Results tab */
+  .status-bar {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    padding: 6px 0;
+  }
+  .status-bar.running { color: var(--accent); }
+  .status-bar.error   { color: var(--high); }
+  .status-bar.done    { color: var(--low); }
+
+  .summary-cards {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .summary-card {
+    flex: 1; min-width: 100px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    text-align: center;
+  }
+  .summary-card .count { font-size: 2rem; font-weight: 700; }
+  .summary-card .label { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+  .summary-card.high  .count { color: var(--high); }
+  .summary-card.medium .count { color: var(--medium); }
+  .summary-card.low   .count { color: var(--low); }
+  .summary-card.total .count { color: var(--accent); }
+
+  .flags-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .flag-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    border-left: 4px solid var(--border);
+  }
+  .flag-card.high   { border-left-color: var(--high); }
+  .flag-card.medium { border-left-color: var(--medium); }
+  .flag-card.low    { border-left-color: var(--low); }
+
+  .flag-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .flag-id { font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim); }
+  .flag-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
+  .badge {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: .06em;
+    padding: 2px 8px; border-radius: 20px;
+    text-transform: uppercase;
+  }
+  .badge.high   { background: rgba(224,92,92,.15);  color: var(--high); }
+  .badge.medium { background: rgba(224,160,74,.15); color: var(--medium); }
+  .badge.low    { background: rgba(76,175,125,.15); color: var(--low); }
+
+  .flag-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px 16px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .flag-grid span { color: var(--text); }
+
+  .flag-finding {
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text);
+    background: rgba(0,0,0,.2);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+  .flag-action {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .flag-action span { color: var(--accent); }
+
+  .needs-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .needs-list h3 { font-size: 0.85rem; margin-bottom: 8px; color: var(--text-dim); }
+  .needs-list ul { padding-left: 18px; font-size: 0.82rem; line-height: 1.8; }
+
+  .raw-json {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    white-space: pre;
+    overflow: auto;
+  }
+
+  .empty-state {
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    text-align: center;
+    margin: 60px auto;
+  }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--accent);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚩 Flag Metaya</h1>
+  <span>Tax Risk Analyzer</span>
+</header>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <div>
+      <div class="section-label">Model</div>
+      <div class="model-grid" id="modelGrid">
+
+        <label class="model-card selected" data-model="gemini-2.5-flash">
+          <input type="radio" name="model" value="gemini-2.5-flash" checked />
+          <div class="model-name">Gemini 2.5 Flash</div>
+          <div class="model-desc">Fast · Google · Cloud</div>
+        </label>
+
+        <label class="model-card" data-model="gemini-2.5-pro">
+          <input type="radio" name="model" value="gemini-2.5-pro" />
+          <div class="model-name">Gemini 2.5 Pro</div>
+          <div class="model-desc">Most capable · Google · Cloud</div>
+        </label>
+
+        <label class="model-card" data-model="gemma4:31b">
+          <input type="radio" name="model" value="gemma4:31b" />
+          <div class="model-name">Gemma 4 31B</div>
+          <div class="model-desc">Local · Ollama · Self-hosted</div>
+        </label>
+
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Options</div>
+
+      <div class="option-row">
+        <div>
+          <div class="option-label">Knowledge Graph</div>
+          <div class="option-sublabel">Semantic KG retrieval (Neo4j + bge-m3)</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggleKG" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="option-row" id="thinkRow" style="opacity:.4">
+        <div>
+          <div class="option-label">Thinking Mode</div>
+          <div class="option-sublabel">Gemma extended reasoning (slower)</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggleThink" disabled />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <button class="run-btn" id="runBtn" onclick="runAnalysis()">▶ Analyze</button>
+
+  </aside>
+
+  <!-- ── Main panel ── -->
+  <main class="main">
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('input')">Input JSON</div>
+      <div class="tab" onclick="switchTab('results')" id="resultsTab">Results</div>
+      <div class="tab" onclick="switchTab('raw')" id="rawTab">Raw JSON</div>
+    </div>
+
+    <!-- Input panel -->
+    <div class="panel active" id="panel-input">
+      <div class="editor-wrap">
+        <div class="editor-toolbar">
+          <span style="font-size:.8rem;color:var(--text-dim)">Financial data (JSON)</span>
+          <button onclick="loadExample()">Load example</button>
+          <button onclick="clearInput()">Clear</button>
+        </div>
+        <textarea id="jsonInput" spellcheck="false" placeholder='Paste financial data JSON here…'></textarea>
+      </div>
+    </div>
+
+    <!-- Results panel -->
+    <div class="panel" id="panel-results">
+      <div class="status-bar" id="statusBar">No analysis run yet.</div>
+      <div id="resultsContent">
+        <div class="empty-state">Run an analysis to see results here.</div>
+      </div>
+    </div>
+
+    <!-- Raw JSON panel -->
+    <div class="panel" id="panel-raw">
+      <div class="raw-json" id="rawJson">// Raw API response will appear here</div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['input','results','raw'][i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+}
+
+// ── Model card selection ───────────────────────────────────────────────────
+document.getElementById('modelGrid').addEventListener('change', () => {
+  document.querySelectorAll('.model-card').forEach(card => {
+    const radio = card.querySelector('input[type=radio]');
+    card.classList.toggle('selected', radio.checked);
+  });
+  const selected = document.querySelector('input[name=model]:checked').value;
+  const isGemma = selected === 'gemma4:31b';
+  const thinkRow = document.getElementById('thinkRow');
+  const thinkToggle = document.getElementById('toggleThink');
+  thinkRow.style.opacity = isGemma ? '1' : '.4';
+  thinkToggle.disabled = !isGemma;
+  if (!isGemma) thinkToggle.checked = false;
+});
+
+// ── Example data ──────────────────────────────────────────────────────────
+const EXAMPLE = {
+  "client": "Rivera, Marcus & Elena",
+  "tax_year": 2024,
+  "expenses": [
+    {
+      "description": "Meals & Entertainment bundle",
+      "amount": 1800,
+      "category": "Schedule C",
+      "breakdown": [
+        { "item": "Season tickets",       "amount": 700 },
+        { "item": "Business travel meals","amount": 550 },
+        { "item": "Employee holiday party","amount": 400 },
+        { "item": "Overtime meals",        "amount": 150 }
+      ],
+      "note": "mixed bundle, receipts available"
+    },
+    {
+      "description": "Las Vegas conference trip",
+      "amount": 3200,
+      "category": "Schedule C",
+      "note": "2 business days (conference) + 3 personal days (sightseeing)"
+    },
+    {
+      "description": "City fine",
+      "amount": 300,
+      "category": "Schedule C",
+      "note": "fine paid to government agency"
+    },
+    {
+      "description": "Political contribution",
+      "amount": 250,
+      "category": "Schedule A",
+      "note": "political donation, not charitable"
+    },
+    {
+      "description": "Church donation",
+      "amount": 5400,
+      "category": "Schedule A",
+      "note": "written acknowledgment available"
+    },
+    {
+      "description": "Rental property - no depreciation schedule",
+      "amount": 0,
+      "category": "Schedule E",
+      "note": "no depreciation claimed in prior year or current year"
+    }
+  ]
+};
+
+function loadExample() {
+  document.getElementById('jsonInput').value = JSON.stringify(EXAMPLE, null, 2);
+}
+function clearInput() {
+  document.getElementById('jsonInput').value = '';
+}
+
+// ── Analysis ───────────────────────────────────────────────────────────────
+let lastResult = null;
+
+async function runAnalysis() {
+  const input = document.getElementById('jsonInput').value.trim();
+  if (!input) { alert('Please paste financial data JSON first.'); return; }
+
+  let financial_data;
+  try { financial_data = JSON.parse(input); }
+  catch (e) { alert(`Invalid JSON: ${e.message}`); return; }
+
+  const model   = document.querySelector('input[name=model]:checked').value;
+  const use_kg  = document.getElementById('toggleKG').checked;
+  const think   = document.getElementById('toggleThink').checked;
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running…';
+
+  const sb = document.getElementById('statusBar');
+  sb.className = 'status-bar running';
+  sb.innerHTML = '<span class="spinner"></span> Analyzing with ' + model + (use_kg ? ' + KG' : '') + (think ? ' (thinking)' : '') + '…';
+
+  switchTab('results');
+
+  try {
+    const resp = await fetch('/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, use_kg, think, financial_data, source_filename: 'web_input.json' }),
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || resp.statusText);
+
+    lastResult = data;
+    renderResults(data);
+    document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
+    sb.className = 'status-bar done';
+    sb.textContent = `✓ Done — ${data.flags.length} flag(s) found.`;
+  } catch (err) {
+    sb.className = 'status-bar error';
+    sb.textContent = `✗ Error: ${err.message}`;
+    document.getElementById('resultsContent').innerHTML =
+      `<div class="empty-state" style="color:var(--high)">${err.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Analyze';
+  }
+}
+
+// ── Render results ─────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderResults(data) {
+  const summary = data.risk_summary || {};
+  const flags   = data.flags || [];
+  const needs   = data.needs_from_client || [];
+
+  let html = '';
+
+  // Summary cards
+  html += `<div class="summary-cards">
+    <div class="summary-card high">  <div class="count">${summary.high  ?? 0}</div><div class="label">HIGH</div></div>
+    <div class="summary-card medium"><div class="count">${summary.medium ?? 0}</div><div class="label">MEDIUM</div></div>
+    <div class="summary-card low">   <div class="count">${summary.low   ?? 0}</div><div class="label">LOW</div></div>
+    <div class="summary-card total"> <div class="count">${summary.total ?? flags.length}</div><div class="label">TOTAL</div></div>
+  </div>`;
+
+  // Flag cards
+  if (flags.length) {
+    html += '<div class="flags-list">';
+    for (const f of flags) {
+      const risk = (f.risk_level || '').toLowerCase();
+      const conf = f.confidence_score != null ? Math.round(f.confidence_score * 100) + '%' : 'N/A';
+      const amt  = f.amount_at_risk   != null ? '$' + Number(f.amount_at_risk).toLocaleString() : 'N/A';
+      const docs = (f.missing_docs || []).join(', ') || 'None';
+      html += `
+      <div class="flag-card ${risk}">
+        <div class="flag-header">
+          <span class="flag-id">${escHtml(f.flag_id)}</span>
+          <span class="flag-title">${escHtml(f.flag_title)}</span>
+          <span class="badge ${risk}">${risk}</span>
+        </div>
+        <div class="flag-grid">
+          <div>Area <span>${escHtml(f.tax_area)}</span></div>
+          <div>IRC <span>${escHtml(f.irc_reference)}</span></div>
+          <div>Amount at risk <span>${escHtml(amt)}</span></div>
+          <div>Confidence <span>${escHtml(conf)}</span></div>
+          <div>Missing docs <span>${escHtml(docs)}</span></div>
+          <div>Source <span>${escHtml(f.source_document)}</span></div>
+        </div>
+        <div class="flag-finding">${escHtml(f.ai_finding)}</div>
+        <div class="flag-action">CPA Action: <span>${escHtml(f.cpa_action)}</span></div>
+      </div>`;
+    }
+    html += '</div>';
+  } else {
+    html += '<div class="empty-state">No flags detected.</div>';
+  }
+
+  // Needs from client
+  if (needs.length) {
+    html += `<div class="needs-list">
+      <h3>Needs from client (${needs.length})</h3>
+      <ul>${needs.map(n => `<li>${escHtml(n)}</li>`).join('')}</ul>
+    </div>`;
+  }
+
+  document.getElementById('resultsContent').innerHTML = html;
+}
+</script>
+</body>
+</html>

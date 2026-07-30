@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.env
+rule_embeddings_cache.pkl
+*.log
