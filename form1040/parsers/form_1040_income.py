@@ -1,0 +1,59 @@
+import os
+from typing import Dict, Any, List
+from processors.base_parser import BaseLLMParser
+
+
+class Form1040IncomeLLMParser(BaseLLMParser):
+    """
+    Form 1040 Direct Income (Lines 1-6) 真實 LLM 提取解析器
+    讀取原始文字/憑證內容並呼叫 Gemini API 進行數據提取。
+    """
+
+    def get_schema_path(self) -> str:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # 在 form1040/parsers 目錄下，.. 是 form1040，../.. 是根目錄，以此找到 schema json
+        return os.path.abspath(
+            os.path.join(
+                current_dir,
+                "..",
+                "..",
+                "docs",
+                "how_to_fill_forms_docs",
+                "Form1040",
+                "income_aggregator_schema.json",
+            )
+        )
+
+    def get_form_name(self) -> str:
+        return "Form 1040 Direct Income (Lines 1-6)"
+
+    def get_custom_rules(self) -> List[str]:
+        return [
+            "【重點指示】對於 w2_items 陣列：只要輸入文字中包含 'W-2', 'Wages', 'Box 1', 'Box 2', 'Federal income tax withheld', 或任何薪資扣繳紀錄，絕對不可以填寫 [] 空陣列！必須為每份 W-2 憑證建立一個完整的 JSON 物件並放入 w2_items 中！",
+            "請從上傳的 W-2 憑證中精確提取：納稅人姓名 (employee_name)、雇主名稱 (employer_name)、Box 1 工資金額 (box_1_wages, 數字)、Box 2 聯邦扣繳金額 (box_2_federal_withholding, 數字) 以及稅務年度 (tax_year, 數字, 預設 2025)。",
+            "若有多張 W-2 憑證 (例如 Marcus Rivera 與 Elena Rivera)，必須全部提取出來，各自作為 `w2_items` 中的獨立物件！",
+            "若沒有相關的 IRA、Pension 或 Social Security 憑證，請將其 gross_amount 與 taxable_amount 設為 0.00。",
+        ]
+
+    def get_example_json(self) -> Dict[str, Any]:
+        return {
+            "w2_items": [
+                {
+                    "employee_name": "Marcus Rivera",
+                    "employer_name": "TechCorp",
+                    "box_1_wages": 46000.00,
+                    "box_2_federal_withholding": 5200.00,
+                    "tax_year": 2025,
+                },
+                {
+                    "employee_name": "Elena Rivera",
+                    "employer_name": "EduCorp",
+                    "box_1_wages": 54000.00,
+                    "box_2_federal_withholding": 6100.00,
+                    "tax_year": 2025,
+                },
+            ],
+            "ira_distribution": {"gross_amount": 0.00, "taxable_amount": 0.00},
+            "pension_annuity": {"gross_amount": 0.00, "taxable_amount": 0.00},
+            "social_security": {"gross_amount": 0.00, "taxable_amount": 0.00},
+        }

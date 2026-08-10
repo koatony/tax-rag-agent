@@ -86,6 +86,7 @@ async def analyze_form_status(
     # 彙整分析結果與異常錯誤
     forms = []
     errors = []
+    available_extract_calculate = []
     
     for i, res in enumerate(raw_results):
         if isinstance(res, Exception):
@@ -97,14 +98,23 @@ async def analyze_form_status(
         if isinstance(res, dict):
             status = res.get("status")
             form_name = res.get("form_name")
-            if status == "completable" and form_name in FORM_API_MAPPING:
+            if status in ("completable", "calculable_with_review", "calculable_with_confirmation", "waiting_for_dependency") and form_name in FORM_API_MAPPING:
+                api = FORM_API_MAPPING[form_name]
+
                 actions["calculate"] = FORM_API_MAPPING[form_name]
+                if status == "completable":
+                    available_extract_calculate.append({
+                        "form_name": form_name,
+                        "endpoint": api["url"],
+                        "method": api["method"]
+                    })
             res["actions"] = actions
 
         forms.append(res)
 
     result = {
-        "forms": forms
+        "forms": forms,
+        "available_extract_calculate": available_extract_calculate
     }
     if errors:
         result["_errors"] = errors

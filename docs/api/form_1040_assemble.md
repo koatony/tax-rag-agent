@@ -6,10 +6,7 @@
 
 ## POST `/form-1040/assemble`
 
-**驗證方式**：在 Request Header 中夾帶 `X-API-Token`。
-
-### 認證 Header 範例
-* `X-API-Token`: `tax_rag_p9k2_Lz7v_Xm4q_Secure_9103`
+**驗證方式**：無需強繳 `X-API-Token` (可選填)。
 
 ### Request Body 格式
 
@@ -18,21 +15,20 @@
 | `taxpayer_profile` | object | ✅ | 申報人基本資料 |
 | `taxpayer_profile.name` | string | ✅ | 申報人姓名 |
 | `taxpayer_profile.ssn` | string | ✅ | 申報人社會安全號碼 |
-| `taxpayer_profile.tax_year` | integer | ✅ | 申報的稅務年度 |
-| `taxpayer_profile.filing_status` | string | ✅ | 申報狀態（例如：`MFJ` 代表夫妻合併申報） |
+| `taxpayer_profile.tax_year` | integer | ✅ | 申報的稅務年度 (例: 2025) |
+| `taxpayer_profile.filing_status` | string | ✅ | 申報狀態（例如：`MFJ` 代表夫妻合併申報、`SINGLE` 代表單身） |
 | `uploaded_documents` | list[object] | ✅ | 上傳的文件列表，每個物件含 `file_name` 與 `content`（文件純文字內容） |
-| `model_name` | string | ❌ | 指定採用的 LLM 模型名稱（預設採用 `gemini-2.5-pro`） |
+| `model_name` | string | ❌ | 指定採用的 LLM 模型名稱（預設採用 `gemini-2.5-pro`，亦支援 `gemini-2.5-flash`） |
 
 ---
 
-## 完整 Case 0622 測試指令 (包含全部 6 個 Sample 憑證，複製貼上即可測試)
+## 完整 Case 0622 測試指令 (複製貼上即可測試)
 
 以下為 Marcus & Elena Rivera (Case 0622) 的真實資料，包含了兩個 W-2 檔案、一個 1098 房屋扣除額檔案、一個整合利息/股利/IRA 的 1099 檔案，以及兩個租賃與折舊相關檔案：
 
 ```bash
-curl -X POST http://localhost:8089/form-1040/assemble \
+curl -X POST http://localhost:8088/form-1040/assemble \
   -H "Content-Type: application/json" \
-  -H "X-API-Token: tax_rag_p9k2_Lz7v_Xm4q_Secure_9103" \
   -d '{
     "taxpayer_profile": {
       "name": "Marcus & Elena Rivera",
@@ -75,21 +71,56 @@ curl -X POST http://localhost:8089/form-1040/assemble \
 
 ```json
 {
-  "income_section": {
-    "tax_year": 2025,
-    "filing_status": "MFJ",
-    "line_1a": "100000.0",
-    "line_1z": "100000.0",
+  "form_1040_lines": {
+    "line_1a": "100000.00",
+    "line_1z": "100000.00",
     "line_2a": "0.00",
     "line_2b": "150.00",
     "line_3a": "0.00",
     "line_3b": "405.00",
-    "line_4a": "0.0",
-    "line_4b": "0.0",
-    "line_5a": "0.0",
-    "line_5b": "0.0",
-    "line_6a": "0.0",
-    "line_6b": "0.0",
+    "line_4a": "0.00",
+    "line_4b": "0.00",
+    "line_5a": "0.00",
+    "line_5b": "0.00",
+    "line_6a": "0.00",
+    "line_6b": "0.00",
+    "line_7a": "-990.00",
+    "line_8": "0.00",
+    "line_9": "99565.00",
+    "line_10": "7000.00",
+    "line_11": "92565.00",
+    "line_12e": "31500.00",
+    "line_13a": "0.00",
+    "line_14": "31500.00",
+    "line_15": "61065.00",
+    "line_16": "6852.00",
+    "line_18": "6852.00",
+    "line_19": "0.00",
+    "line_21": "0.00",
+    "line_22": "6852.00",
+    "line_24": "6852.00",
+    "line_25a": "11300.00",
+    "line_25d": "11300.00",
+    "line_33": "11300.00",
+    "line_34": "4448.00",
+    "line_35a": "4448.00",
+    "line_37": null
+  },
+  "income_section": {
+    "tax_year": 2025,
+    "filing_status": "MFJ",
+    "line_1a": "100000.00",
+    "line_1z": "100000.00",
+    "line_2a": "0.00",
+    "line_2b": "150.00",
+    "line_3a": "0.00",
+    "line_3b": "405.00",
+    "line_4a": "0.00",
+    "line_4b": "0.00",
+    "line_5a": "0.00",
+    "line_5b": "0.00",
+    "line_6a": "0.00",
+    "line_6b": "0.00",
     "line_7a": "-990.00",
     "line_8": "0.00",
     "line_9": "99565.00",
@@ -100,16 +131,84 @@ curl -X POST http://localhost:8089/form-1040/assemble \
   },
   "agi_section": {
     "line_9_total_income": "99565.00",
-    "line_10_adjustments_to_income": "0.00",
-    "line_11_adjusted_gross_income": "99565.00",
+    "line_10_adjustments_to_income": "7000.00",
+    "line_11_adjusted_gross_income": "92565.00",
     "status": "COMPLETE",
     "can_continue": true,
     "blocking_errors": []
   },
+  "deduction_section": {
+    "line_12e_deduction_applied": 31500.0,
+    "line_13a_qbi_deduction": 0.0,
+    "line_14_total_deductions": 31500.0,
+    "deduction_type": "STANDARD",
+    "status": "COMPLETE",
+    "blocking_errors": []
+  },
+  "taxable_income_section": {
+    "line_11_agi": "92565.00",
+    "line_14_deductions": "31500.00",
+    "line_15_taxable_income": "61065.00",
+    "status": "COMPLETE",
+    "blocking_errors": []
+  },
+  "tax_computation_section": {
+    "line_15_taxable_income": "61065.00",
+    "line_16_tax": "6852.00",
+    "line_18_tax_before_credits": "6852.00",
+    "status": "COMPLETE",
+    "blocking_errors": []
+  },
+  "credits_section": {
+    "line_18_tax_before_credits": "6852.00",
+    "line_19_ctc_odc": "0.00",
+    "line_21_total_credits": "0.00",
+    "line_22_tax_after_credits": "6852.00",
+    "line_24_total_tax": "6852.00",
+    "status": "COMPLETE",
+    "blocking_errors": []
+  },
+  "payments_refund_section": {
+    "line_24_total_tax": "6852.00",
+    "line_25a_w2_withholding": "11300.00",
+    "line_25d_total_withholding": "11300.00",
+    "line_33_total_payments": "11300.00",
+    "line_34_overpayment": "4448.00",
+    "line_35a_refund_amount": "4448.00",
+    "status": "COMPLETE",
+    "blocking_errors": []
+  },
+  "review_warnings": [
+    {
+      "code": "UNIMPLEMENTED_MODULE_PLACEHOLDER",
+      "field": "schedule_8812",
+      "message": "Schedule 8812 (Child Tax Credit / ACTC) 模組尚未建立，目前採用 Placeholder 預設值 (0.00)"
+    },
+    {
+      "code": "UNIMPLEMENTED_MODULE_PLACEHOLDER",
+      "field": "schedule_2",
+      "message": "Schedule 2 模組尚未建立，目前採用 Placeholder 預設值 (0.00)"
+    },
+    {
+      "code": "UNIMPLEMENTED_MODULE_PLACEHOLDER",
+      "field": "schedule_3",
+      "message": "Schedule 3 模組尚未建立，目前採用 Placeholder 預設值 (0.00)"
+    },
+    {
+      "code": "UNIMPLEMENTED_MODULE_PLACEHOLDER",
+      "field": "form_8863",
+      "message": "Form 8863 (AOC) 模組尚未建立，目前採用 Placeholder 預設值 (0.00)"
+    },
+    {
+      "code": "UNIMPLEMENTED_MODULE_PLACEHOLDER",
+      "field": "form_8839",
+      "message": "Form 8839 (Adoption Credit) 模組尚未建立，目前採用 Placeholder 預設值 (0.00)"
+    }
+  ],
   "status": "COMPLETE",
   "blocking_errors": [],
   "success": true,
-  "latency": 40.956,
+  "latency": 16.423,
   "debug_info": {
     "extracted_direct_income": {
       "w2_items": [

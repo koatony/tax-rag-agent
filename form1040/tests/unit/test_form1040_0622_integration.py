@@ -120,6 +120,34 @@ class TestForm10400622Integration(unittest.TestCase):
         self.assertEqual(agi_sec["line_10_adjustments_to_income"], "7000.00")
         self.assertEqual(agi_sec["line_11_adjusted_gross_income"], "92565.00") # 99565 - 7000 = 92565.00
 
+        # 7. 驗證 Deduction Section (Lines 12e-14)
+        ded_sec = assembly_result["deduction_section"]
+        self.assertEqual(ded_sec["status"], "COMPLETE")
+        self.assertEqual(ded_sec["line_14_total_deductions"], 31500.0)
+
+        # 8. 驗證 Taxable Income Section (Line 15)
+        taxable_sec = assembly_result["taxable_income_section"]
+        self.assertEqual(taxable_sec["status"], "COMPLETE")
+        self.assertEqual(taxable_sec["line_15_taxable_income"], "61065.00") # 92565 - 31500 = 61065.00
+
+        # 9. 驗證 Tax Computation Section (Lines 16-18)
+        tax_comp_sec = assembly_result["tax_computation_section"]
+        self.assertEqual(tax_comp_sec["status"], "COMPLETE")
+        self.assertTrue(Decimal(tax_comp_sec["line_18_tax_before_credits"]) > Decimal("0.00"))
+
+        # 10. 驗證 Payments & Refund Section (Lines 25-38)
+        pay_sec = assembly_result["payments_refund_section"]
+        self.assertEqual(pay_sec["status"], "COMPLETE")
+        self.assertEqual(pay_sec["line_25a_w2_withholding"], "11300.00") # 5200 + 6100 = 11300.00
+        self.assertEqual(pay_sec["line_25d_total_withholding"], "11300.00")
+        self.assertTrue(Decimal(pay_sec["line_34_overpayment"]) > Decimal("0.00"))
+        self.assertEqual(pay_sec["line_35a_refund_amount"], pay_sec["line_34_overpayment"])
+
+        # 11. 驗證 Review Warnings (包含未開發模組之 Placeholder 提示)
+        warnings = assembly_result.get("review_warnings", [])
+        self.assertTrue(any(w.get("code") == "UNIMPLEMENTED_MODULE_PLACEHOLDER" for w in warnings if isinstance(w, dict)))
+
 
 if __name__ == "__main__":
     unittest.main()
+

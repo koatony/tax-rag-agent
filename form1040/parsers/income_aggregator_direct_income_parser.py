@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from form1040.models.income_aggregator_model import (
     DirectIncomeInputV1,
     DirectIncomeItemV1,
@@ -12,6 +12,26 @@ class IncomeAggregatorDirectIncomeParser:
     Income Aggregator Direct Income 解析器與轉譯器
     將 LLM 或外層傳入之 Dict／Data 解析為結構化的 DirectIncomeInputV1 DTO
     """
+
+    @classmethod
+    def extract_and_parse(
+        cls,
+        doc_ctx_str: str,
+        model_name: str = "gemini-2.5-pro"
+    ) -> Tuple[DirectIncomeInputV1, str, str]:
+        """
+        一步到位：先呼叫 LLM 進行數據提取，接著自動整理成強型別的 DTO 回傳。
+        """
+        from .form_1040_income import Form1040IncomeLLMParser
+
+        # 1. 呼叫底層 LLM 提取資料
+        parser = Form1040IncomeLLMParser(model_name=model_name)
+        raw_dict, prompt, raw_response = parser.parse(doc_ctx_str)
+
+        # 2. 自動進行型態轉譯與整理
+        dto = cls.parse_dict(raw_dict)
+
+        return dto, prompt, raw_response
 
     @staticmethod
     def parse_dict(data: Dict[str, Any]) -> DirectIncomeInputV1:

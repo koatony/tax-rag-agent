@@ -149,23 +149,9 @@ class MissingFormsResponse(BaseModel):
     token_usage: Optional[dict] = None
     debug_info: Optional[dict] = None
 
-# --- 安全驗證 ---
-from fastapi import Header
-
-async def verify_token(x_api_token: str = Header(None)):
-    expected_token = os.environ.get("INTERNAL_TOKEN", "tax-rag-secret-token")
-    if x_api_token != expected_token:
-        raise HTTPException(status_code=403, detail="Invalid or missing API Token")
-
-def verify_token_sync(x_api_token: str = Header(None)):
-    expected_token = os.environ.get("INTERNAL_TOKEN", "tax-rag-secret-token")
-    if x_api_token != expected_token:
-        raise HTTPException(status_code=403, detail="Invalid or missing API Token")
-
 # --- API 路由 ---
 @app.post("/query", response_model=QueryResponse)
-async def query_rag(request: QueryRequest, x_api_token: str = Header(None)):
-    await verify_token(x_api_token)
+async def query_rag(request: QueryRequest):
     if not request.question:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
     
@@ -225,8 +211,7 @@ async def query_rag(request: QueryRequest, x_api_token: str = Header(None)):
         raise HTTPException(status_code=500, detail=f"RAG Error: {str(e)}")
 
 @app.post("/detect-missing-forms", response_model=MissingFormsResponse)
-async def detect_missing_forms(request: MissingFormsRequest, x_api_token: str = Header(None)):
-    await verify_token(x_api_token)
+async def detect_missing_forms(request: MissingFormsRequest):
     
     question_data = request.question
     if not question_data:
@@ -338,10 +323,8 @@ class FlagAnalyzeRequest(BaseModel):
 
 @app.post("/schedule-c/extract-and-calculate")
 def extract_and_calculate_schedule_c(
-    request: ScheduleCExtractRequest, 
-    x_api_token: str = Header(None)
+    request: ScheduleCExtractRequest
 ):
-    verify_token_sync(x_api_token)
     
     # 統一使用結構化的 taxpayer_profile 與 uploaded_documents 格式
     import json
@@ -384,10 +367,8 @@ def extract_and_calculate_schedule_c(
 
 @app.post("/schedule-a/extract-and-calculate")
 def extract_and_calculate_schedule_a(
-    request: ScheduleAExtractRequest, 
-    x_api_token: str = Header(None)
+    request: ScheduleAExtractRequest
 ):
-    verify_token_sync(x_api_token)
     
     import json
     payload = {
@@ -430,10 +411,8 @@ def extract_and_calculate_schedule_a(
 
 @app.post("/schedule-b/extract-and-calculate")
 def extract_and_calculate_schedule_b(
-    request: ScheduleBExtractRequest, 
-    x_api_token: str = Header(None)
+    request: ScheduleBExtractRequest
 ):
-    verify_token_sync(x_api_token)
     
     import json
     payload = {
@@ -474,10 +453,8 @@ def extract_and_calculate_schedule_b(
 
 @app.post("/schedule-e/extract-and-calculate")
 def extract_and_calculate_schedule_e(
-    request: ScheduleEExtractRequest, 
-    x_api_token: str = Header(None)
+    request: ScheduleEExtractRequest
 ):
-    verify_token_sync(x_api_token)
     
     import json
     payload = {
@@ -518,10 +495,8 @@ def extract_and_calculate_schedule_e(
 
 @app.post("/schedule-1/extract-and-calculate")
 def extract_and_calculate_schedule_1(
-    request: Schedule1ExtractRequest,
-    x_api_token: str = Header(None)
+    request: Schedule1ExtractRequest
 ):
-    verify_token_sync(x_api_token)
 
     import json
     payload = {
@@ -562,10 +537,8 @@ def extract_and_calculate_schedule_1(
 
 @app.post("/form-4562/extract-and-calculate")
 def extract_and_calculate_form_4562(
-    request: Form4562ExtractRequest,
-    x_api_token: str = Header(None)
+    request: Form4562ExtractRequest
 ):
-    verify_token_sync(x_api_token)
 
     import json
     payload = {
@@ -612,10 +585,8 @@ FLAG_ALLOWED_MODELS = {"gemini-2.5-flash", "gemini-2.5-pro", "gemma4:31b"}
 
 @app.post("/flag/analyze")
 async def flag_analyze_endpoint(
-    request: FlagAnalyzeRequest,
-    x_api_token: str = Header(None)
+    request: FlagAnalyzeRequest
 ):
-    await verify_token(x_api_token)
 
     q_data = request.question
     if isinstance(q_data, str):
@@ -653,10 +624,8 @@ async def flag_analyze_endpoint(
 
 @app.post("/flag/form-status")
 async def flag_form_status_endpoint(
-    request: FlagAnalyzeRequest,
-    x_api_token: str = Header(None)
+    request: FlagAnalyzeRequest
 ):
-    await verify_token(x_api_token)
 
     q_data = request.question
     if isinstance(q_data, str):
@@ -701,10 +670,8 @@ class Form1040AssembleRequest(BaseModel):
 
 @app.post("/form-1040/assemble")
 async def assemble_form_1040(
-    request: Form1040AssembleRequest,
-    x_api_token: str = Header(None)
+    request: Form1040AssembleRequest
 ):
-    await verify_token(x_api_token)
     from form1040.orchestrator import Form1040Orchestrator
     
     t_start = time.time()

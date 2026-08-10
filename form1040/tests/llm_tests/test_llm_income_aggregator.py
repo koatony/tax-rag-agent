@@ -12,7 +12,7 @@ if PROJECT_ROOT not in sys.path:
 
 load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
-from processors.parsers.form_1040_income import Form1040IncomeLLMParser
+from form1040.parsers.form_1040_income import Form1040IncomeLLMParser
 from form1040.processors.income_aggregator_processor import IncomeAggregatorProcessor
 from form1040.models.income_aggregator_model import (
     ScheduleBResultV1,

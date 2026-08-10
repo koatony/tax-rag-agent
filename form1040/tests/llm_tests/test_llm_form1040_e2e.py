@@ -12,7 +12,7 @@ if PROJECT_ROOT not in sys.path:
 
 load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
-from processors.parsers.form_1040_income import Form1040IncomeLLMParser
+from form1040.parsers.form_1040_income import Form1040IncomeLLMParser
 from form1040.orchestrator import Form1040Orchestrator
 from form1040.models.income_aggregator_model import (
     ScheduleBResultV1,
@@ -86,18 +86,47 @@ class TestLLMForm1040E2E(unittest.TestCase):
             status="COMPLETE",
         )
 
-        assembly_result = Form1040Orchestrator.assemble_0622_case(
+        assembly_result = Form1040Orchestrator.assemble(
+            tax_year=2025,
+            filing_status="MFJ",
             raw_llm_direct_income=extracted_data,
-            schedule_b_result=sb_result,
-            schedule_d_result=sd_result,
-            schedule_1_result=s1_result,
+            raw_schedule_b_input={
+                "taxpayer_name": "MARCUS & ELENA RIVERA",
+                "taxpayer_ssn": "123-45-6789",
+                "tax_year": 2025,
+                "interest_items": [{"payer_name": "CHASE", "amount": 150.0, "tax_character": "TAXABLE_INTEREST"}],
+                "dividend_items": [{"payer_name": "VANGUARD", "ordinary_dividends": 405.0}],
+            },
+            raw_schedule_d_input={
+                "line_7_capital_gain_or_loss": -990.00
+            },
+            raw_schedule_1_input={
+                "taxpayer_name": "Marcus & Elena Rivera",
+                "taxpayer_ssn": "123-45-6789",
+                "tax_year": 2025,
+                "adjustment_items": [
+                    {"item_id": "adj_ira", "line_code": "20", "description": "IRA deduction", "amount": 7000.0}
+                ],
+            },
         )
 
         self.assertEqual(assembly_result["status"], "COMPLETE")
         self.assertEqual(assembly_result["income_section"]["line_9"], "99565.00")
         self.assertEqual(assembly_result["agi_section"]["line_11_adjusted_gross_income"], "92565.00")
-        print(f"✅ Form 1040 E2E LLM 測試成功！Line 9={assembly_result['income_section']['line_9']}, Line 11={assembly_result['agi_section']['line_11_adjusted_gross_income']}")
+        self.assertEqual(assembly_result["deduction_section"]["status"], "COMPLETE")
+        self.assertEqual(assembly_result["payments_refund_section"]["status"], "COMPLETE")
+        print(f"✅ Form 1040 E2E LLM 測試成功！")
+        print(f"   Line 9 (Total Income)      = {assembly_result['income_section']['line_9']}")
+        print(f"   Line 11 (AGI)              = {assembly_result['agi_section']['line_11_adjusted_gross_income']}")
+        print(f"   Line 14 (Total Deductions) = {assembly_result['deduction_section']['line_14_total_deductions']}")
+        print(f"   Line 15 (Taxable Income)   = {assembly_result['taxable_income_section']['line_15_taxable_income']}")
+        print(f"   Line 18 (Tax Before Cred)  = {assembly_result['tax_computation_section']['line_18_tax_before_credits']}")
+        print(f"   Line 24 (Total Tax)        = {assembly_result['credits_section']['line_24_total_tax']}")
+        print(f"   Line 25d (Withholding)     = {assembly_result['payments_refund_section']['line_25d_total_withholding']}")
+        print(f"   Line 34 (Overpayment)      = {assembly_result['payments_refund_section']['line_34_overpayment']}")
+        print(f"   Line 35a (Refund Amount)   = {assembly_result['payments_refund_section']['line_35a_refund_amount']}")
 
 
 if __name__ == "__main__":
     unittest.main()
+

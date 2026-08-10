@@ -272,16 +272,11 @@ class ScheduleBInputsV1:
 
         
         # Part III 國外帳戶與信託篩選問卷 (Screening Questions)
-        self.foreign_account_q1 = kwargs.get("foreign_account_q1")
-        if self.foreign_account_q1 is None:
-            self.foreign_account_q1 = kwargs.get("foreign_accounts_interest") # 向下相容歷史欄位名
-            
+        # 依據前端 API 規格書與 Schedule B Schema，讀取標準欄位，未傳入時預設為 False
+        self.foreign_account_q1 = kwargs.get("foreign_account_q1") if kwargs.get("foreign_account_q1") is not None else False
         self.fbar_q2 = kwargs.get("fbar_q2")
         self.foreign_countries = kwargs.get("foreign_countries") or []
-        
-        self.foreign_trust_q8 = kwargs.get("foreign_trust_q8")
-        if self.foreign_trust_q8 is None:
-            self.foreign_trust_q8 = kwargs.get("foreign_trust_distribution") # 向下相容歷史欄位名
+        self.foreign_trust_q8 = kwargs.get("foreign_trust_q8") if kwargs.get("foreign_trust_q8") is not None else False
             
         # 映射不支援特殊案件的 flag 控制
         flags = kwargs.get("special_case_flags")
