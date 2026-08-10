@@ -34,8 +34,10 @@ class IncomeAggregatorDirectIncomeParser:
         return dto, prompt, raw_response
 
     @staticmethod
-    def parse_dict(data: Dict[str, Any]) -> DirectIncomeInputV1:
-        if not data:
+    def parse_dict(data: Any) -> DirectIncomeInputV1:
+        if isinstance(data, DirectIncomeInputV1):
+            return data
+        if not data or not isinstance(data, dict):
             return DirectIncomeInputV1()
 
         # 1. Parse W-2 明細項目 (由 LLM 產出的 raw dict 統一轉換為 W2ItemV1 DTO 物件)

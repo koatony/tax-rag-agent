@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from form1040.models.income_aggregator_model import (
+    IncomeAggregatorInputV1,
     DirectIncomeInputV1,
     DirectIncomeItemV1,
     W2ItemV1,
@@ -92,13 +93,8 @@ class Form1040Orchestrator:
         """
         將原始輸入資料傳給不同子表單模組，等待計算結果返回後，進行 Form 1040 全流程彙整 (Lines 1–38)。
         """
-        # 1. 呼叫 Parser 將 dict 格式之直接收入資料解析為 DTO 物件
-        if isinstance(raw_llm_direct_income, dict):
-            direct_income_dto = IncomeAggregatorDirectIncomeParser.parse_dict(raw_llm_direct_income)
-        elif isinstance(raw_llm_direct_income, DirectIncomeInputV1):
-            direct_income_dto = raw_llm_direct_income
-        else:
-            raise TypeError("raw_llm_direct_income must be a dictionary or a DirectIncomeInputV1 object")
+        # 1. 呼叫 Parser 將原始直接收入資料解析為 DTO 物件
+        direct_income_dto = IncomeAggregatorDirectIncomeParser.parse_dict(raw_llm_direct_income)
 
         # 2. 呼叫 Schedule B 計算引擎取得結果 DTO
         schedule_b_result = None
@@ -168,7 +164,7 @@ class Form1040Orchestrator:
             )
 
         # 5. 呼叫 IncomeAggregatorProcessor 彙整 Lines 1–9
-        income_result: IncomeSectionResultV1 = IncomeAggregatorProcessor.compute(
+        income_input = IncomeAggregatorInputV1(
             tax_year=tax_year,
             filing_status=filing_status,
             direct_income_input=direct_income_dto,
@@ -176,6 +172,7 @@ class Form1040Orchestrator:
             schedule_d_result=schedule_d_result,
             schedule_1_result=schedule_1_result,
         )
+        income_result: IncomeSectionResultV1 = IncomeAggregatorProcessor.process(income_input)
 
         # 6. 將 Line 9 與 Schedule 1 Line 26 傳入 AGIProcessor 計算 Line 11
         agi_input = AGIProcessorInputV1(
@@ -192,11 +189,12 @@ class Form1040Orchestrator:
             sa_res_dict = calculate_schedule_a_dynamic(raw_schedule_a_input)
             resolved_sa_result = ScheduleAResultV1(**sa_res_dict)
 
-        deduction_result: DeductionResolverResultV1 = DeductionResolverProcessor.compute(
+        deduction_input = DeductionResolverInputV1(
             tax_year=tax_year,
             filing_status=filing_status,
             schedule_a_result=resolved_sa_result,
         )
+        deduction_result: DeductionResolverResultV1 = DeductionResolverProcessor.process(deduction_input)
 
         # 8. 呼叫 TaxableIncomeProcessor 計算 Line 15 (Taxable Income)
         taxable_income_input = TaxableIncomeInputV1(
@@ -207,7 +205,13 @@ class Form1040Orchestrator:
         taxable_income_result: TaxableIncomeResultV1 = TaxableIncomeProcessor.process(taxable_income_input)
 
         # 9. 呼叫 TaxComputationProcessor 計算 Lines 16, 17, 18 (Tax Computation)
-        # 根據 income_result 的 line_3a (合格股利) 與 line_7a (資本利得/損失) 自動建構適性物件
+        # -------------------------------------------------------------------------
+        # Ordinary Tax Eligibility (一般所得稅路徑適性評估)：
+        # 用於評估當前案件是否符合走一般「Tax Table 查表法」或「Tax Computation Worksheet 算術法」。
+        # 若案件包含合格股利 (Line 3a) 或資本利得 (Line 7a)，依據 IRS 規定享有優惠稅率，
+        # 必須走特殊計稅工作表 (Qualified Dividends and Capital Gain Tax Worksheet)。
+        # 本物件即作為安全門衛，傳入 Line 3a 與 Line 7a 金額供計稅驗證器判斷路徑。
+        # -------------------------------------------------------------------------
         ordinary_tax_eligibility = OrdinaryTaxEligibilityV1(
             qualified_dividends_amount=income_result.line_3a or Decimal("0.00"),
             capital_gain_or_loss_amount=income_result.line_7a or Decimal("0.00"),
@@ -257,7 +261,14 @@ class Form1040Orchestrator:
             "other_withholding": Decimal("0.00")
         }
 
-        # 估算暫定總繳納額與 Overpayment
+        # -------------------------------------------------------------------------
+        # IRS Form 1040 溢繳退稅預設分配邏輯：
+        # 1. est_line_24: 應納稅額總計 (Line 24 Total Tax)。
+        # 2. est_overpayment: 扣繳稅額大於應納稅額時的溢繳金額 (Line 34 Overpayment = Line 33 Payments - Line 24 Tax)。
+        # 3. default_refund_choice: 當有溢繳 (est_overpayment > 0) 時，依照 IRS 預設習慣，
+        #    將 100% 的溢繳金額安排為直接退款 (Line 35a Refund)，預設不抵繳下年度預估稅 (Line 36 Apply to Next Year = 0.00)。
+        #    若無溢繳金額 (無退稅)，則維持 None 留空。
+        # -------------------------------------------------------------------------
         est_line_24 = credits_result.line_24_total_tax or Decimal("0.00")
         est_overpayment = (w2_withholding - est_line_24) if w2_withholding > est_line_24 else Decimal("0.00")
         default_refund_choice = {
@@ -266,7 +277,7 @@ class Form1040Orchestrator:
         } if est_overpayment > Decimal("0.00") else None
 
         # =========================================================================
-        # TODO: [PLACEHOLDER] 尚未建立之可退稅抵免子表單預留處理 (對標 QBI Form 8995 模式)
+        # TODO: [PLACEHOLDER] 尚未建立之可退稅抵免子表單預留處理 
         # 由於 EIC, Schedule 8812 (ACTC), Form 8863 (AOC), Form 8839, Schedule 3 等模組尚未建立，
         # 此處統一帶入預設 Placeholder，確保 PaymentsAndRefundValidator 能正常放行。
         # =========================================================================
@@ -418,10 +429,11 @@ class Form1040Orchestrator:
         import missing_form_detector
         import json
 
+        # 0. 讀取 API 必填之納稅人基本資料 (tax_year, filing_status)，由前端 UI/API 傳入
         tax_year = int(taxpayer_profile.get("tax_year") or taxpayer_profile.get("Tax Year") or 2025)
         filing_status = str(taxpayer_profile.get("filing_status") or taxpayer_profile.get("Filing Status") or "MFJ")
 
-        # 1. 格式化文件上下文
+        # 1. 格式化文件上下文 (將 taxpayer_profile 與 uploaded_documents 整合為單一純文字 context)
         payload = {
             "taxpayer_profile": taxpayer_profile,
             "uploaded_documents": uploaded_documents
@@ -433,6 +445,7 @@ class Form1040Orchestrator:
 
         # 2. 確定採用的模型 (預設為 gemini-2.5-pro)
         model_name = model_name or "gemini-2.5-pro"
+
 
         # 3. 呼叫 LLM 進行提取
         # (a) 提取 Direct Income (W-2 等)

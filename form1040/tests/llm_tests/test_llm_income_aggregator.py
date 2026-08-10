@@ -15,6 +15,7 @@ load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 from form1040.parsers.form_1040_income import Form1040IncomeLLMParser
 from form1040.processors.income_aggregator_processor import IncomeAggregatorProcessor
 from form1040.models.income_aggregator_model import (
+    IncomeAggregatorInputV1,
     ScheduleBResultV1,
     ScheduleDResultV1,
     Schedule1ResultV1,
@@ -93,7 +94,7 @@ class TestLLMIncomeAggregator(unittest.TestCase):
             status="COMPLETE",
         )
 
-        result = IncomeAggregatorProcessor.compute(
+        inp = IncomeAggregatorInputV1(
             tax_year=2025,
             filing_status="MFJ",
             direct_income_input=extracted_data,
@@ -101,6 +102,7 @@ class TestLLMIncomeAggregator(unittest.TestCase):
             schedule_d_result=sd_result,
             schedule_1_result=s1_result,
         )
+        result = IncomeAggregatorProcessor.process(inp)
 
         self.assertEqual(result.status, "COMPLETE")
         self.assertTrue(result.can_continue)

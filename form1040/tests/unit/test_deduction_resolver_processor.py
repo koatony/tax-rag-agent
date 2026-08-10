@@ -27,11 +27,12 @@ class TestDeductionResolverProcessor(unittest.TestCase):
             should_attach_schedule_a=False,
             can_file=True,
         )
-        res = DeductionResolverProcessor.compute(
+        inp = DeductionResolverInputV1(
             tax_year=2025,
             filing_status="SINGLE",
             schedule_a_result=sa_res,
         )
+        res = DeductionResolverProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertEqual(res.line_12e_deduction, Decimal("15000.00"))
@@ -51,11 +52,12 @@ class TestDeductionResolverProcessor(unittest.TestCase):
             should_attach_schedule_a=True,
             can_file=True,
         )
-        res = DeductionResolverProcessor.compute(
+        inp = DeductionResolverInputV1(
             tax_year=2025,
             filing_status="SINGLE",
             schedule_a_result=sa_res,
         )
+        res = DeductionResolverProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertEqual(res.line_12e_deduction, Decimal("22000.00"))
@@ -74,11 +76,12 @@ class TestDeductionResolverProcessor(unittest.TestCase):
             should_attach_schedule_a=True,
             can_file=True,
         )
-        res = DeductionResolverProcessor.compute(
+        inp = DeductionResolverInputV1(
             tax_year=2025,
             filing_status="SINGLE",
             schedule_a_result=sa_res,
         )
+        res = DeductionResolverProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertEqual(res.line_12e_deduction, Decimal("8000.00"))
@@ -97,13 +100,14 @@ class TestDeductionResolverProcessor(unittest.TestCase):
         qbi_res = Form8995ResultV1(line_15_qbi_deduction=Decimal("3500.00"))
         s1a_res = Schedule1AResultV1(line_38_additional_deductions=Decimal("1200.00"))
 
-        res = DeductionResolverProcessor.compute(
+        inp = DeductionResolverInputV1(
             tax_year=2025,
             filing_status="SINGLE",
             schedule_a_result=sa_res,
             form_8995_result=qbi_res,
             schedule_1a_result=s1a_res,
         )
+        res = DeductionResolverProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertEqual(res.line_12e_deduction, Decimal("15000.00"))
@@ -126,11 +130,12 @@ class TestDeductionResolverProcessor(unittest.TestCase):
             ],
         )
 
-        res = DeductionResolverProcessor.compute(
+        inp = DeductionResolverInputV1(
             tax_year=2025,
             filing_status="SINGLE",
             schedule_a_result=sa_res,
         )
+        res = DeductionResolverProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertTrue(res.can_continue)
@@ -141,7 +146,7 @@ class TestDeductionResolverProcessor(unittest.TestCase):
 
     def test_to_dict_formatting(self):
         """測試 DeductionResolverResultV1.to_dict 格式轉換正常"""
-        res = DeductionResolverProcessor.compute(
+        inp = DeductionResolverInputV1(
             tax_year=2025,
             filing_status="SINGLE",
             schedule_a_result=ScheduleAResultV1(
@@ -149,6 +154,7 @@ class TestDeductionResolverProcessor(unittest.TestCase):
                 line_17_total_itemized_deductions=Decimal("0.00"),
             ),
         )
+        res = DeductionResolverProcessor.process(inp)
         res_dict = res.to_dict()
         self.assertEqual(res_dict["line_12e_deduction"], 15000.0)
         self.assertEqual(res_dict["line_14_total_deductions"], 15000.0)

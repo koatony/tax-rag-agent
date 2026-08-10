@@ -33,11 +33,12 @@ class TestTaxableIncomeProcessor(unittest.TestCase):
             can_continue=True,
         )
 
-        res = TaxableIncomeProcessor.compute(
+        inp = TaxableIncomeInputV1(
             tax_year=2025,
             agi_result=agi_res,
             deduction_result=ded_res,
         )
+        res = TaxableIncomeProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertTrue(res.can_continue)
@@ -60,11 +61,12 @@ class TestTaxableIncomeProcessor(unittest.TestCase):
             can_continue=True,
         )
 
-        res = TaxableIncomeProcessor.compute(
+        inp = TaxableIncomeInputV1(
             tax_year=2025,
             agi_result=agi_res,
             deduction_result=ded_res,
         )
+        res = TaxableIncomeProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertEqual(res.line_15_taxable_income, Decimal("0.00"))
@@ -92,11 +94,12 @@ class TestTaxableIncomeProcessor(unittest.TestCase):
             can_continue=True,
         )
 
-        res = TaxableIncomeProcessor.compute(
+        inp = TaxableIncomeInputV1(
             tax_year=2025,
             agi_result=agi_res,
             deduction_result=ded_res,
         )
+        res = TaxableIncomeProcessor.process(inp)
 
         self.assertEqual(res.status, "BLOCKED")
         self.assertFalse(res.can_continue)

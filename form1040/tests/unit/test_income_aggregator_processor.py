@@ -2,6 +2,7 @@ from decimal import Decimal
 import unittest
 
 from form1040.models.income_aggregator_model import (
+    IncomeAggregatorInputV1,
     DirectIncomeInputV1,
     DirectIncomeItemV1,
     W2ItemV1,
@@ -62,7 +63,7 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
             status="COMPLETE",
         )
 
-        result = IncomeAggregatorProcessor.compute(
+        inp = IncomeAggregatorInputV1(
             tax_year=2025,
             filing_status="MFJ",
             direct_income_input=direct_income,
@@ -70,6 +71,7 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
             schedule_d_result=sd_result,
             schedule_1_result=s1_result,
         )
+        result = IncomeAggregatorProcessor.process(inp)
 
         self.assertEqual(result.status, "COMPLETE")
         self.assertTrue(result.can_continue)
@@ -96,11 +98,12 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
             ]
         )
 
-        result = IncomeAggregatorProcessor.compute(
+        inp = IncomeAggregatorInputV1(
             tax_year=2025,
             filing_status="MFJ",
             direct_income_input=direct_income,
         )
+        result = IncomeAggregatorProcessor.process(inp)
 
         self.assertEqual(result.status, "BLOCKED")
         self.assertFalse(result.can_continue)
@@ -119,11 +122,12 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
             )
         )
 
-        result = IncomeAggregatorProcessor.compute(
+        inp = IncomeAggregatorInputV1(
             tax_year=2025,
             filing_status="MFJ",
             direct_income_input=direct_income,
         )
+        result = IncomeAggregatorProcessor.process(inp)
 
         self.assertEqual(result.status, "BLOCKED")
         self.assertEqual(result.blocking_errors[0].code, "TAXABILITY_REQUIRES_CALCULATION")
@@ -135,12 +139,13 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
         direct_income = DirectIncomeInputV1()
         sb_result = ScheduleBResultV1(status="BLOCKED", can_continue=False)
 
-        result = IncomeAggregatorProcessor.compute(
+        inp = IncomeAggregatorInputV1(
             tax_year=2025,
             filing_status="MFJ",
             direct_income_input=direct_income,
             schedule_b_result=sb_result,
         )
+        result = IncomeAggregatorProcessor.process(inp)
 
         self.assertEqual(result.status, "BLOCKED")
         self.assertFalse(result.can_continue)
@@ -156,11 +161,12 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
             ]
         }
 
-        result = IncomeAggregatorProcessor.compute(
+        inp = IncomeAggregatorInputV1(
             tax_year=2025,
             filing_status="Single",
             direct_income_input=raw_dict,
         )
+        result = IncomeAggregatorProcessor.process(inp)
 
         self.assertEqual(result.status, "COMPLETE")
         self.assertEqual(result.line_1z, Decimal("100000"))

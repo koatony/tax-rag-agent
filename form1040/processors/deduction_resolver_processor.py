@@ -49,25 +49,3 @@ class DeductionResolverProcessor:
 
         # 2. 執行核心決策與算術加總
         return DeductionResolverCalculator.calculate(data)
-
-    @classmethod
-    def compute(
-        cls,
-        *,
-        tax_year: int = 2025,
-        filing_status: str = "SINGLE",
-        schedule_a_result: Optional[ScheduleAResultV1] = None,
-        form_8995_result: Optional[Form8995ResultV1] = None,
-        schedule_1a_result: Optional[Schedule1AResultV1] = None,
-    ) -> DeductionResolverResultV1:
-        """
-        便捷計算進入點，自動為呼叫者組裝 DeductionResolverInputV1。
-        """
-        input_dto = DeductionResolverInputV1(
-            tax_year=tax_year,
-            filing_status=filing_status,
-            schedule_a_result=schedule_a_result,
-            form_8995_result=form_8995_result,
-            schedule_1a_result=schedule_1a_result,
-        )
-        return cls.process(input_dto)

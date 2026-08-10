@@ -147,6 +147,15 @@ class TestForm10400622Integration(unittest.TestCase):
         warnings = assembly_result.get("review_warnings", [])
         self.assertTrue(any(w.get("code") == "UNIMPLEMENTED_MODULE_PLACEHOLDER" for w in warnings if isinstance(w, dict)))
 
+    def test_omitted_taxpayer_profile_uses_defaults(self):
+        """測試當 taxpayer_profile 缺少 filing_status 或 tax_year 時，自動使用安全預設值 (2025 / MFJ) 順暢完成試算"""
+        res = Form1040Orchestrator.extract_and_assemble(
+            taxpayer_profile={"name": "Alice"},
+            uploaded_documents=[{"document_type": "W-2", "text": "Wages: 50000"}],
+        )
+        self.assertIn("status", res)
+        self.assertIn("form_1040_lines", res)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,11 +12,11 @@
 
 | 參數 | 類型 | 必填 | 說明 |
 |---|---|---|---|
-| `taxpayer_profile` | object | ✅ | 申報人基本資料 |
-| `taxpayer_profile.name` | string | ✅ | 申報人姓名 |
-| `taxpayer_profile.ssn` | string | ✅ | 申報人社會安全號碼 |
-| `taxpayer_profile.tax_year` | integer | ✅ | 申報的稅務年度 (例: 2025) |
-| `taxpayer_profile.filing_status` | string | ✅ | 申報狀態（例如：`MFJ` 代表夫妻合併申報、`SINGLE` 代表單身） |
+| `taxpayer_profile` | object | ✅ | 申報人基本資料物件 |
+| `taxpayer_profile.tax_year` | integer | ✅ | **核心計算必填**：申報的稅務年度（例如：`2025`），用於比對適用之稅率表與標準扣除額 |
+| `taxpayer_profile.filing_status` | string | ✅ | **核心計算必填**：申報身分（`"SINGLE"`, `"MFJ"`, `"HOH"`, `"MFS"`, `"QSS"`），直接決定標準扣除額與應納稅額級距 |
+| `taxpayer_profile.name` | string | ❌ | 申報人姓名（選填，用於表頭渲染與 PDF 產出） |
+| `taxpayer_profile.ssn` | string | ❌ | 申報人社會安全號碼（選填，用於表頭渲染與 PDF 產出） |
 | `uploaded_documents` | list[object] | ✅ | 上傳的文件列表，每個物件含 `file_name` 與 `content`（文件純文字內容） |
 | `model_name` | string | ❌ | 指定採用的 LLM 模型名稱（預設採用 `gemini-2.5-pro`，亦支援 `gemini-2.5-flash`） |
 

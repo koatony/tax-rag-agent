@@ -82,14 +82,17 @@ class TaxRuleProvider:
         公式：tax = (taxable_income * rate) - subtract
         結果四捨五入至整數 (ROUND_HALF_UP)
         """
+        # 1. 處理報稅身分大小寫與別名對照（例如 QSS 依 IRS 規定映射至 MFJ）
         status_upper = filing_status.upper()
         aliases = self.rules_2025.get("filing_status_aliases", {})
         status_key = aliases.get(status_upper, status_upper)
 
+        # 2. 從 JSON 規則庫中取出公式對照表 (tax_computation_worksheet)
         worksheet_dict = self.rules_2025.get("tax_computation_worksheet", {})
         if status_key not in worksheet_dict:
             raise TaxRuleNotFoundError(f"No 2025 worksheet rules found for filing status '{status_key}'.")
 
+        # 3. 取得該身分的所有稅率區間列表，並將應稅所得轉為 Decimal 高精度型態
         rows = worksheet_dict[status_key]
         inc_val = Decimal(str(taxable_income))
 

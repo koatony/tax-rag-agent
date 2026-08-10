@@ -34,13 +34,14 @@ class TestTaxComputationProcessor(unittest.TestCase):
             status=ApplicabilityStatus.APPLICABLE,
         )
 
-        res = TaxComputationProcessor.compute(
+        inp = TaxComputationInputV1(
             tax_year=2025,
             filing_status=FilingStatus.MFJ,
             taxable_income_result=taxable_res,
             ordinary_tax_eligibility=eligibility,
             schedule_2_status=ApplicabilityStatus.NOT_APPLICABLE,
         )
+        res = TaxComputationProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertTrue(res.can_continue)
@@ -65,13 +66,14 @@ class TestTaxComputationProcessor(unittest.TestCase):
             status=ApplicabilityStatus.APPLICABLE,
         )
 
-        res = TaxComputationProcessor.compute(
+        inp = TaxComputationInputV1(
             tax_year=2025,
             filing_status=FilingStatus.MFJ,
             taxable_income_result=taxable_res,
             ordinary_tax_eligibility=eligibility,
             schedule_2_status=ApplicabilityStatus.NOT_APPLICABLE,
         )
+        res = TaxComputationProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertEqual(res.computation_method, TaxComputationMethod.TAX_COMPUTATION_WORKSHEET)
@@ -89,13 +91,14 @@ class TestTaxComputationProcessor(unittest.TestCase):
 
         eligibility = OrdinaryTaxEligibilityV1(status=ApplicabilityStatus.APPLICABLE)
 
-        res = TaxComputationProcessor.compute(
+        inp = TaxComputationInputV1(
             tax_year=2025,
             filing_status=FilingStatus.SINGLE,
             taxable_income_result=taxable_res,
             ordinary_tax_eligibility=eligibility,
             schedule_2_status=ApplicabilityStatus.NOT_APPLICABLE,
         )
+        res = TaxComputationProcessor.process(inp)
 
         self.assertEqual(res.status, "COMPLETE")
         self.assertEqual(res.computation_method, TaxComputationMethod.ZERO_TAX)
@@ -117,13 +120,14 @@ class TestTaxComputationProcessor(unittest.TestCase):
             status=ApplicabilityStatus.APPLICABLE,
         )
 
-        res = TaxComputationProcessor.compute(
+        inp = TaxComputationInputV1(
             tax_year=2025,
             filing_status=FilingStatus.SINGLE,
             taxable_income_result=taxable_res,
             ordinary_tax_eligibility=eligibility,
             schedule_2_status=ApplicabilityStatus.NOT_APPLICABLE,
         )
+        res = TaxComputationProcessor.process(inp)
 
         self.assertEqual(res.status, "BLOCKED")
         self.assertFalse(res.can_continue)
@@ -141,13 +145,14 @@ class TestTaxComputationProcessor(unittest.TestCase):
 
         eligibility = OrdinaryTaxEligibilityV1(status=ApplicabilityStatus.APPLICABLE)
 
-        res = TaxComputationProcessor.compute(
+        inp = TaxComputationInputV1(
             tax_year=2025,
             filing_status=FilingStatus.SINGLE,
             taxable_income_result=taxable_res,
             ordinary_tax_eligibility=eligibility,
             schedule_2_status=ApplicabilityStatus.UNRESOLVED,
         )
+        res = TaxComputationProcessor.process(inp)
 
         self.assertEqual(res.status, "BLOCKED")
         self.assertEqual(res.blocking_errors[0].code, "SCHEDULE_2_UNRESOLVED_OR_UNSUPPORTED")

@@ -47,37 +47,3 @@ class TaxComputationProcessor:
 
         # 2. 執行核心查表與算術計算
         return TaxComputationCalculator.calculate(data, tax_rule_provider=tax_rule_provider)
-
-    @classmethod
-    def compute(
-        cls,
-        *,
-        taxable_income_result: Optional[TaxableIncomeResultV1] = None,
-        filing_status: Union[FilingStatus, str] = FilingStatus.SINGLE,
-        ordinary_tax_eligibility: Optional[OrdinaryTaxEligibilityV1] = None,
-        schedule_2_status: ApplicabilityStatus = ApplicabilityStatus.NOT_APPLICABLE,
-        tax_year: int = 2025,
-        tax_rule_provider: Optional[TaxRuleProvider] = None,
-    ) -> TaxComputationResultV1:
-        """
-        便捷進入點：自動組裝 TaxComputationInputV1 並調用 process
-        """
-        if isinstance(filing_status, str):
-            try:
-                filing_status_enum = FilingStatus(filing_status.upper())
-            except ValueError:
-                filing_status_enum = FilingStatus.SINGLE
-        else:
-            filing_status_enum = filing_status
-
-        if ordinary_tax_eligibility is None:
-            ordinary_tax_eligibility = OrdinaryTaxEligibilityV1()
-
-        input_dto = TaxComputationInputV1(
-            tax_year=tax_year,
-            filing_status=filing_status_enum,
-            taxable_income_result=taxable_income_result,
-            ordinary_tax_eligibility=ordinary_tax_eligibility,
-            schedule_2_status=schedule_2_status,
-        )
-        return cls.process(input_dto, tax_rule_provider=tax_rule_provider)

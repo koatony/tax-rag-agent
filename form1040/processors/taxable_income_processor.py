@@ -38,21 +38,3 @@ class TaxableIncomeProcessor:
 
         # 2. 執行核心計算
         return TaxableIncomeCalculator.calculate(data)
-
-    @classmethod
-    def compute(
-        cls,
-        *,
-        agi_result: Optional[AGIProcessorResultV1] = None,
-        deduction_result: Optional[DeductionResolverResultV1] = None,
-        tax_year: int = 2025,
-    ) -> TaxableIncomeResultV1:
-        """
-        便捷進入點：自動組裝 TaxableIncomeInputV1 並調用 process
-        """
-        input_dto = TaxableIncomeInputV1(
-            tax_year=tax_year,
-            agi_result=agi_result,
-            deduction_result=deduction_result,
-        )
-        return cls.process(input_dto)
