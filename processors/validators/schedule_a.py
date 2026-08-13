@@ -55,7 +55,9 @@ def validate_nonnegative_amounts(inputs: ScheduleAInputsV1, errors: List[Validat
     5. 現金慈善捐贈明細 (cash_charity_items) 中的各項金額（總捐贈金額、獲贈之商品/服務價值）是否均大於或等於 0。
     """
     ZERO = Decimal("0.00")
-    if inputs.adjusted_gross_income < ZERO:
+    if inputs.adjusted_gross_income is None:
+        errors.append(ValidationIssue("MISSING_AGI_INPUT", "adjusted_gross_income", message="Adjusted Gross Income is missing in input data."))
+    elif inputs.adjusted_gross_income < ZERO:
         errors.append(ValidationIssue("NEGATIVE_AMOUNT", "adjusted_gross_income", message="Adjusted Gross Income cannot be negative."))
         
     for item in inputs.medical_items:

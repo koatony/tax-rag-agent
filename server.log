@@ -1,0 +1,18 @@
+nohup: ignoring input
+/home/metaya/tax-rag-agent/.venv/lib/python3.10/site-packages/google/api_core/_python_version_support.py:273: FutureWarning: You are using a Python version (3.10.12) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04). Please upgrade to the latest Python version, or at least Python 3.11, to continue receiving updates for google.api_core past that date.
+  warnings.warn(message, FutureWarning)
+/home/metaya/tax-rag-agent/Flag/form_status_analyzer/llm_backends.py:6: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Started server process [2521218]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8088 (Press CTRL+C to quit)
+INFO:     127.0.0.1:55554 - "POST /form-1040/assemble HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:45798 - "POST /form-1040/assemble HTTP/1.1" 403 Forbidden

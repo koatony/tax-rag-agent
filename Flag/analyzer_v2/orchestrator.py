@@ -7,9 +7,11 @@ from .preprocess import preprocess
 from .risk_scoring import compute_risk_score
 from .safety_nets import (
     RENTAL_ACTIVITY_KEYWORDS,
+    W2_RETIREMENT_KEYWORDS,
     check_prior_year_comparison,
     check_rental_depreciation_omission,
     check_rental_documentation_completeness,
+    check_w2_retirement_wage_reconciliation,
     enforce_required_missing_docs,
 )
 
@@ -70,6 +72,14 @@ async def analyze(
     prior_year_gap = check_prior_year_comparison(extracted_data)
     if prior_year_gap is not None:
         flags.append(prior_year_gap)
+
+    already_has_w2_retirement_flag = any(
+        any(kw in str(f.get("tax_area", "")).lower() + str(f.get("flag_title", "")).lower()
+            for kw in W2_RETIREMENT_KEYWORDS)
+        for f in flags
+    )
+    if not already_has_w2_retirement_flag:
+        flags.extend(check_w2_retirement_wage_reconciliation(extracted_data))
 
     # Materiality is relative to the largest amount_at_risk in THIS run, so
     # it can only be computed once every flag's amount is known.

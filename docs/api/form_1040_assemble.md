@@ -8,6 +8,16 @@
 
 **驗證方式**：無需強繳 `X-API-Token` (可選填)。
 
+### 參數必填性說明 (Required vs Optional)
+
+* **必填欄位 (Required)**：
+  * `taxpayer_profile`：基本資料物件。其中 **`tax_year`**（稅務年度，如 `2025`）與 **`filing_status`**（申報身分，如 `MFJ`）是**計算引擎的核心必填參數**，直接決定了計稅級距與標準扣除額。
+  * `uploaded_documents`：上傳的文件列表（不可為空），列表中每個文件物件須包含 `file_name`（檔案名稱）與 `content`（文件純文字內容）。
+* **選填欄位 (Optional)**：
+  * `taxpayer_profile.name`：申報人姓名（僅供表頭揭露，不影響計算）。
+  * `taxpayer_profile.ssn`：社會安全號碼（僅供表頭揭露，不影響計算）。
+  * `model_name`：指定採用的 LLM 抽取模型（預設為 `gemini-2.5-pro`）。
+
 ### Request Body 格式
 
 | 參數 | 類型 | 必填 | 說明 |
@@ -24,50 +34,56 @@
 
 ## 完整 Case 0622 測試指令 (複製貼上即可測試)
 
-以下為 Marcus & Elena Rivera (Case 0622) 的真實資料，包含了兩個 W-2 檔案、一個 1098 房屋扣除額檔案、一個整合利息/股利/IRA 的 1099 檔案，以及兩個租賃與折舊相關檔案：
+以下為 Marcus & Elena Rivera (Case 0622) 對齊來源文件的測試資料，包含了兩個 W-2 檔案、一個 1098 房屋扣除額檔案、一個整合利息/股利/IRA 的 1099 檔案，以及兩個租賃與折舊相關檔案：
+
+> [!IMPORTANT]
+> **Line 7a (Capital Gain or Loss) 說明**：目前 V1 系統尚未實作 Schedule D (資本損益) 提取與計算模組。因此此處的 `-990.00` 係由系統中 Hardcoded 之預設 Placeholder Fixture 帶入，而非從這 6 份文件資料中計算抽出。
 
 ```bash
 curl -X POST http://localhost:8088/form-1040/assemble \
   -H "Content-Type: application/json" \
   -d '{
-    "taxpayer_profile": {
-      "name": "Marcus & Elena Rivera",
-      "ssn": "123-45-6789",
-      "tax_year": 2025,
-      "filing_status": "MFJ"
+  "taxpayer_profile": {
+    "name": "Marcus & Elena Rivera",
+    "ssn": "555-12-3456",
+    "tax_year": 2025,
+    "filing_status": "MFJ"
+  },
+  "uploaded_documents": [
+    {
+      "file_name": "Sample 01 - W-2 Marcus.txt",
+      "content": "Form W-2 Wage and Tax Statement 2025. Employer: Creature Comforts Pets Supply. Employer EIN: 94-7654321. Employee: Marcus Rivera. Employee SSN: 555-12-3456. Box 1 Wages, tips, other compensation: $46,000. Box 2 Federal income tax withheld: $3,800. Box 12 Code D: $2,000. Box 13 Retirement Plan checked. Box 17 State income tax: $1,450."
     },
-    "uploaded_documents": [
-      {
-        "file_name": "Sample 01 - W-2 Marcus.txt",
-        "content": "Form W-2 Wage and Tax Statement 2025. Employer: Creature Comforts Pet Supply EIN 94-1234567. Employee: Marcus Rivera SSN 123-45-6789. Box 1 Wages, tips, other compensation: $46,000. Box 2 Federal income tax withheld: $4,200. Box 13 Retirement Plan checked."
-      },
-      {
-        "file_name": "Sample 02 - W-2 Elena.txt",
-        "content": "Form W-2 Wage and Tax Statement 2025. Employer: City of Sacramento EIN 94-7654321. Employee: Elena Rivera SSN 987-65-4321. Box 1 Wages, tips, other compensation: $54,000. Box 2 Federal income tax withheld: $5,200. Box 13 Retirement Plan checked."
-      },
-      {
-        "file_name": "Sample 03 - Rivera 1098.txt",
-        "content": "Form 1098 Mortgage Interest Statement 2025. Payer: Marcus and Elena Rivera. Lender: Golden West Bank. Box 1: Mortgage interest: $9,800. Box 10: Real estate taxes paid on primary residence: $2,600."
-      },
-      {
-        "file_name": "Sample 04 - 1099-DIV & 1099-INT & IRA & Charity.txt",
-        "content": "Form 1099-INT. Payer: Chase Bank NA. Box 1 Interest Income: $150.00. Form 1099-DIV. Payer: Vanguard. Box 1a Total Ordinary Dividends: $405.00. Traditional IRA Contribution: Taxpayer Elena Rivera made a traditional IRA contribution of $7,000.00 for tax year 2025."
-      },
-      {
-        "file_name": "Sample 05 - Rental Property Income_.txt",
-        "content": "Rental Property Income Statement 2025. Property Address: 5200 Green Valley Drive, Unit 208, Sacramento, CA 95841. Gross Rental Income: $16,650. Expenses: Mortgage Interest: $4,800, County Property Tax: $2,400, Landlord Insurance: $900, Repairs and Maintenance: $550."
-      },
-      {
-        "file_name": "Sample 06 - Depreciation Information.txt",
-        "content": "Depreciation Information for 5200 Green Valley Drive Condo. Placed in service: 07/01/2022. Original Purchase Price: $275,000 (Land: $55,000, Building: $220,000). Total depreciation deduction claimed in prior years: $12,000."
-      }
-    ]
-  }'
+    {
+      "file_name": "Sample 02 - W-2 Elena.txt",
+      "content": "Form W-2 Wage and Tax Statement 2025. Employer: City of Sacramento Fire Department. Employer EIN: 94-6000414. Employee: Elena Rivera. Employee SSN: 555-23-4567. Box 1 Wages, tips, other compensation: $54,000. Box 2 Federal income tax withheld: $5,200. Box 12 Code DD: $14,800. Box 12 Code D: $3,000. Box 13 Retirement Plan checked. Box 17 State income tax: $2,150."
+    },
+    {
+      "file_name": "Sample 03 - Rivera 1098.txt",
+      "content": "Form 1098 Mortgage Interest Statement 2025. Lender: Golden State Home Mortgage, LLC. Lender TIN: 94-8765432. Borrowers: Marcus and Elena Rivera. Borrower TIN: 555-12-3456. Box 1 Mortgage interest received: $9,800. Box 2 Outstanding mortgage principal: $412,500. Box 3 Mortgage origination date: 06/15/2020. Box 4 Refund of overpaid interest: $0. Box 5 Mortgage insurance premiums: $1,080. Box 6 Points paid: $0. Box 9 Number of properties securing the mortgage: 1. Box 10 Other: Property Tax $2,600. Property securing mortgage: 2785 River Oak Drive, Sacramento, CA 95833. Box 11 Mortgage acquisition date: 06/15/2020."
+    },
+    {
+      "file_name": "Sample 04 - 1099-DIV & 1099-INT & IRA & Charity.txt",
+      "content": "Form 1099-INT for tax year 2025. Payer: JPMorgan Chase Bank, N.A. Box 1 Interest Income: $150. Box 2 Early Withdrawal Penalty: $0. Box 3 U.S. Savings Bond Interest: $0. Box 4 Federal Tax Withheld: $0. Box 8 Tax-Exempt Interest: $0. Box 9 Private Activity Bond Interest: $0. Form 1099-DIV for tax year 2025. Payer: Vanguard Brokerage Services. Box 1a Total Ordinary Dividends: $405. Box 1b Qualified Dividends: $0. Box 2a Capital Gain Distributions: $0. Box 2b Unrecaptured Section 1250 Gain: $0. Box 3 Nondividend Distributions: $0. Box 4 Federal Tax Withheld: $0. Box 7 Foreign Tax Paid: $0. Traditional IRA Contribution Record: Marcus Rivera contributed $7,000 to a Traditional IRA at Fidelity Investments on 12/15/2025 for tax year 2025. Deductibility requires determination under applicable IRA deduction rules. Charitable Contribution Receipt: Marcus and Elena Rivera made $5,400 of cash charitable contributions to Sacramento Community Church during 2025. No goods or services were provided in exchange for the contributions."
+    },
+    {
+      "file_name": "Sample 05 - Rental Property Income_.txt",
+      "content": "Rental Property Income Information for Marcus & Elena Rivera, tax year 2025. Property type: Single Family Residential Rental Property. Property address: 5200 Green Valley Dr., Unit 200, Sacramento, CA 95841. Fair rental days: 365. Personal use days: 0. Gross rental income received: $16,650. Rental expenses: Insurance $900; Mortgage Interest $4,800; Property Taxes $2,400; Repairs and Maintenance $550; Depreciation Expense $8,000. Total rental expenses: $16,650. Net Rental Income (Loss): $0. The property was purchased and placed into rental service in July 2023. Depreciable basis: $220,000. Recovery period: 27.5 years. Depreciation method: Straight-Line. Annual depreciation deduction for 2025: $8,000. The depreciation deduction is reported on Form 4562 and carried to Schedule E."
+    },
+    {
+      "file_name": "Sample 06 - Depreciation Information.txt",
+      "content": "Depreciation Information for Marcus & Elena Rivera, tax year 2025. Business activity: Rental Real Estate. Property address: 5200 Green Valley Dr., Unit 200, Sacramento, CA 95841. Property classification: Residential Rental Property. Date placed in service: July 2023. Depreciable basis: $220,000. Recovery period: 27.5 years. Convention: Mid-Month Convention. Depreciation method: Straight-Line. Annual depreciation deduction for tax year 2025: $8,000. Form 4562 depreciation deduction: $8,000. This $8,000 depreciation deduction flows from Form 4562 to Schedule E."
+    }
+  ]
+}'
 ```
 
 ---
 
-## 預期 Response JSON 範例
+## 目前 V1 API 預期 Response
+
+> [!NOTE]
+> **`status: COMPLETE` 的定義說明**：此處的 `COMPLETE` 僅代表「目前 V1 已支援之業務範圍」已成功運算完畢。由於許多進階表單 (如 Schedule 8812, Schedule 2/3, Form 8863/8839 等) 目前在 V1 尚未實作，故其回傳結構中會包含 Placeholder 預設值。本 Response 不等同於完整稅務申報之 ground truth (例如 Line 19 CTC 顯示為 `0`、Refund 顯示為 `1308` 等)。
 
 ```json
 {
@@ -87,40 +103,55 @@ curl -X POST http://localhost:8088/form-1040/assemble \
     "line_7a": "-990.00",
     "line_8": "0.00",
     "line_9": "99565.00",
-    "line_10": "7000.00",
-    "line_11": "92565.00",
+    "line_10": "0.00",
+    "line_11": "99565.00",
     "line_12e": "31500.00",
     "line_13a": "0.00",
+    "line_13b": "0.00",
     "line_14": "31500.00",
-    "line_15": "61065.00",
-    "line_16": "6852.00",
-    "line_18": "6852.00",
+    "line_15": "68065.00",
+    "line_16": "7692.00",
+    "line_17": "0.00",
+    "line_18": "7692.00",
     "line_19": "0.00",
+    "line_20": "0.00",
     "line_21": "0.00",
-    "line_22": "6852.00",
-    "line_24": "6852.00",
-    "line_25a": "11300.00",
-    "line_25d": "11300.00",
-    "line_33": "11300.00",
-    "line_34": "4448.00",
-    "line_35a": "4448.00",
-    "line_37": null
+    "line_22": "7692.00",
+    "line_23": "0.00",
+    "line_24": "7692.00",
+    "line_25a": "9000.00",
+    "line_25b": "0.00",
+    "line_25c": "0.00",
+    "line_25d": "9000.00",
+    "line_26": "0.00",
+    "line_27": "0.00",
+    "line_28": "0.00",
+    "line_29": "0.00",
+    "line_30": "0.00",
+    "line_31": "0.00",
+    "line_32": "0.00",
+    "line_33": "9000.00",
+    "line_34": "1308.00",
+    "line_35a": "1308.00",
+    "line_36": "0.00",
+    "line_37": null,
+    "line_38": "0.00"
   },
   "income_section": {
     "tax_year": 2025,
     "filing_status": "MFJ",
-    "line_1a": "100000.00",
-    "line_1z": "100000.00",
+    "line_1a": "100000.0",
+    "line_1z": "100000.0",
     "line_2a": "0.00",
     "line_2b": "150.00",
     "line_3a": "0.00",
     "line_3b": "405.00",
-    "line_4a": "0.00",
-    "line_4b": "0.00",
-    "line_5a": "0.00",
-    "line_5b": "0.00",
-    "line_6a": "0.00",
-    "line_6b": "0.00",
+    "line_4a": "0.0",
+    "line_4b": "0.0",
+    "line_5a": "0.0",
+    "line_5b": "0.0",
+    "line_6a": "0.0",
+    "line_6b": "0.0",
     "line_7a": "-990.00",
     "line_8": "0.00",
     "line_9": "99565.00",
@@ -131,54 +162,117 @@ curl -X POST http://localhost:8088/form-1040/assemble \
   },
   "agi_section": {
     "line_9_total_income": "99565.00",
-    "line_10_adjustments_to_income": "7000.00",
-    "line_11_adjusted_gross_income": "92565.00",
+    "line_10_adjustments_to_income": "0.00",
+    "line_11_adjusted_gross_income": "99565.00",
     "status": "COMPLETE",
     "can_continue": true,
     "blocking_errors": []
   },
   "deduction_section": {
-    "line_12e_deduction_applied": 31500.0,
+    "tax_year": 2025,
+    "filing_status": "MFJ",
+    "line_12e_deduction": 31500.0,
     "line_13a_qbi_deduction": 0.0,
+    "line_13b_schedule_1a_deductions": 0.0,
     "line_14_total_deductions": 31500.0,
-    "deduction_type": "STANDARD",
+    "is_itemizing": false,
+    "deduction_type_used": "STANDARD",
+    "should_attach_schedule_a": false,
     "status": "COMPLETE",
-    "blocking_errors": []
+    "can_continue": true,
+    "blocking_errors": [],
+    "review_warnings": [
+      {
+        "code": "SCHEDULE_A_FALLBACK_TO_STANDARD",
+        "field": "schedule_a_result",
+        "message": "Schedule A 檢驗未通過，系統已安全回退選用標準扣除額供人工審核。 (原因：{'code': 'UNKNOWN_AGE_STATUS', 'field': 'taxpayer_date_of_birth', 'item_id': None, 'source_document_id': None, 'message': 'Taxpayer date of birth is missing; cannot determine if over 65.'}; {'code': 'UNKNOWN_AGE_STATUS', 'field': 'spouse_date_of_birth', 'item_id': None, 'source_document_id': None, 'message': 'Spouse date of birth is missing; cannot determine if over 65.'}; {'code': 'UNSUPPORTED_MULTIPLE_MORTGAGES', 'field': 'has_multiple_mortgages', 'item_id': None, 'source_document_id': None, 'message': 'Multiple mortgages or multiple properties are not supported in V1.'}; {'code': 'TAX_ELECTION_MISSING', 'field': 'line_5a_election', 'item_id': None, 'source_document_id': None, 'message': 'Tax election (income tax vs sales tax) is missing.'}; {'code': 'REAL_ESTATE_TAX_PAYMENT_NOT_CONFIRMED', 'field': 'line_5b_real_estate_taxes', 'item_id': 'tax_03', 'source_document_id': 'Sample 03 - Rivera 1098.txt', 'message': 'The source reports an escrow amount but does not confirm the amount actually paid to the taxing authority during 2025.'}; {'code': 'UNKNOWN_TAX_CHARACTER', 'field': 'qualified_organization_status', 'item_id': 'charity_01', 'source_document_id': 'Sample 04 - 1099-DIV & 1099-INT & IRA & Charity.txt', 'message': 'Unknown charity organization qualification status.'})"
+      }
+    ]
   },
   "taxable_income_section": {
-    "line_11_agi": "92565.00",
-    "line_14_deductions": "31500.00",
-    "line_15_taxable_income": "61065.00",
+    "tax_year": 2025,
+    "line_11b_agi": "99565.00",
+    "line_14_total_deductions": "31500.00",
+    "line_15_taxable_income": "68065.00",
+    "is_v1_supported": true,
+    "can_file": true,
     "status": "COMPLETE",
-    "blocking_errors": []
+    "can_continue": true,
+    "blocking_errors": [],
+    "review_warnings": []
   },
   "tax_computation_section": {
-    "line_15_taxable_income": "61065.00",
-    "line_16_tax": "6852.00",
-    "line_18_tax_before_credits": "6852.00",
+    "tax_year": 2025,
+    "filing_status": "MFJ",
+    "line_15_taxable_income": "68065.00",
+    "line_16_tax": "7692",
+    "line_17_schedule_2_line_3": "0.00",
+    "line_18_tax_before_credits": "7692.00",
+    "computation_method": "TAX_TABLE",
+    "tax_rule_version": "2025-final-v1",
+    "is_v1_supported": true,
+    "can_file": true,
+    "source_trace": {
+      "line_15": "TAXABLE_INCOME_PROCESSOR",
+      "line_16": "TAX_TABLE",
+      "line_17": "SCHEDULE_2_NOT_APPLICABLE",
+      "line_18": "LINE_16_PLUS_LINE_17"
+    },
     "status": "COMPLETE",
-    "blocking_errors": []
+    "can_continue": true,
+    "blocking_errors": [],
+    "review_warnings": []
   },
   "credits_section": {
-    "line_18_tax_before_credits": "6852.00",
+    "line_18_tax_before_credits": "7692.00",
     "line_19_ctc_odc": "0.00",
+    "line_20_schedule3_credits": "0.00",
     "line_21_total_credits": "0.00",
-    "line_22_tax_after_credits": "6852.00",
-    "line_24_total_tax": "6852.00",
+    "line_22_tax_after_credits": "7692.00",
+    "line_23_other_taxes": "0.00",
+    "line_24_total_tax": "7692.00",
     "status": "COMPLETE",
+    "can_continue": true,
     "blocking_errors": []
   },
   "payments_refund_section": {
-    "line_24_total_tax": "6852.00",
-    "line_25a_w2_withholding": "11300.00",
-    "line_25d_total_withholding": "11300.00",
-    "line_33_total_payments": "11300.00",
-    "line_34_overpayment": "4448.00",
-    "line_35a_refund_amount": "4448.00",
+    "line_24_total_tax": "7692.00",
+    "line_25a_w2_withholding": "9000.0",
+    "line_25b_1099_withholding": "0.00",
+    "line_25c_other_withholding": "0.00",
+    "line_25d_total_withholding": "9000.00",
+    "line_26_estimated_payments": "0.00",
+    "line_27a_eic": "0.00",
+    "line_28_actc": "0.00",
+    "line_29_aoc": "0.00",
+    "line_30_refundable_adoption_credit": "0.00",
+    "line_31_schedule3_total": "0.00",
+    "line_32_other_payments_credits": "0.00",
+    "line_33_total_payments": "9000.00",
+    "line_34_overpayment": "1308.00",
+    "line_35a_refund_amount": "1308.00",
+    "line_36_applied_to_next_year": "0.00",
+    "line_37_amount_owed": null,
+    "line_38_estimated_tax_penalty": "0.00",
     "status": "COMPLETE",
+    "can_continue": true,
     "blocking_errors": []
   },
+  "schedule_e_section": {
+    "line_26_total_rental_income_or_loss": 0.0,
+    "schedule_1_line_5_transfer_amount": 0.0,
+    "status": "COMPLETE",
+    "blocking_errors": [],
+    "review_warnings": []
+  },
+  "status": "COMPLETE",
+  "blocking_errors": [],
   "review_warnings": [
+    {
+      "code": "SCHEDULE_A_FALLBACK_TO_STANDARD",
+      "field": "schedule_a_result",
+      "message": "Schedule A 檢驗未通過，系統已安全回退選用標準扣除額供人工審核。 (原因：{'code': 'UNKNOWN_AGE_STATUS', 'field': 'taxpayer_date_of_birth', 'item_id': None, 'source_document_id': None, 'message': 'Taxpayer date of birth is missing; cannot determine if over 65.'}; {'code': 'UNKNOWN_AGE_STATUS', 'field': 'spouse_date_of_birth', 'item_id': None, 'source_document_id': None, 'message': 'Spouse date of birth is missing; cannot determine if over 65.'}; {'code': 'UNSUPPORTED_MULTIPLE_MORTGAGES', 'field': 'has_multiple_mortgages', 'item_id': None, 'source_document_id': None, 'message': 'Multiple mortgages or multiple properties are not supported in V1.'}; {'code': 'TAX_ELECTION_MISSING', 'field': 'line_5a_election', 'item_id': None, 'source_document_id': None, 'message': 'Tax election (income tax vs sales tax) is missing.'}; {'code': 'REAL_ESTATE_TAX_PAYMENT_NOT_CONFIRMED', 'field': 'line_5b_real_estate_taxes', 'item_id': 'tax_03', 'source_document_id': 'Sample 03 - Rivera 1098.txt', 'message': 'The source reports an escrow amount but does not confirm the amount actually paid to the taxing authority during 2025.'}; {'code': 'UNKNOWN_TAX_CHARACTER', 'field': 'qualified_organization_status', 'item_id': 'charity_01', 'source_document_id': 'Sample 04 - 1099-DIV & 1099-INT & IRA & Charity.txt', 'message': 'Unknown charity organization qualification status.'})"
+    },
     {
       "code": "UNIMPLEMENTED_MODULE_PLACEHOLDER",
       "field": "schedule_8812",
@@ -204,130 +298,6 @@ curl -X POST http://localhost:8088/form-1040/assemble \
       "field": "form_8839",
       "message": "Form 8839 (Adoption Credit) 模組尚未建立，目前採用 Placeholder 預設值 (0.00)"
     }
-  ],
-  "status": "COMPLETE",
-  "blocking_errors": [],
-  "success": true,
-  "latency": 16.423,
-  "debug_info": {
-    "extracted_direct_income": {
-      "w2_items": [
-        {
-          "employee_name": "Marcus Rivera",
-          "employer_name": "Creature Comforts Pet Supply",
-          "box_1_wages": 46000.0,
-          "box_2_federal_withholding": 4200.0,
-          "tax_year": 2025
-        },
-        {
-          "employee_name": "Elena Rivera",
-          "employer_name": "City of Sacramento",
-          "box_1_wages": 54000.0,
-          "box_2_federal_withholding": 5200.0,
-          "tax_year": 2025
-        }
-      ],
-      "ira_distribution": {
-        "gross_amount": 0.0,
-        "taxable_amount": 0.0
-      },
-      "pension_annuity": {
-        "gross_amount": 0.0,
-        "taxable_amount": 0.0
-      },
-      "social_security": {
-        "gross_amount": 0.0,
-        "taxable_amount": 0.0
-      }
-    },
-    "extracted_schedule_b": {
-      "taxpayer_name": "Marcus & Elena Rivera",
-      "taxpayer_ssn": "123-45-6789",
-      "tax_year": 2025,
-      "interest_items": [
-        {
-          "statement_issuer_name": null,
-          "source_document_type": "1099-INT",
-          "source_box": "1",
-          "payer_name": "Chase Bank NA",
-          "payer_reported_amount": 150.0,
-          "tax_character": "TAXABLE_INTEREST",
-          "is_series_ee_or_i_interest": false
-        }
-      ],
-      "dividend_items": [
-        {
-          "statement_issuer_name": null,
-          "source_document_type": "1099-DIV",
-          "payer_name": "Vanguard",
-          "ordinary_dividends": 405.0,
-          "qualified_dividends": 0.0,
-          "exempt_interest_dividends": 0.0
-        }
-      ],
-      "market_discount_items": [],
-      "foreign_account_q1": false,
-      "fbar_q2": false,
-      "foreign_countries": [],
-      "foreign_trust_q8": false,
-      "special_case_flags": {
-        "has_nominee_distribution": false,
-        "has_accrued_interest": false,
-        "has_oid": false,
-        "has_abp_adjustment": false,
-        "has_market_discount": false,
-        "has_seller_financed_mortgage": false,
-        "has_form_8814": false,
-        "has_tax_exempt_bond_premium": false,
-        "has_contingent_payment_debt": false
-      }
-    },
-    "extracted_schedule_1": {
-      "taxpayer_name": "Marcus & Elena Rivera",
-      "taxpayer_ssn": "123-45-6789",
-      "tax_year": 2025,
-      "form_1099k_error_or_personal_loss_amount": 0.0,
-      "line_1_state_local_tax_refund": 0.0,
-      "line_2a_alimony_received": 0.0,
-      "line_2b_original_agreement_date": null,
-      "schedule_c_line_31": null,
-      "line_4_other_gains_or_losses": 0.0,
-      "schedule_e_line_41": null,
-      "line_6_farm_income": 0.0,
-      "line_7_unemployment_compensation": 0.0,
-      "line_7_repaid_overpayment_flag": false,
-      "line_7_repaid_overpayment_amount": null,
-      "other_income_items": [],
-      "line_19b_recipient_ssn": null,
-      "line_19c_original_agreement_date": null,
-      "line_20_mfs_lived_apart_flag": false,
-      "adjustment_items": [
-        {
-          "line_code": "20",
-          "description": "存入金額 $7000.00，扣除額尚待確認",
-          "amount": 0.0
-        }
-      ],
-      "special_case_flags": {
-        "has_schedule_f_income": false,
-        "has_form_4797_or_4684": false,
-        "has_schedule_se_deduction": false,
-        "has_form_2106": false,
-        "has_form_3903": false,
-        "has_form_8889": false,
-        "has_form_8853": false,
-        "has_archer_msa_deduction": false,
-        "has_form_2555": false,
-        "has_digital_assets_income": false,
-        "has_nonqualified_deferred_comp": false,
-        "has_incarcerated_wages": false,
-        "has_able_account_distribution": false,
-        "has_medicaid_waiver_adjustment": false,
-        "has_section_951_inclusion": false,
-        "has_excess_business_loss_adjustment": false,
-        "has_k1_section_67e_deduction": false
-      }
-    }
-  }
+  ]
 }
 ```

@@ -194,7 +194,10 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
         if prop.depreciation_result:
             dep_source_id = prop.depreciation_result.source_result_id
             if prop.depreciation_result.calculation_status == "CALCULATED":
+                # TODO: 未來應該要統一名稱，目前暫時 fallback 讀取 depreciation_amount
                 line_18 = getattr(prop.depreciation_result, "line_22_total_depreciation_and_amortization", None)
+                if line_18 is None:
+                    line_18 = getattr(prop.depreciation_result, "depreciation_amount", None)
             elif prop.depreciation_result.calculation_status == "NOT_APPLICABLE":
                 line_18 = ZERO
             else:
@@ -435,8 +438,10 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
         and every_prop_resolved
     )
 
-    can_transfer_line_26 = can_finalize_part1
-    schedule_1_line_5_transfer_amount = line_26_total_rental_income_or_loss if can_transfer_line_26 else None
+    # 即使無法 finalize（例如有阻斷錯誤），我們仍然結轉計算出的金額，確保下游報表能照常計算
+    # 阻斷狀態會由外層 status="BLOCKED" 與 blocking_errors 來控制，此處不應截斷資料流。
+    can_transfer_line_26 = True
+    schedule_1_line_5_transfer_amount = line_26_total_rental_income_or_loss
 
     return ScheduleEPart1ResultV1(
         taxpayer_name=inputs.taxpayer_name,

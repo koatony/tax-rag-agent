@@ -45,7 +45,19 @@ EXTRACTION_SYSTEM_INSTRUCTION = """你是一位專業的美國稅務數據提取
 """
 
 class TaxRuleEvaluator:
+    """
+    【確定性稅務規則評估器 (TaxRuleEvaluator)】
+    
+    這個類別負責執行「確定性規則」的驗證。它的主要邏輯是：
+    1. 接收 LLM 從使用者申報資料中「提取出來的變數與文件清單」(context)。
+    2. 將 Neo4j 中取出的每一個 ValidationRule 規則（包含 trigger_expr 與 validate_expr）拿來比對。
+    3. 用 Python 的安全 eval 環境進行布林值計算，確認申報人是否符合法規。
+    """
     def __init__(self, filing_status: str, extracted_fields: Dict[str, Any], uploaded_docs: Set[str]):
+        # 初始化申報人上下文資料：
+        # - filing_status: 申報身分 (如 Single, MFJ)
+        # - fields: 金額與數值欄位字典 (例如 {"SchC.NetProfit": 5000.0, "1040.Line_1a": 1200.0})
+        # - docs: 使用者已經上傳的文件清單 (例如 {"Form W-2", "Schedule C"})
         self.context = {
             "filing_status": filing_status,
             "fields": extracted_fields,
@@ -53,10 +65,16 @@ class TaxRuleEvaluator:
         }
         
     def get_filing_status(self) -> str:
+        """取得當前申報人的申報身分"""
         return self.context["filing_status"]
 
     def get_value(self, field_name: str) -> Any:
+        """
+        取得特定稅務欄位的值。如果沒提到該欄位，則預設回傳 0.0。
+        這讓規則語法可以使用 `get_value('SchC.NetProfit')` 來取得金額。
+        """
         val = self.context["fields"].get(field_name, 0.0)
+        # 如果是字串格式的金額（例如 "$1,200"），自動轉換為 float 數值，方便做數學比較
         if isinstance(val, str):
             try:
                 return float(val.replace("$", "").replace(",", "").strip())
@@ -69,21 +87,35 @@ class TaxRuleEvaluator:
         return val
 
     def has_document(self, doc_name: str) -> bool:
+        """檢查申報人是否有提供某個特定文件或表單"""
         return doc_name in self.context["docs"]
 
     def has_form(self, form_name: str) -> bool:
+        """檢查申報人是否有填寫某個特定的附表（與 has_document 同義）"""
         return form_name in self.context["docs"]
 
     def has_spouse_ssn(self) -> bool:
+        """檢查是否有提供配偶的 SSN (報稅必填項)"""
         return self.get_value("has_spouse_ssn") is True or self.get_value("has_spouse_ssn") == 1.0 or self.get_value("1040.Spouse_SSN") != 0.0
 
     def has_qualifying_person_ssn(self) -> bool:
+        """檢查是否有提供符合條件之申報人 (Qualifying Person) 的 SSN"""
         return self.get_value("has_qualifying_person_ssn") is True or self.get_value("has_qualifying_person_ssn") == 1.0
 
     def has_dependent_child_ssn(self) -> bool:
+        """檢查是否有提供受撫養子女的 SSN"""
         return self.get_value("has_dependent_child_ssn") is True or self.get_value("has_dependent_child_ssn") == 1.0
 
     def evaluate(self, expr_str: str) -> bool:
+        """
+        核心沙箱計算機。
+        這裏利用 Python 的 `eval` 來計算從 Neo4j 資料庫撈出來的規則條件表達式（字串格式）。
+        
+        為了安全起見，我們做了以下設計：
+        1. {"__builtins__": None}: 禁用所有 Python 內建危險函數（如 import, open, eval 等），防範惡意代碼注入。
+        2. safe_env: 提供安全可用的 API。規則表達式字串（如 "has_form('Schedule C') and get_value('SchC.NetProfit') > 400"）
+           可以直接在 eval 中執行，它會對應調用我們上面寫的輔助方法。
+        """
         safe_env = {
             "get_filing_status": self.get_filing_status,
             "get_value": self.get_value,
@@ -96,15 +128,27 @@ class TaxRuleEvaluator:
         try:
             return eval(expr_str, {"__builtins__": None}, safe_env)
         except Exception as e:
-            # Silence evaluation errors
+            # 如果公式語法寫錯或計算異常，靜默回傳 False，防止系統崩潰
             return False
 
     def validate_bundle(self, rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        對一整包 Neo4j 規則進行評估篩選。
+        每一條來自 Neo4j 的 ValidationRule 包含：
+        - id: 規則識別碼
+        - trigger_expr: 觸發條件 (例如: "has_form('Schedule C')") -> 滿足此條件的申報人才需要被檢驗。
+        - validate_expr: 驗證條件 (例如: "get_value('SchC.NetProfit') > 0.0") -> 申報人必須滿足此條件才算合規。
+        - message: 違規時要回報的錯誤訊息 (例如: "申報人有填 Schedule C 表單，但淨利為 0.0 或沒有填寫金額")
+        """
         reports = []
         for rule in rules:
-            # 1. Check if triggered
+            # 步驟 1：檢查此規則是否「觸發/適用於」當前申報人
+            # 例如：如果 trigger_expr 是 "has_form('Schedule C')"，而申報人真的有上傳 Schedule C，則 evaluate 返回 True。
             if self.evaluate(rule["trigger_expr"]):
-                # 2. Check if valid/compliant
+                # 步驟 2：進一步檢查申報人是否滿足「驗證合規條件」
+                # 例如：如果 validate_expr 是 "get_value('SchC.NetProfit') > 0.0"，
+                # 如果使用者填的金額是 0.0（不合規），則 evaluate 返回 False。
+                # 這裡取 `not` 運算，代表「不合規」時，我們才把它加進違反報告 (reports) 中。
                 if not self.evaluate(rule["validate_expr"]):
                     reports.append({
                         "id": rule["id"],

@@ -88,6 +88,7 @@ class Form1040Orchestrator:
         raw_schedule_a_input: Optional[Dict[str, Any]] = None,
         raw_schedule_b_input: Optional[Dict[str, Any]] = None,
         raw_schedule_d_input: Optional[Dict[str, Any]] = None,
+        raw_schedule_e_input: Optional[Dict[str, Any]] = None,
         raw_schedule_1_input: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
@@ -133,7 +134,56 @@ class Form1040Orchestrator:
                 status="COMPLETE",
             )
 
+        # 3.5. 呼叫 Schedule E 計算引擎取得結果 DTO
+        schedule_e_result = None
+        schedule_1_line_5_transfer_amount = None
+        if raw_schedule_e_input:
+            from processors.processors.schedule_e import calculate_schedule_e_dynamic
+            from form1040.models.income_aggregator_model import ProcessingIssueV1, ScheduleEResultV1
+            
+            se_res_dict = calculate_schedule_e_dynamic(raw_schedule_e_input)
+            if se_res_dict:
+                schedule_1_line_5_transfer_amount = se_res_dict.get("schedule_1_line_5_transfer_amount")
+                
+                # 轉換為強型別 DTO 物件
+                se_blocking_issues = [
+                    ProcessingIssueV1(
+                        code=err.get("code", "ERROR"),
+                        field=err.get("field"),
+                        message=err.get("message", "")
+                    )
+                    for err in se_res_dict.get("blocking_errors", []) if isinstance(err, dict)
+                ]
+                se_review_warnings = [
+                    ProcessingIssueV1(
+                        code=warn.get("code", "WARNING"),
+                        field=warn.get("field"),
+                        message=warn.get("message", "")
+                    )
+                    for warn in se_res_dict.get("review_warnings", []) if isinstance(warn, dict)
+                ]
+                se_has_blocking = se_res_dict.get("blocking_validation_error") or len(se_blocking_issues) > 0
+                se_status = "BLOCKED" if se_has_blocking else "COMPLETE"
+                
+                schedule_e_result = ScheduleEResultV1(
+                    line_26_total_rental_income_or_loss=_safe_decimal(se_res_dict.get("line_26_total_rental_income_or_loss")),
+                    schedule_1_line_5_transfer_amount=_safe_decimal(se_res_dict.get("schedule_1_line_5_transfer_amount")) if se_res_dict.get("schedule_1_line_5_transfer_amount") is not None else None,
+                    status=se_status,
+                    blocking_errors=se_blocking_issues,
+                    review_warnings=se_review_warnings
+                )
+
         # 4. 呼叫 Schedule 1 計算引擎取得結果 DTO
+        # 【跨表數據流結轉】
+        # 如果 Schedule E 計算成功且有需結轉至 Schedule 1 Line 5 的租金或特許權損益金額，
+        # 我們必須將其注入給 Schedule 1 的輸入參數 schedule_e_line_41。
+        if schedule_1_line_5_transfer_amount is not None:
+            if not raw_schedule_1_input:
+                raw_schedule_1_input = {}
+            raw_schedule_1_input["schedule_e_line_41"] = schedule_1_line_5_transfer_amount
+            if "tax_year" not in raw_schedule_1_input:
+                raw_schedule_1_input["tax_year"] = tax_year
+
         schedule_1_result = None
         if raw_schedule_1_input:
             from schedule_1_processor import calculate_schedule_1_dynamic
@@ -186,6 +236,7 @@ class Form1040Orchestrator:
         if raw_schedule_a_input:
             from processors.processors.schedule_a import calculate_schedule_a_dynamic
             from processors.models.schedule_a import ScheduleAResultV1
+            raw_schedule_a_input["adjusted_gross_income"] = agi_result.line_11_adjusted_gross_income
             sa_res_dict = calculate_schedule_a_dynamic(raw_schedule_a_input)
             resolved_sa_result = ScheduleAResultV1(**sa_res_dict)
 
@@ -297,14 +348,18 @@ class Form1040Orchestrator:
 
         # 彙整最終狀態：只要任一核心區段阻斷，則整體狀態為 BLOCKED
         all_sections = [
-            income_result,
-            agi_result,
-            deduction_result,
-            taxable_income_result,
-            tax_comp_result,
-            credits_result,
-            payments_result,
+            sec for sec in [
+                income_result,
+                agi_result,
+                deduction_result,
+                taxable_income_result,
+                tax_comp_result,
+                credits_result,
+                payments_result,
+                schedule_e_result,
+            ] if sec is not None
         ]
+
         overall_status = "BLOCKED" if any(getattr(sec, "status", "COMPLETE") == "BLOCKED" for sec in all_sections) else "COMPLETE"
         
         # 收集所有阻斷錯誤
@@ -372,16 +427,28 @@ class Form1040Orchestrator:
             "line_11": _fmt_dec(agi_result.line_11_adjusted_gross_income) or "0.00",
             "line_12e": _fmt_dec(deduction_result.line_12e_deduction) or "0.00",
             "line_13a": _fmt_dec(deduction_result.line_13a_qbi_deduction) or "0.00",
+            "line_13b": _fmt_dec(deduction_result.line_13b_schedule_1a_deductions) or "0.00",
             "line_14": _fmt_dec(deduction_result.line_14_total_deductions) or "0.00",
             "line_15": _fmt_dec(taxable_income_result.line_15_taxable_income) or "0.00",
             "line_16": _fmt_dec(tax_comp_result.line_16_tax) or "0.00",
             "line_18": _fmt_dec(tax_comp_result.line_18_tax_before_credits) or "0.00",
             "line_19": _fmt_dec(credits_result.line_19_ctc_odc) or "0.00",
+            "line_20": _fmt_dec(credits_result.line_20_schedule3_credits) or "0.00",
             "line_21": _fmt_dec(credits_result.line_21_total_credits) or "0.00",
             "line_22": _fmt_dec(credits_result.line_22_tax_after_credits) or "0.00",
+            "line_23": _fmt_dec(credits_result.line_23_other_taxes) or "0.00",
             "line_24": _fmt_dec(credits_result.line_24_total_tax) or "0.00",
             "line_25a": _fmt_dec(payments_result.line_25a_w2_withholding) or "0.00",
+            "line_25b": _fmt_dec(payments_result.line_25b_1099_withholding) or "0.00",
+            "line_25c": _fmt_dec(payments_result.line_25c_other_withholding) or "0.00",
             "line_25d": _fmt_dec(payments_result.line_25d_total_withholding) or "0.00",
+            "line_26": _fmt_dec(payments_result.line_26_estimated_payments) or "0.00",
+            "line_27": _fmt_dec(payments_result.line_27a_eic) or "0.00",
+            "line_28": _fmt_dec(payments_result.line_28_actc) or "0.00",
+            "line_29": _fmt_dec(payments_result.line_29_aoc) or "0.00",
+            "line_30": _fmt_dec(payments_result.line_30_refundable_adoption_credit) or "0.00",
+            "line_31": _fmt_dec(payments_result.line_31_schedule3_total) or "0.00",
+            "line_32": _fmt_dec(payments_result.line_32_other_payments_credits) or "0.00",
             "line_33": _fmt_dec(payments_result.line_33_total_payments) or "0.00",
             # -----------------------------------------------------------------
             # 依據 IRS Form 1040 申報規範：
@@ -391,7 +458,9 @@ class Form1040Orchestrator:
             # -----------------------------------------------------------------
             "line_34": _fmt_dec(payments_result.line_34_overpayment),
             "line_35a": _fmt_dec(payments_result.line_35a_refund_amount),
+            "line_36": _fmt_dec(payments_result.line_36_applied_to_next_year),
             "line_37": _fmt_dec(payments_result.line_37_amount_owed),
+            "line_38": _fmt_dec(payments_result.line_38_estimated_tax_penalty),
         }
 
         return {
@@ -403,6 +472,7 @@ class Form1040Orchestrator:
             "tax_computation_section": tax_comp_result.to_dict(),
             "credits_section": credits_result.to_dict(),
             "payments_refund_section": payments_result.to_dict(),
+            "schedule_e_section": schedule_e_result.to_dict() if schedule_e_result else None,
             "status": overall_status,
             "blocking_errors": [err.to_dict() if hasattr(err, "to_dict") else err for err in all_blocking_errors],
             "review_warnings": [warn.to_dict() if hasattr(warn, "to_dict") else warn for warn in all_review_warnings],
@@ -426,6 +496,7 @@ class Form1040Orchestrator:
         from processors.processors.schedule_b import extract_schedule_b_inputs_with_logs
         from processors.processors.schedule_a import extract_schedule_a_inputs_with_logs
         from schedule_1_processor import extract_schedule_1_inputs_with_logs
+        from processors.processors.schedule_e import extract_schedule_e_inputs_with_logs
         import missing_form_detector
         import json
 
@@ -465,6 +536,13 @@ class Form1040Orchestrator:
         except Exception:
             pass
 
+        # (e) 提取 Schedule E 輸入
+        raw_schedule_e_input = None
+        try:
+            raw_schedule_e_input, _, _ = extract_schedule_e_inputs_with_logs(doc_ctx_str, model_name=model_name)
+        except Exception:
+            pass
+
         # =========================================================================
         # TODO: [PLACEHOLDER] 尚未建立之 Schedule D 子表單預留處理 (對標 QBI Form 8995 模式)
         # 由於 Schedule D 模組在 V1 尚未完整建立，本端到端流程暫時使用預設 Placeholder，
@@ -482,6 +560,7 @@ class Form1040Orchestrator:
             raw_schedule_a_input=raw_schedule_a_input,
             raw_schedule_b_input=raw_schedule_b_input,
             raw_schedule_d_input=raw_schedule_d_input,
+            raw_schedule_e_input=raw_schedule_e_input,
             raw_schedule_1_input=raw_schedule_1_input,
         )
 
@@ -491,6 +570,7 @@ class Form1040Orchestrator:
             "extracted_schedule_b": raw_schedule_b_input,
             "extracted_schedule_1": raw_schedule_1_input,
             "extracted_schedule_a": raw_schedule_a_input,
+            "extracted_schedule_e": raw_schedule_e_input,
         }
         return res
 
@@ -560,6 +640,7 @@ if __name__ == "__main__":
         raw_llm_direct_income=raw_llm_direct,
         raw_schedule_b_input=sb_inputs,
         raw_schedule_d_input=sd_inputs,
+        raw_schedule_e_input=None,
         raw_schedule_1_input=s1_inputs,
     )
     print("=== 0622 Case Form 1040 Integration Test Assembly Result ===")

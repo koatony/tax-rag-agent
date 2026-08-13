@@ -16,7 +16,8 @@ class ScheduleELLMParser(BaseLLMParser):
     def get_custom_rules(self) -> List[str]:
         return [
             "只提取與長期住宅出租地產相關的收入與支出 facts，排除 royalties、commercial 等 V1 不支援的項目。",
-            "折舊金額（Line 18）必須從 Form 4562 或外部折舊模組獲取，不得自行計算。"
+            "折舊金額（Line 18）必須從 Form 4562 或外部折舊模組獲取，不得自行計算。",
+            "對於每一間出租房產，必須明確提取 `reporting_route_status`（若為簡單長期住宅出租，一律填寫 'SCHEDULE_E_CONFIRMED'）與 `ownership_allocation_status`（若產權份額已確認，一律填寫 'TAXPAYER_SHARE_CONFIRMED'），不得遺漏。"
         ]
 
     def get_example_json(self) -> Dict[str, Any]:

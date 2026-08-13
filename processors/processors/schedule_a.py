@@ -75,15 +75,6 @@ def coalesce_decimal(*args):
 
 
 def dict_to_v1_inputs(inputs_dict: Dict[str, Any]) -> ScheduleAInputsV1:
-    config_path = os.path.join(os.path.dirname(SCHEMA_PATH), "agi_config.json")
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                config_data = json.load(f)
-            if "adjusted_gross_income" in config_data:
-                inputs_dict["adjusted_gross_income"] = config_data["adjusted_gross_income"]
-        except Exception:
-            pass
     return ScheduleAInputsV1.from_dict(inputs_dict)
 
 

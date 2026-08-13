@@ -87,6 +87,27 @@ class Schedule1ResultV1(BaseModel):
     blocking_errors: List[ProcessingIssueV1] = Field(default_factory=list)
 
 
+class ScheduleEResultV1(BaseModel):
+    """Schedule E 上游 Raw Result 物件 DTO"""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    line_26_total_rental_income_or_loss: Decimal = Decimal("0")
+    schedule_1_line_5_transfer_amount: Optional[Decimal] = None
+    status: str = "COMPLETE"
+    can_continue: bool = True
+    blocking_errors: List[ProcessingIssueV1] = Field(default_factory=list)
+    review_warnings: List[ProcessingIssueV1] = Field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "line_26_total_rental_income_or_loss": float(self.line_26_total_rental_income_or_loss),
+            "schedule_1_line_5_transfer_amount": float(self.schedule_1_line_5_transfer_amount) if self.schedule_1_line_5_transfer_amount is not None else None,
+            "status": self.status,
+            "blocking_errors": [err.to_dict() for err in self.blocking_errors],
+            "review_warnings": [warn.to_dict() for warn in self.review_warnings],
+        }
+
+
 class IncomeAggregatorInputV1(BaseModel):
     """IncomeAggregatorProcessor 的完整輸入契約"""
     model_config = ConfigDict(arbitrary_types_allowed=True)

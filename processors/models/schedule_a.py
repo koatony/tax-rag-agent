@@ -454,7 +454,7 @@ class ScheduleAInputsV1:
         spouse_blind: bool = False,
         tax_year: Optional[int] = None,
         filing_status: str = "SINGLE",
-        adjusted_gross_income: Decimal = Decimal("0.00"),
+        adjusted_gross_income: Optional[Decimal] = Decimal("0.00"),
         medical_items: Optional[List[MedicalExpenseItemV1]] = None,
         tax_items: Optional[List[TaxPaymentItemV1]] = None,
         line_5a_election: Optional[str] = None,
@@ -494,7 +494,13 @@ class ScheduleAInputsV1:
         except (ValueError, TypeError):
             tax_year = None
         filing_status = str(inputs_dict.get("filing_status") or "SINGLE").upper()
-        adjusted_gross_income = Decimal(str(inputs_dict.get("adjusted_gross_income") or inputs_dict.get("agi") or "0.00"))
+        
+        has_agi = "adjusted_gross_income" in inputs_dict or "agi" in inputs_dict
+        if not has_agi:
+            adjusted_gross_income = None
+        else:
+            val = inputs_dict.get("adjusted_gross_income") or inputs_dict.get("agi")
+            adjusted_gross_income = Decimal(str(val)) if val is not None else Decimal("0.00")
         
         # Medical items
         # 把已經傳盛medical item的物件加上item_id

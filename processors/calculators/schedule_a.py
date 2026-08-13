@@ -408,7 +408,7 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1, allowed_years: Optional[S
         medical_total += item.taxpayer_paid_amount - adjustments
 
     line_1 = medical_total
-    line_2 = inputs.adjusted_gross_income
+    line_2 = inputs.adjusted_gross_income if inputs.adjusted_gross_income is not None else Decimal("0.00")
     line_3 = (line_2 * MEDICAL_RATE).quantize(Decimal("0.01"))
     line_4 = max(ZERO, line_1 - line_3)
 
@@ -460,7 +460,7 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1, allowed_years: Optional[S
     line_5e = calculate_salt_limit_v1(
         tax_year=inputs.tax_year,
         filing_status=inputs.filing_status,
-        agi=inputs.adjusted_gross_income,
+        agi=line_2,
         line_5d=line_5d,
         has_foreign_adjustment=inputs.special_case_flags.has_form_2555_or_4563_or_puerto_rico_exclusion,
         errors=errors

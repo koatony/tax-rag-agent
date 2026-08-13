@@ -151,7 +151,7 @@ class MissingFormsResponse(BaseModel):
 
 # --- API 路由 ---
 @app.post("/query", response_model=QueryResponse)
-async def query_rag(request: QueryRequest):
+def query_rag(request: QueryRequest):
     if not request.question:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
     
@@ -669,7 +669,7 @@ class Form1040AssembleRequest(BaseModel):
 
 
 @app.post("/form-1040/assemble")
-async def assemble_form_1040(
+def assemble_form_1040(
     request: Form1040AssembleRequest
 ):
     from form1040.orchestrator import Form1040Orchestrator
