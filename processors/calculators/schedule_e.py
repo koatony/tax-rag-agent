@@ -394,6 +394,17 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
         prop.depreciation_result.form_4562_attachment_required
         for prop in inputs.properties if prop.depreciation_result
     )
+    reasons_4562 = [
+        getattr(prop.depreciation_result, "form_4562_attachment_reason", "") or (prop.depreciation_result.get("form_4562_attachment_reason") if isinstance(prop.depreciation_result, dict) else "")
+        for prop in inputs.properties if prop.depreciation_result
+    ]
+    reasons_4562 = [r for r in reasons_4562 if r]
+    if reasons_4562:
+        requires_form_4562_attachment_reason = " ； ".join(reasons_4562)
+    elif requires_form_4562_attachment:
+        requires_form_4562_attachment_reason = "需要檢附 Form 4562。"
+    else:
+        requires_form_4562_attachment_reason = f"無須檢附 Form 4562：所有出租房產均為往年 (早於 {inputs.tax_year}) 投入使用之常規住宅地產，折舊金額直接填入 Schedule E Line 18 申報即可。"
     requires_form_6198_attachment = any(
         prop.at_risk_result.form_6198_attachment_required
         for prop in inputs.properties if prop.at_risk_result
@@ -461,6 +472,7 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
         line_26_total_rental_income_or_loss=line_26_total_rental_income_or_loss,
         schedule_1_line_5_transfer_amount=schedule_1_line_5_transfer_amount,
         requires_form_4562_attachment=requires_form_4562_attachment,
+        requires_form_4562_attachment_reason=requires_form_4562_attachment_reason,
         requires_form_6198_attachment=requires_form_6198_attachment,
         requires_form_8582_attachment=requires_form_8582_attachment,
         requires_form_461_review=requires_form_461_review,

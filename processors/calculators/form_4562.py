@@ -159,25 +159,61 @@ def calculate_form_4562_v1(inputs: Form4562InputsV1, allowed_years: Optional[Set
     detect_unsupported_cases(inputs, errors)
     validate_amounts(inputs, errors)
 
-    # 6. 申報判定
-    has_special_case = any_special_case(inputs.special_case_flags)
+    # 6. 申報判定 (依據 2025 Schedule E / Form 4562 Instructions)
+    # Form 4562 僅在以下條件之一成立時才「必須檢附」：
+    # 1. 包含在當年度 (tax_year) 首次投入使用 (Placed in service) 之折舊財產
+    # 2. Part V 列名財產 (Listed Property，如車輛等)
+    # 3. 申報當年度 Section 179 費用化扣除或攤銷 (Amortization)
+    # 4. 申報特別折舊額 (Special Depreciation Allowance) 或 Section 168(f)(1) Election
+    # 5. 包含 Line 16 他種折舊或特殊申報 Flag
+    #
+    # 若僅為往年 (如 2023 年) 投入使用之常規非列名住宅出租地產，當年度折舊金額直接填入 Schedule E Line 18，無須檢附 Form 4562。
+
+    has_current_year_placed_in_service = False
+    for item in macrs_gds_entries + macrs_ads_entries:
+        p_service = getattr(item, "month_year_placed_in_service", None)
+        if p_service and str(inputs.tax_year) in str(p_service):
+            has_current_year_placed_in_service = True
+            break
+
+    has_listed = bool(inputs.special_case_flags.has_listed_property)
+    has_sec179 = (inputs.line_2_section_179_property_cost > ZERO or line_9_tentative_deduction > ZERO)
+    has_amortization = bool(inputs.special_case_flags.has_amortization)
+    has_special_dep = (inputs.line_14_special_depreciation_allowance > ZERO or inputs.line_15_section_168f1_election > ZERO or inputs.line_16_other_depreciation > ZERO)
+
+    has_special_case_flag = any_special_case(inputs.special_case_flags)
 
     is_form_4562_required = (
-        inputs.line_2_section_179_property_cost > ZERO
-        or line_9_tentative_deduction > ZERO
-        or inputs.line_14_special_depreciation_allowance > ZERO
-        or inputs.line_15_section_168f1_election > ZERO
-        or inputs.line_16_other_depreciation > ZERO
-        or inputs.line_17_macrs_prior_years > ZERO
-        or len(macrs_gds_entries) > 0
-        or len(macrs_ads_entries) > 0
-        or has_special_case
+        has_current_year_placed_in_service
+        or has_listed
+        or has_sec179
+        or has_amortization
+        or has_special_dep
+        or has_special_case_flag
     )
+
+    reasons = []
+    if is_form_4562_required:
+        if has_current_year_placed_in_service:
+            reasons.append(f"包含 {inputs.tax_year} 當年度首次投入使用 (Placed in Service) 之折舊財產")
+        if has_listed:
+            reasons.append("包含列名財產 (Listed Property)")
+        if has_sec179:
+            reasons.append("申報當年度 Section 179 費用化扣除")
+        if has_amortization:
+            reasons.append("申報當年度攤銷 (Amortization)")
+        if has_special_dep:
+            reasons.append("申報特別折舊額 (Special Depreciation Allowance) 或 Section 168(f)(1) 選擇")
+        if has_special_case_flag:
+            reasons.append("包含特殊申報 Flag")
+        form_4562_attachment_reason = "需要檢附 Form 4562： " + "；".join(reasons) + "。"
+    else:
+        form_4562_attachment_reason = f"無須檢附 Form 4562：所有折舊財產均為往年 (早於 {inputs.tax_year}) 投入使用之常規非列名地產，當年度折舊直接填入 Schedule E Line 18 申報即可。"
 
     # Mask taxpayer SSN
     taxpayer_ssn_masked = mask_ssn(inputs.taxpayer_ssn)
 
-    is_v1_supported = not has_special_case
+    is_v1_supported = not has_special_case_flag
     can_file = is_v1_supported and len(errors) == 0
     should_attach_form_4562 = is_form_4562_required and can_file
 
@@ -220,4 +256,5 @@ def calculate_form_4562_v1(inputs: Form4562InputsV1, allowed_years: Optional[Set
         is_v1_supported=is_v1_supported,
         can_file=can_file,
         should_attach_form_4562=should_attach_form_4562,
+        form_4562_attachment_reason=form_4562_attachment_reason,
     )

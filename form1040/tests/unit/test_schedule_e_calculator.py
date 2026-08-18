@@ -90,5 +90,62 @@ class TestScheduleECalculator(unittest.TestCase):
         self.assertEqual(res.line_26_total_rental_income_or_loss, Decimal("10000.00"))
         self.assertEqual(res.schedule_1_line_5_transfer_amount, Decimal("10000.00"))
 
+    def test_form_4562_attachment_rules_prior_year_vs_current_year(self):
+        """
+        測試 Form 4562 檢附規則：
+        1. 往年 (如 2023/07) 投入使用之常規住宅出租房，2025 稅務年度申報 $8,000 折舊時，is_form_4562_required 為 False，且有明確理由說明。
+        2. 當年度 (2025/07) 新投入使用之財產，is_form_4562_required 為 True，且有明確理由說明。
+        """
+        from processors.models.form_4562 import Form4562InputsV1
+        from processors.calculators.form_4562 import calculate_form_4562_v1
+
+        # 情境 A：2023/07 投入使用 (往年)
+        inputs_prior_year = {
+            "taxpayer_name": "Marcus Rivera",
+            "taxpayer_ssn": "123-45-6789",
+            "business_activity_name": "Rental Real Estate",
+            "tax_year": 2025,
+            "macrs_gds_items": [
+                {
+                    "line_code": "19i",
+                    "classification": "Residential rental property",
+                    "month_year_placed_in_service": "7/2023",
+                    "depreciation_basis": 220000.00,
+                    "recovery_period": "27.5 yrs.",
+                    "convention": "MM",
+                    "method": "S/L",
+                    "depreciation_deduction": 8000.00
+                }
+            ]
+        }
+        res_prior = calculate_form_4562_v1(Form4562InputsV1.from_dict(inputs_prior_year), allowed_years={2024, 2025})
+        self.assertFalse(res_prior.is_form_4562_required)
+        self.assertFalse(res_prior.should_attach_form_4562)
+        self.assertIn("無須檢附 Form 4562", res_prior.form_4562_attachment_reason)
+
+        # 情境 B：2025/07 投入使用 (當年度新投入)
+        inputs_current_year = {
+            "taxpayer_name": "Marcus Rivera",
+            "taxpayer_ssn": "123-45-6789",
+            "business_activity_name": "Rental Real Estate",
+            "tax_year": 2025,
+            "macrs_gds_items": [
+                {
+                    "line_code": "19i",
+                    "classification": "Residential rental property",
+                    "month_year_placed_in_service": "7/2025",
+                    "depreciation_basis": 220000.00,
+                    "recovery_period": "27.5 yrs.",
+                    "convention": "MM",
+                    "method": "S/L",
+                    "depreciation_deduction": 8000.00
+                }
+            ]
+        }
+        res_current = calculate_form_4562_v1(Form4562InputsV1.from_dict(inputs_current_year), allowed_years={2024, 2025})
+        self.assertTrue(res_current.is_form_4562_required)
+        self.assertTrue(res_current.should_attach_form_4562)
+        self.assertIn("需要檢附 Form 4562", res_current.form_4562_attachment_reason)
+
 if __name__ == "__main__":
     unittest.main()

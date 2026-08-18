@@ -241,6 +241,7 @@ class Form4562ResultV1:
         self.is_v1_supported = bool(kwargs.get("is_v1_supported", True))
         self.can_file = bool(kwargs.get("can_file", True))
         self.should_attach_form_4562 = bool(kwargs.get("should_attach_form_4562", False))
+        self.form_4562_attachment_reason = str(kwargs.get("form_4562_attachment_reason", ""))
 
     def to_dict(self) -> Dict[str, Any]:
         def to_float(val):
@@ -292,4 +293,5 @@ class Form4562ResultV1:
             "is_v1_supported": self.is_v1_supported,
             "can_file": self.can_file,
             "should_attach_form_4562": self.should_attach_form_4562,
+            "form_4562_attachment_reason": self.form_4562_attachment_reason,
         }

@@ -478,6 +478,7 @@ class ScheduleEPart1ResultV1:
         self.requires_form_4562_attachment = kwargs.get("requires_form_4562_attachment")
         if self.requires_form_4562_attachment is not None:
             self.requires_form_4562_attachment = bool(self.requires_form_4562_attachment)
+        self.requires_form_4562_attachment_reason = str(kwargs.get("requires_form_4562_attachment_reason", ""))
             
         self.requires_form_6198_attachment = kwargs.get("requires_form_6198_attachment")
         if self.requires_form_6198_attachment is not None:
@@ -522,9 +523,14 @@ class ScheduleEPart1ResultV1:
             "line_26_total_rental_income_or_loss": to_val(self.line_26_total_rental_income_or_loss),
             "schedule_1_line_5_transfer_amount": to_val(self.schedule_1_line_5_transfer_amount),
             "requires_form_4562_attachment": self.requires_form_4562_attachment,
+            "requires_form_4562_attachment_reason": self.requires_form_4562_attachment_reason,
             "requires_form_6198_attachment": self.requires_form_6198_attachment,
             "requires_form_8582_attachment": self.requires_form_8582_attachment,
             "requires_form_461_review": self.requires_form_461_review,
+            "has_reportable_rental_property": self.has_reportable_rental_property,
+            "should_attach_schedule_e": self.should_attach_schedule_e,
+            "can_finalize_part1": self.can_finalize_part1,
+            "can_transfer_line_26": self.can_transfer_line_26,
             "is_v1_supported": self.is_v1_supported,
             "can_file": self.is_v1_supported and len(self.blocking_errors) == 0,
             "blocking_errors": [x.to_dict() if hasattr(x, "to_dict") else x for x in self.blocking_errors],

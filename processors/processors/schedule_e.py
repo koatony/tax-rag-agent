@@ -127,6 +127,7 @@ def extract_and_calculate_schedule_e(
                     "depreciation_amount": form_4562_state.get("line_22_total_depreciation_and_amortization", 0.0),
                     "line_22_total_depreciation_and_amortization": form_4562_state.get("line_22_total_depreciation_and_amortization"),
                     "form_4562_attachment_required": form_4562_state.get("should_attach_form_4562", False),
+                    "form_4562_attachment_reason": form_4562_state.get("form_4562_attachment_reason", ""),
                     "source_result_id": "processor_4562",
                     "blocking_errors": form_4562_state.get("blocking_errors", []),
                     "review_warnings": form_4562_state.get("review_warnings", [])
