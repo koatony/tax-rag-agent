@@ -134,7 +134,7 @@ def calculate_schedule_1_v1(inputs: Schedule1InputsV1, allowed_years: Optional[S
                 "UNCONFIRMED_DEDUCTIBILITY",
                 field="is_deductibility_confirmed",
                 item_id=item.item_id,
-                message=f"Line {item.line_code} 扣除額資格尚待驗證（根據美國稅法需確認相關限制條件），目前先按原始金額 ${item.amount} 納入計算，需要人工複查。"
+                message=f"根據美國稅法 IRC §219 及 IRS 規定，Line {item.line_code} 扣除額資格尚待驗證（需確認職場退休計畫覆蓋與 AGI / MAGI 限額），目前先按原始金額 ${item.amount} 納入計算，需要人工審核複查。"
             ))
 
     # Line 25：Line 24a 至 24z 加總
@@ -168,7 +168,7 @@ def calculate_schedule_1_v1(inputs: Schedule1InputsV1, allowed_years: Optional[S
         taxpayer_ssn_masked = "***-**-XXXX"
 
     is_v1_supported = not has_special_case
-    can_file = is_v1_supported and len(errors) == 0
+    can_file = is_v1_supported and len(errors) == 0 and len(warnings) == 0
     should_attach_schedule_1 = is_schedule_1_required and can_file
 
     return Schedule1ResultV1(

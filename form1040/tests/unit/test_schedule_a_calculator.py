@@ -132,9 +132,56 @@ class TestScheduleACalculator(unittest.TestCase):
         blocking_codes = [err.code for err in res.blocking_errors]
         self.assertNotIn("UNKNOWN_TAX_CHARACTER", blocking_codes)
 
-        # 驗證 review_warnings 包含 UNKNOWN_TAX_CHARACTER
+        # 驗證 review_warnings 包含 UNKNOWN_TAX_CHARACTER 且訊息含法律依據 IRC §170(c)
         warning_codes = [warn.code for warn in res.review_warnings]
         self.assertIn("UNKNOWN_TAX_CHARACTER", warning_codes)
+        self.assertTrue(any("IRC §170(c)" in warn.message for warn in res.review_warnings))
+
+        # 驗證需要人工複查，can_file 為 False（不可直接提交）
+        self.assertFalse(res.can_file)
+
+    def test_missing_charity_contribution_date_retains_candidate_and_adds_warning(self):
+        """
+        測試當 Charity 捐款項目的 contribution_date 缺失時：
+        1. 扣除金額 candidate total 仍應保留（5400.00），不直接算出 0。
+        2. 記錄 CHARITY_CONTRIBUTION_DATE_MISSING 為 review_warning（內含 IRC §170 法律依據）。
+        3. can_file 為 False（需要人工審核複查，不能直接提交）。
+        """
+        inputs_payload = {
+            "taxpayer_name": "Marcus Rivera",
+            "taxpayer_ssn": "123-45-6789",
+            "taxpayer_date_of_birth": "1980-01-01",
+            "tax_year": 2025,
+            "filing_status": "MFJ",
+            "adjusted_gross_income": 100000.00,
+            "cash_charity_items": [
+                {
+                    "item_id": "charity_02",
+                    "gross_contribution_amount": 5400.0,
+                    "goods_or_services_value": 0.0,
+                    "contribution_date": None,  # 日期缺失
+                    "paid_in_tax_year": True,
+                    "qualified_organization_status": "VERIFIED",
+                    "bank_or_written_record_available": True,
+                    "contemporaneous_acknowledgment_received": True
+                }
+            ]
+        }
+
+        v1_inputs = ScheduleAInputsV1.from_dict(inputs_payload)
+        res = calculate_schedule_a_v1(v1_inputs, allowed_years={2024, 2025})
+
+        # 驗證金額保留 5400.00 納入計算
+        self.assertEqual(res.line_11_cash_contributions, Decimal("5400.00"))
+        self.assertEqual(res.line_14_total_charity, Decimal("5400.00"))
+
+        # 驗證產生 CHARITY_CONTRIBUTION_DATE_MISSING 警告與 IRC §170 法律依據
+        warning_codes = [warn.code for warn in res.review_warnings]
+        self.assertIn("CHARITY_CONTRIBUTION_DATE_MISSING", warning_codes)
+        self.assertTrue(any("IRC §170" in warn.message for warn in res.review_warnings))
+
+        # 驗證需要人工複查，can_file 為 False
+        self.assertFalse(res.can_file)
 
 if __name__ == "__main__":
     unittest.main()

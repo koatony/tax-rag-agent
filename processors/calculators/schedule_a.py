@@ -188,21 +188,31 @@ def calculate_cash_charity(cash_charity_items: List[CashCharityItemV1], errors: 
         # 1. UNKNOWN：資格未確定時不直接算 0，而是保留金額 (candidate total) 並記錄 warning 供人工審核
         # 2. NOT_QUALIFIED：已確認非合格機構，則記錄 warning 且排除 (continue)
         if item.qualified_organization_status == "UNKNOWN":
-            warnings.append(ValidationIssue("UNKNOWN_TAX_CHARACTER", field="qualified_organization_status", item_id=item.item_id, source_document_id=item.source_document_id, message="Unknown charity organization qualification status."))
+            warnings.append(ValidationIssue(
+                "UNKNOWN_TAX_CHARACTER",
+                field="qualified_organization_status",
+                item_id=item.item_id,
+                source_document_id=item.source_document_id,
+                message="根據美國稅法 IRC §170(c)，慈善扣除額受受贈機構合格資格限制。該機構資格尚待驗證 (UNKNOWN)，暫先納入候選金額計算，需要人工審核複查。"
+            ))
         elif item.qualified_organization_status == "NOT_QUALIFIED":
-            warnings.append(ValidationIssue("CHARITY_ORGANIZATION_NOT_QUALIFIED", field="qualified_organization_status", item_id=item.item_id, source_document_id=item.source_document_id, message="Charity organization is not qualified; excluded."))
+            warnings.append(ValidationIssue(
+                "CHARITY_ORGANIZATION_NOT_QUALIFIED",
+                field="qualified_organization_status",
+                item_id=item.item_id,
+                source_document_id=item.source_document_id,
+                message="根據美國稅法 IRC §170(c)，捐款機構已確認非合格受贈機構 (NOT_QUALIFIED)，不符合稅務扣除資格，已予以排除。"
+            ))
             continue
             
-        has_date_error = False
         if not item.contribution_date:
-            errors.append(ValidationIssue(
+            warnings.append(ValidationIssue(
                 "CHARITY_CONTRIBUTION_DATE_MISSING",
                 field="contribution_date",
                 item_id=item.item_id,
                 source_document_id=item.source_document_id,
-                message=f"The contribution record identifies tax year {tax_year} but does not provide the actual contribution date."
+                message=f"根據美國稅法 IRC §170 及 IRS 規定，慈善捐贈必須確認於該稅務年度 ({tax_year}) 內支付並記錄捐贈日期。原始憑證未提供具體捐贈日期，暫先納入候選金額計算，需要人工審核複查。"
             ))
-            has_date_error = True
             
         has_ack_error = False
         net_contrib = item.gross_contribution_amount - item.goods_or_services_value
@@ -217,7 +227,7 @@ def calculate_cash_charity(cash_charity_items: List[CashCharityItemV1], errors: 
                 ))
                 has_ack_error = True
 
-        if has_date_error or has_ack_error:
+        if has_ack_error:
             continue
             
         if item.bank_or_written_record_available is None:
@@ -509,7 +519,7 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1, allowed_years: Optional[S
     # 8. Determine if Itemizing (Lines 18-19)
     # 計算「是否申報單項扣除額」：當計算結果無誤且有總額，則與標準扣除額比較。
     is_v1_supported = not any_unsupported_case(inputs.special_case_flags)
-    can_file = is_v1_supported and len(errors) == 0 and line_17 is not None
+    can_file = is_v1_supported and len(errors) == 0 and len(warnings) == 0 and line_17 is not None
 
     standard_amount = inputs.standard_deduction_reference.standard_deduction_amount
     if standard_amount is not None:

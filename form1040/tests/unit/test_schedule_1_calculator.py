@@ -70,10 +70,13 @@ class TestSchedule1CalculatorAndParser(unittest.TestCase):
         # 驗證金額計算相同（7000.00 仍計入 Line 26 扣除總額）
         self.assertEqual(res.line_26_adjustments_to_income, Decimal("7000.00"))
 
-        # 驗證產生 UNCONFIRMED_DEDUCTIBILITY 警告
+        # 驗證產生 UNCONFIRMED_DEDUCTIBILITY 警告且訊息包含 IRC §219 法律依據
         warning_codes = [warn.code for warn in res.review_warnings]
         self.assertIn("UNCONFIRMED_DEDUCTIBILITY", warning_codes)
-        self.assertTrue(any("Line 20" in warn.message for warn in res.review_warnings))
+        self.assertTrue(any("IRC §219" in warn.message for warn in res.review_warnings))
+
+        # 驗證需要人工複查，can_file 為 False（不可直接提交）
+        self.assertFalse(res.can_file)
 
     def test_parser_custom_rules_and_example_json_format(self):
         """
