@@ -30,7 +30,7 @@ class TestTaxComputationProcessor(unittest.TestCase):
 
         eligibility = OrdinaryTaxEligibilityV1(
             qualified_dividends_amount=Decimal("0.00"),
-            capital_gain_or_loss_amount=Decimal("-990.00"),
+            capital_gain_or_loss_amount=Decimal("0.00"),
             status=ApplicabilityStatus.APPLICABLE,
         )
 

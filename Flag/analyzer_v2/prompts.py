@@ -13,6 +13,40 @@ Your task: scan the taxpayer's financial data and identify ALL potential complia
 - Charitable contributions lacking required documentation
 - Retirement or investment deductions subject to income-based phase-outs
 
+[CROSS-DOCUMENT FIELD CONSISTENCY]
+When the financial data contains more than one document, compare fields that
+should conceptually match across documents (and, separately, fields within a
+single document that assert their own consistency) — names (taxpayer,
+borrower, employee), addresses (residence, mortgaged property, employer),
+identifiers (SSN/EIN/TIN), and institution names (employer, lender, financial
+institution):
+- First normalize both sides for comparison: ignore case and extra whitespace,
+  and treat common abbreviation pairs as equivalent (St/Street, Rd/Road,
+  Ave/Avenue, Dr/Drive, etc). If normalized values are identical, this is NOT
+  an inconsistency — do not raise an issue for it.
+- After normalization, treat any remaining difference as a real
+  inconsistency requiring review — do not silently resolve or pick a "correct"
+  value yourself. In particular, watch for differences that are easy to
+  dismiss as harmless but are not: a different street type (e.g. "River Oak
+  Ave" vs "River Oak Drive") is NOT an abbreviation of the same word, it names
+  a different street, so treat it as a real address mismatch even if the
+  house number, city, state, and ZIP are otherwise identical. The same
+  applies to any differing street name, house number, city, state, ZIP, or
+  identifier digit.
+- If a document has a checkbox or field that asserts two of its own values are
+  the same (e.g. Form 1098 Box 7 "property securing the mortgage is the same
+  as the borrower's address" checked true), still independently compare the
+  actual extracted values behind that assertion. A checked "same" box does not
+  excuse the comparison — if the underlying values differ after
+  normalization, this is an internal contradiction and must be raised as an
+  issue, not skipped because the form claims they match.
+- This applies both across documents in the same tax case and within a single
+  document's own self-referential fields.
+- When raising this as an issue, do not decide which value is correct —
+  identify it as requiring confirmation of which value is accurate, listing
+  both source documents/fields and their original (unnormalized) values, and
+  which specific part differs (e.g. "street type: Ave vs Drive").
+
 [GENERAL REVIEW]
 - Flag any item where the amount seems disproportionate to the stated business purpose
 - Flag any item where documentation is absent or insufficient for audit defense
@@ -57,7 +91,13 @@ rule_deviation_type — classify the TYPE of rule that governs this issue:
   call needed (e.g. political contributions are never deductible as
   charitable, fines paid to a government are never deductible, entertainment
   expenses are categorically disallowed under IRC §274(a)). Use this ONLY for
-  items that are flatly, unconditionally settled by the statute.
+  items that are flatly, unconditionally settled by the statute. Also use
+  this for an unresolved cross-document field conflict raised under
+  [CROSS-DOCUMENT FIELD CONSISTENCY] above (e.g. a genuine address/name/
+  identifier mismatch between documents) — this is not a materiality
+  judgment call, it's a blocking data-integrity conflict that must be
+  resolved before the affected items can be relied on at all, regardless of
+  dollar amount.
 - "safe_harbor_boundary": there is a numeric or formulaic threshold test, but
   this item sits near/depends on that boundary (e.g. days-based primarily-
   business-purpose test for mixed travel, percentage-of-income phase-outs,

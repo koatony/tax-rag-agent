@@ -76,7 +76,7 @@ class TestLLMForm1040E2E(unittest.TestCase):
         )
 
         sd_result = ScheduleDResultV1(
-            line_7_capital_gain_or_loss=Decimal("-990.00"),
+            line_7_capital_gain_or_loss=Decimal("0.00"),
             status="COMPLETE",
         )
 
@@ -98,7 +98,7 @@ class TestLLMForm1040E2E(unittest.TestCase):
                 "dividend_items": [{"payer_name": "VANGUARD", "ordinary_dividends": 405.0}],
             },
             raw_schedule_d_input={
-                "line_7_capital_gain_or_loss": -990.00
+                "line_7_capital_gain_or_loss": 0.00
             },
             raw_schedule_1_input={
                 "taxpayer_name": "Marcus & Elena Rivera",

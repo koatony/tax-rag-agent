@@ -71,6 +71,24 @@ def _fmt_dec(val: Any) -> Optional[str]:
         return "0.00"
 
 
+def _make_json_safe(obj: Any) -> Any:
+    """
+    遞迴將 dict / list / Tuple / DTO 中所有 Decimal 物件轉成 float，
+    保證回傳結構 100% 可直接被 JSON 序列化，避免 API 報錯。
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, dict):
+        return {k: _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_json_safe(x) for x in obj]
+    if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
+        return _make_json_safe(obj.to_dict())
+    return obj
+
+
 class Form1040Orchestrator:
     """
     Form 1040 核心組裝與串接調度器 (Orchestrator)
@@ -94,6 +112,11 @@ class Form1040Orchestrator:
         """
         將原始輸入資料傳給不同子表單模組，等待計算結果返回後，進行 Form 1040 全流程彙整 (Lines 1–38)。
         """
+        sa_res_dict = None
+        sb_res_dict = None
+        se_res_dict = None
+        s1_res_dict = None
+
         # 1. 呼叫 Parser 將原始直接收入資料解析為 DTO 物件
         direct_income_dto = IncomeAggregatorDirectIncomeParser.parse_dict(raw_llm_direct_income)
 
@@ -128,7 +151,7 @@ class Form1040Orchestrator:
         schedule_d_result = None
         if raw_schedule_d_input:
             from form1040.models.income_aggregator_model import ScheduleDResultV1
-            val = raw_schedule_d_input.get("line_7_capital_gain_or_loss", -990)
+            val = raw_schedule_d_input.get("line_7_capital_gain_or_loss", 0.00)
             schedule_d_result = ScheduleDResultV1(
                 line_7_capital_gain_or_loss=_safe_decimal(val),
                 status="COMPLETE",
@@ -163,15 +186,45 @@ class Form1040Orchestrator:
                     for warn in se_res_dict.get("review_warnings", []) if isinstance(warn, dict)
                 ]
                 se_has_blocking = se_res_dict.get("blocking_validation_error") or len(se_blocking_issues) > 0
-                se_status = "BLOCKED" if se_has_blocking else "COMPLETE"
+                has_props = len(raw_schedule_e_input.get("properties", [])) > 0 if isinstance(raw_schedule_e_input, dict) else False
+                
+                if not has_props:
+                    se_status = "NOT_APPLICABLE"
+                elif se_has_blocking:
+                    se_status = "BLOCKED"
+                else:
+                    se_status = "COMPLETE"
+                
+                raw_transfer_amt = se_res_dict.get("schedule_1_line_5_transfer_amount")
+                if se_status == "BLOCKED":
+                    schedule_1_line_5_transfer_amount = _safe_decimal(raw_transfer_amt)
+                else:
+                    schedule_1_line_5_transfer_amount = _safe_decimal(raw_transfer_amt) if raw_transfer_amt is not None else Decimal("0.00")
                 
                 schedule_e_result = ScheduleEResultV1(
                     line_26_total_rental_income_or_loss=_safe_decimal(se_res_dict.get("line_26_total_rental_income_or_loss")),
-                    schedule_1_line_5_transfer_amount=_safe_decimal(se_res_dict.get("schedule_1_line_5_transfer_amount")) if se_res_dict.get("schedule_1_line_5_transfer_amount") is not None else None,
+                    schedule_1_line_5_transfer_amount=schedule_1_line_5_transfer_amount,
                     status=se_status,
                     blocking_errors=se_blocking_issues,
                     review_warnings=se_review_warnings
                 )
+
+        if not schedule_e_result:
+            from form1040.models.income_aggregator_model import ProcessingIssueV1, ScheduleEResultV1
+            schedule_e_result = ScheduleEResultV1(
+                line_26_total_rental_income_or_loss=Decimal("0.00"),
+                schedule_1_line_5_transfer_amount=Decimal("0.00"),
+                status="NOT_APPLICABLE",
+                blocking_errors=[],
+                review_warnings=[
+                    ProcessingIssueV1(
+                        code="NO_REPORTABLE_RENTAL_PROPERTY",
+                        field="properties",
+                        message="No rental properties reported. Schedule E treated as NOT_APPLICABLE."
+                    )
+                ]
+            )
+            schedule_1_line_5_transfer_amount = Decimal("0.00")
 
         # 4. 呼叫 Schedule 1 計算引擎取得結果 DTO
         # 【跨表數據流結轉】
@@ -465,17 +518,23 @@ class Form1040Orchestrator:
 
         return {
             "form_1040_lines": form_1040_lines,
-            "income_section": income_result.to_dict(),
-            "agi_section": agi_result.to_dict(),
-            "deduction_section": deduction_result.to_dict(),
-            "taxable_income_section": taxable_income_result.to_dict(),
-            "tax_computation_section": tax_comp_result.to_dict(),
-            "credits_section": credits_result.to_dict(),
-            "payments_refund_section": payments_result.to_dict(),
-            "schedule_e_section": schedule_e_result.to_dict() if schedule_e_result else None,
+            "income_section": _make_json_safe(income_result),
+            "agi_section": _make_json_safe(agi_result),
+            "deduction_section": _make_json_safe(deduction_result),
+            "taxable_income_section": _make_json_safe(taxable_income_result),
+            "tax_computation_section": _make_json_safe(tax_comp_result),
+            "credits_section": _make_json_safe(credits_result),
+            "payments_refund_section": _make_json_safe(payments_result),
+            
+            # --- 子表單計算結果 Section (對標 schedule_e_section 風格) ---
+            "schedule_a_section": _make_json_safe(sa_res_dict),
+            "schedule_b_section": _make_json_safe(sb_res_dict),
+            "schedule_e_section": _make_json_safe(se_res_dict) or (_make_json_safe(schedule_e_result) if schedule_e_result else None),
+            "schedule_1_section": _make_json_safe(s1_res_dict),
+            
             "status": overall_status,
-            "blocking_errors": [err.to_dict() if hasattr(err, "to_dict") else err for err in all_blocking_errors],
-            "review_warnings": [warn.to_dict() if hasattr(warn, "to_dict") else warn for warn in all_review_warnings],
+            "blocking_errors": _make_json_safe([err.to_dict() if hasattr(err, "to_dict") else err for err in all_blocking_errors]),
+            "review_warnings": _make_json_safe([warn.to_dict() if hasattr(warn, "to_dict") else warn for warn in all_review_warnings]),
         }
 
     @classmethod
@@ -549,7 +608,7 @@ class Form1040Orchestrator:
         # 未來開發完成後將替換為 extract_schedule_d_inputs_with_logs(doc_ctx_str)。
         # =========================================================================
         raw_schedule_d_input = {
-            "line_7_capital_gain_or_loss": -990.00
+            "line_7_capital_gain_or_loss": 0.00
         }
 
         # 4. 呼叫組裝計算
@@ -565,13 +624,13 @@ class Form1040Orchestrator:
         )
 
         # 注入偵錯資訊以便前端核對
-        res["debug_info"] = {
+        res["debug_info"] = _make_json_safe({
             "extracted_direct_income": raw_llm_direct_income,
             "extracted_schedule_b": raw_schedule_b_input,
             "extracted_schedule_1": raw_schedule_1_input,
             "extracted_schedule_a": raw_schedule_a_input,
             "extracted_schedule_e": raw_schedule_e_input,
-        }
+        })
         return res
 
 
@@ -614,7 +673,7 @@ if __name__ == "__main__":
 
     # 3. 準備 0622 Case 的 Schedule D 原始輸入
     sd_inputs = {
-        "line_7_capital_gain_or_loss": -990
+        "line_7_capital_gain_or_loss": 0.00
     }
 
     # 4. 準備 0622 Case 的 Schedule 1 原始輸入

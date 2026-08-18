@@ -11,7 +11,7 @@
 ### 參數必填性說明 (Required vs Optional)
 
 * **必填欄位 (Required)**：
-  * `taxpayer_profile`：基本資料物件。其中 **`tax_year`**（稅務年度，如 `2025`）與 **`filing_status`**（申報身分，如 `MFJ`）是**計算引擎的核心必填參數**，直接決定了計稅級距與標準扣除額。
+  * `taxpayer_profile`：基本資料物件。其中 **`tax_year`**（稅務年度，如 `2025`）、**`filing_status`**（申報身分，如 `MFJ`）、**`taxpayer_date_of_birth`**（納稅人出生日期 `YYYY-MM-DD`）以及 **`spouse_date_of_birth`**（聯申時的配偶出生日期 `YYYY-MM-DD`）是**計算引擎的核心必填參數**，直接決定了計稅級距、標準扣除額以及 65 歲加計扣除額判定。
   * `uploaded_documents`：上傳的文件列表（不可為空），列表中每個文件物件須包含 `file_name`（檔案名稱）與 `content`（文件純文字內容）。
 * **選填欄位 (Optional)**：
   * `taxpayer_profile.name`：申報人姓名（僅供表頭揭露，不影響計算）。
@@ -25,6 +25,8 @@
 | `taxpayer_profile` | object | ✅ | 申報人基本資料物件 |
 | `taxpayer_profile.tax_year` | integer | ✅ | **核心計算必填**：申報的稅務年度（例如：`2025`），用於比對適用之稅率表與標準扣除額 |
 | `taxpayer_profile.filing_status` | string | ✅ | **核心計算必填**：申報身分（`"SINGLE"`, `"MFJ"`, `"HOH"`, `"MFS"`, `"QSS"`），直接決定標準扣除額與應納稅額級距 |
+| `taxpayer_profile.taxpayer_date_of_birth` | string | ✅ | **核心計算必填**：納稅人生日（格式 `YYYY-MM-DD`，如 `"1980-05-15"`），用於 65 歲扣除額門檻判定 |
+| `taxpayer_profile.spouse_date_of_birth` | string | ⚠️ (MFJ必填) | **聯申必填**：配偶生日（格式 `YYYY-MM-DD`，如 `"1982-08-20"`），用於 65 歲扣除額門檻判定 |
 | `taxpayer_profile.name` | string | ❌ | 申報人姓名（選填，用於表頭渲染與 PDF 產出） |
 | `taxpayer_profile.ssn` | string | ❌ | 申報人社會安全號碼（選填，用於表頭渲染與 PDF 產出） |
 | `uploaded_documents` | list[object] | ✅ | 上傳的文件列表，每個物件含 `file_name` 與 `content`（文件純文字內容） |

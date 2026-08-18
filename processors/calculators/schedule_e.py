@@ -95,7 +95,7 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
     validate_properties(inputs, global_errors)
 
     if len(inputs.properties) == 0:
-        global_errors.append(ValidationIssue("NO_REPORTABLE_RENTAL_PROPERTY", field="properties", message="No rental properties reported."))
+        global_warnings.append(ValidationIssue("NO_REPORTABLE_RENTAL_PROPERTY", field="properties", message="No rental properties reported. Schedule E treated as NOT_APPLICABLE."))
 
     if len(inputs.properties) > 3:
         global_errors.append(ValidationIssue("UNSUPPORTED_MORE_THAN_THREE_PROPERTIES", field="properties", message="More than three properties is not supported in V1."))

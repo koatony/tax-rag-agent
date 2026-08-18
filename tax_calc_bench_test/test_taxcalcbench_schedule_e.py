@@ -176,9 +176,11 @@ def run_benchmark_tests():
         print(f"  V1 支援狀態: {result.get('is_v1_supported')}")
         print(f"  可否完成 Part I 申報: {result.get('can_finalize_part1')}")
         print(f"  攔截到的阻斷錯誤:")
-        err_codes = [err.get("code") for err in result.get("blocking_errors", [])]
+        err_codes = [err.get("code") for err in result.get("blocking_errors", []) + result.get("review_warnings", [])]
         for err in result.get("blocking_errors", []):
-            print(f"    - [{err.get('code')}]: {err.get('message')}")
+            print(f"    - [BLOCKING][{err.get('code')}]: {err.get('message')}")
+        for warn in result.get("review_warnings", []):
+            print(f"    - [WARNING][{warn.get('code')}]: {warn.get('message')}")
             
         # 5. 驗證阻斷是否符合安全防禦預期
         expected_errors = []

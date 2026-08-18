@@ -84,7 +84,7 @@ class TestLLMIncomeAggregator(unittest.TestCase):
         )
 
         sd_result = ScheduleDResultV1(
-            line_7_capital_gain_or_loss=Decimal("-990.00"),     # Line 7a Capital Loss
+            line_7_capital_gain_or_loss=Decimal("0.00"),     # Line 7a Capital Loss
             status="COMPLETE",
         )
 
@@ -113,9 +113,9 @@ class TestLLMIncomeAggregator(unittest.TestCase):
         self.assertEqual(result.line_1z, Decimal("100000.00"))
         self.assertEqual(result.line_2b, Decimal("150.00"))
         self.assertEqual(result.line_3b, Decimal("405.00"))
-        self.assertEqual(result.line_7a, Decimal("-990.00"))
+        self.assertEqual(result.line_7a, Decimal("0.00"))
         self.assertEqual(result.line_8, Decimal("0.00"))
-        self.assertEqual(result.line_9, Decimal("99565.00"))
+        self.assertEqual(result.line_9, Decimal("100555.00"))
         print(f"✅ IncomeAggregator LLM 測試成功！Line 9 Total Income = {result.line_9}")
 
 

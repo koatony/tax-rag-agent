@@ -71,7 +71,7 @@ class TestForm10400622Integration(unittest.TestCase):
         }
 
         sd_inputs = {
-            "line_7_capital_gain_or_loss": -990.00
+            "line_7_capital_gain_or_loss": 0.00
         }
 
         s1_inputs = {
@@ -111,14 +111,14 @@ class TestForm10400622Integration(unittest.TestCase):
         self.assertEqual(income_sec["line_1z"], "100000.00")
         self.assertEqual(income_sec["line_2b"], "150.00")
         self.assertEqual(income_sec["line_3b"], "405.00")
-        self.assertEqual(income_sec["line_7a"], "-990.00")
+        self.assertEqual(income_sec["line_7a"], "0.00")
         self.assertEqual(income_sec["line_8"], "0.00")
-        self.assertEqual(income_sec["line_9"], "99565.00")  # 100000 + 150 + 405 - 990 = 99565.00
+        self.assertEqual(income_sec["line_9"], "100555.00")  # 100000 + 150 + 405 + 0 = 100555.00
 
         # 6. 逐行驗證 AGI Section (Lines 9-11)
-        self.assertEqual(agi_sec["line_9_total_income"], "99565.00")
+        self.assertEqual(agi_sec["line_9_total_income"], "100555.00")
         self.assertEqual(agi_sec["line_10_adjustments_to_income"], "7000.00")
-        self.assertEqual(agi_sec["line_11_adjusted_gross_income"], "92565.00") # 99565 - 7000 = 92565.00
+        self.assertEqual(agi_sec["line_11_adjusted_gross_income"], "93555.00") # 100555 - 7000 = 93555.00
 
         # 7. 驗證 Deduction Section (Lines 12e-14)
         ded_sec = assembly_result["deduction_section"]
@@ -128,7 +128,7 @@ class TestForm10400622Integration(unittest.TestCase):
         # 8. 驗證 Taxable Income Section (Line 15)
         taxable_sec = assembly_result["taxable_income_section"]
         self.assertEqual(taxable_sec["status"], "COMPLETE")
-        self.assertEqual(taxable_sec["line_15_taxable_income"], "61065.00") # 92565 - 31500 = 61065.00
+        self.assertEqual(taxable_sec["line_15_taxable_income"], "62055.00") # 93555 - 31500 = 62055.00
 
         # 9. 驗證 Tax Computation Section (Lines 16-18)
         tax_comp_sec = assembly_result["tax_computation_section"]

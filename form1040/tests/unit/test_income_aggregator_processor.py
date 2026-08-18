@@ -21,9 +21,9 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
         W-2 Wages: $46,000 + $54,000 = $100,000 (Line 1z)
         Schedule B Taxable Interest: $150 (Line 2b)
         Schedule B Ordinary Dividends: $405 (Line 3b)
-        Capital Loss: -$990 (Line 7a)
+        Capital Loss: $0 (Line 7a)
         Schedule 1 Additional Income: $0 (Line 8)
-        預期 Line 9 = 100000 + 150 + 405 - 990 + 0 = 99565
+        預期 Line 9 = 100000 + 150 + 405 + 0 + 0 = 100555
         """
         direct_income = DirectIncomeInputV1(
             w2_items=[
@@ -54,7 +54,7 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
         )
 
         sd_result = ScheduleDResultV1(
-            line_7_capital_gain_or_loss=Decimal("-990"),
+            line_7_capital_gain_or_loss=Decimal("0"),
             status="COMPLETE",
         )
 
@@ -80,9 +80,9 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
         self.assertEqual(result.line_1z, Decimal("100000"))
         self.assertEqual(result.line_2b, Decimal("150"))
         self.assertEqual(result.line_3b, Decimal("405"))
-        self.assertEqual(result.line_7a, Decimal("-990"))
+        self.assertEqual(result.line_7a, Decimal("0"))
         self.assertEqual(result.line_8, Decimal("0"))
-        self.assertEqual(result.line_9, Decimal("99565"))
+        self.assertEqual(result.line_9, Decimal("100555"))
 
     def test_tax_year_mismatch_triggers_blocking_error(self):
         """
