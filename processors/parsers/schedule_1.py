@@ -22,7 +22,7 @@ class Schedule1LLMParser(BaseLLMParser):
             "遇到 Schedule F、Form 4797/4684、Schedule SE、Form 2106、Form 3903、Form 8889、Form 8853、Archer MSA、Form 2555、數位資產所得、非合格遞延補償、服刑期間工資、ABLE 帳戶分配、Medicaid waiver 調整、Section 951(a)/951A(a) inclusion、Section 461(l) 超額營業虧損調整、Schedule K-1 Section 67(e) 超額扣除等情況，請在 special_case_flags 中相應標示為 true，不要自行計算金額。",
             "other_income_items 與 adjustment_items 的 line_code 請務必對齊官方表單代碼（例如 '8a'、'8z'、'11'、'24a'、'24z'），不得自創代碼。",
             "Line 19a (Alimony paid)、Line 20 (IRA deduction)、Line 21 (Student loan interest deduction) 這三筆金額，請一律透過 adjustment_items 陣列表達（line_code 分別為 '19a'、'20'、'21'），比照 Line 11/16/17/18 的做法，不要另外用其他欄位名稱重複填寫；Line 19b（受領人 SSN）、Line 19c（原協議日期）、Line 20 的 MFS 分居勾選則維持獨立欄位（line_19b_recipient_ssn、line_19c_original_agreement_date、line_20_mfs_lived_apart_flag）。",
-            "IRA deduction（Line 20）等『扣除額』欄位，只能填入文件中已明確計算或聲明為『可扣除金額 (deductible amount)』的數字。若原始憑證只提供『存入金額 (contribution amount)』（例如 Traditional IRA 存款收據），但沒有明確指出該金額已通過扣除限制（如 active participant／MAGI phase-out）的判定，不得將存入金額直接當作可扣除金額填入；此時該欄位應留 0 或 null，並可在 adjustment_items 的 description 中註記『存入金額 $X，扣除額尚待確認』以供人工複核，不得自行假設全額可扣除。",
+            "adjustment_items 中的每筆項目，均應填寫 line_code (如 '20')、amount (真實金額數字，如 7000.0)、description (說明描述) 以及 is_deductibility_confirmed (布林值)。若憑證已明確計算或確定符合扣除資格，is_deductibility_confirmed 標示為 true；若憑證僅提供存入/支出金額（例如 Traditional IRA 存款收據）但未確認扣除限額或資格尚待驗證，請照實擷取 amount 金額數字，並將 is_deductibility_confirmed 標示為 false",
             "下方範例 JSON 中的 taxpayer_ssn 數值僅為格式示範，不是真實資料，絕對不可以照抄範例中的數字。若掃描所有隨附文件後仍找不到任何與『XXX-XX-XXXX』格式相符的社會安全號碼，taxpayer_ssn 必須填為空字串 \"\"，不得虛構、猜測、或沿用範例中的佔位數字。",
         ]
 
@@ -57,8 +57,9 @@ class Schedule1LLMParser(BaseLLMParser):
             "adjustment_items": [
                 {
                     "line_code": "20",
-                    "description": None,
-                    "amount": 6000.00
+                    "description": "Traditional IRA Contribution",
+                    "amount": 7000.00,
+                    "is_deductibility_confirmed": False
                 }
             ],
             "special_case_flags": {

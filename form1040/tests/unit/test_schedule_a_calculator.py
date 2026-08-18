@@ -94,5 +94,47 @@ class TestScheduleACalculator(unittest.TestCase):
         self.assertEqual(res.line_3_medical_threshold, Decimal("7500.00"))
         self.assertEqual(res.line_4_deductible_medical_expenses, Decimal("2500.00"))
 
+    def test_unknown_charity_qualification_retains_candidate_and_adds_warning(self):
+        """
+        測試當 Charity 捐款項目的 qualified_organization_status 為 UNKNOWN 時：
+        1. 扣除金額 candidate total 仍應保留（例如 5400.00），不直接算作 0。
+        2. 不加入 blocking_errors，而是寫入 review_warnings (UNKNOWN_TAX_CHARACTER)。
+        """
+        inputs_payload = {
+            "taxpayer_name": "Marcus Rivera",
+            "taxpayer_ssn": "123-45-6789",
+            "taxpayer_date_of_birth": "1980-01-01",
+            "tax_year": 2025,
+            "filing_status": "MFJ",
+            "adjusted_gross_income": 100000.00,
+            "cash_charity_items": [
+                {
+                    "item_id": "charity_01",
+                    "gross_contribution_amount": 5400.0,
+                    "goods_or_services_value": 0.0,
+                    "contribution_date": "2025-06-01",
+                    "paid_in_tax_year": True,
+                    "qualified_organization_status": "UNKNOWN",
+                    "bank_or_written_record_available": True,
+                    "contemporaneous_acknowledgment_received": True
+                }
+            ]
+        }
+
+        v1_inputs = ScheduleAInputsV1.from_dict(inputs_payload)
+        res = calculate_schedule_a_v1(v1_inputs, allowed_years={2024, 2025})
+
+        # 驗證 Line 11/14 扣除候選金額保留為 5400.00
+        self.assertEqual(res.line_11_cash_contributions, Decimal("5400.00"))
+        self.assertEqual(res.line_14_total_charity, Decimal("5400.00"))
+
+        # 驗證 blocking_errors 無 UNKNOWN_TAX_CHARACTER
+        blocking_codes = [err.code for err in res.blocking_errors]
+        self.assertNotIn("UNKNOWN_TAX_CHARACTER", blocking_codes)
+
+        # 驗證 review_warnings 包含 UNKNOWN_TAX_CHARACTER
+        warning_codes = [warn.code for warn in res.review_warnings]
+        self.assertIn("UNKNOWN_TAX_CHARACTER", warning_codes)
+
 if __name__ == "__main__":
     unittest.main()

@@ -126,6 +126,17 @@ def calculate_schedule_1_v1(inputs: Schedule1InputsV1, allowed_years: Optional[S
 
     adjustment_entries = inputs.adjustment_items
 
+    # 檢查調整項目之扣除資格審核警告
+    warnings: List[ValidationIssue] = []
+    for item in adjustment_entries:
+        if getattr(item, "is_deductibility_confirmed", True) is False:
+            warnings.append(ValidationIssue(
+                "UNCONFIRMED_DEDUCTIBILITY",
+                field="is_deductibility_confirmed",
+                item_id=item.item_id,
+                message=f"Line {item.line_code} 扣除額資格尚待驗證（根據美國稅法需確認相關限制條件），目前先按原始金額 ${item.amount} 納入計算，需要人工複查。"
+            ))
+
     # Line 25：Line 24a 至 24z 加總
     line_25_total_other_adjustments = sum_decimal(
         item.amount for item in adjustment_entries if item.line_code and item.line_code.startswith("24")
@@ -183,7 +194,7 @@ def calculate_schedule_1_v1(inputs: Schedule1InputsV1, allowed_years: Optional[S
         line_26_adjustments_to_income=line_26_adjustments_to_income,
         is_schedule_1_required=is_schedule_1_required,
         blocking_errors=errors,
-        review_warnings=[],
+        review_warnings=warnings,
         blocking_validation_error=(len(errors) > 0),
         is_v1_supported=is_v1_supported,
         can_file=can_file,

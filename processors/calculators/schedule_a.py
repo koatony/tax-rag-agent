@@ -184,9 +184,11 @@ def calculate_cash_charity(cash_charity_items: List[CashCharityItemV1], errors: 
     for item in cash_charity_items:
         validate_paid_year(item, errors)
         
+        # 機構資格狀態處理：
+        # 1. UNKNOWN：資格未確定時不直接算 0，而是保留金額 (candidate total) 並記錄 warning 供人工審核
+        # 2. NOT_QUALIFIED：已確認非合格機構，則記錄 warning 且排除 (continue)
         if item.qualified_organization_status == "UNKNOWN":
-            errors.append(ValidationIssue("UNKNOWN_TAX_CHARACTER", field="qualified_organization_status", item_id=item.item_id, source_document_id=item.source_document_id, message="Unknown charity organization qualification status."))
-            continue
+            warnings.append(ValidationIssue("UNKNOWN_TAX_CHARACTER", field="qualified_organization_status", item_id=item.item_id, source_document_id=item.source_document_id, message="Unknown charity organization qualification status."))
         elif item.qualified_organization_status == "NOT_QUALIFIED":
             warnings.append(ValidationIssue("CHARITY_ORGANIZATION_NOT_QUALIFIED", field="qualified_organization_status", item_id=item.item_id, source_document_id=item.source_document_id, message="Charity organization is not qualified; excluded."))
             continue
@@ -226,7 +228,7 @@ def calculate_cash_charity(cash_charity_items: List[CashCharityItemV1], errors: 
             errors.append(ValidationIssue("ADJUSTMENT_EXCEEDS_GROSS_AMOUNT", field="goods_or_services_value", item_id=item.item_id, source_document_id=item.source_document_id, message="Goods/services value exceeds gross contribution amount."))
             continue
             
-        if item.paid_in_tax_year is True and item.qualified_organization_status == "VERIFIED" and item.bank_or_written_record_available is True:
+        if item.paid_in_tax_year is True and item.qualified_organization_status in ("VERIFIED", "UNKNOWN") and item.bank_or_written_record_available is True:
             total += net_contrib
             
     return total

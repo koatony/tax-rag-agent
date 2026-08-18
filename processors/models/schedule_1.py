@@ -44,12 +44,17 @@ class AdjustmentItemV1:
         amt_val = kwargs.get("amount")
         self.amount = Decimal(str(amt_val)) if amt_val is not None else Decimal("0.00")
 
+        # 扣除資格是否已驗證確認（預設為 True；若憑證僅提供存入/支出金額未驗證資格，寫入 False）
+        deduct_val = kwargs.get("is_deductibility_confirmed")
+        self.is_deductibility_confirmed = bool(deduct_val) if deduct_val is not None else True
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "item_id": self.item_id,
             "line_code": self.line_code,
             "description": self.description,
             "amount": float(self.amount),
+            "is_deductibility_confirmed": self.is_deductibility_confirmed,
         }
 
 
