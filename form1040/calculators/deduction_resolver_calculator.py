@@ -41,7 +41,7 @@ class DeductionResolverCalculator:
             is_v1_supported = getattr(sa_res, "is_v1_supported", True)
             sa_errors = getattr(sa_res, "blocking_errors", []) or []
 
-            if can_file is False or is_v1_supported is False or sa_errors:
+            if is_v1_supported is False or len(sa_errors) > 0:
                 err_msgs = [err.message if hasattr(err, "message") else str(err) for err in sa_errors]
                 msg_detail = f" (原因：{'; '.join(err_msgs)})" if err_msgs else ""
                 from form1040.models.agi_model import ProcessingIssueV1

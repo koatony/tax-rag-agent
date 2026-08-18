@@ -519,7 +519,7 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1, allowed_years: Optional[S
     # 8. Determine if Itemizing (Lines 18-19)
     # 計算「是否申報單項扣除額」：當計算結果無誤且有總額，則與標準扣除額比較。
     is_v1_supported = not any_unsupported_case(inputs.special_case_flags)
-    can_file = is_v1_supported and len(errors) == 0 and len(warnings) == 0 and line_17 is not None
+    can_file = is_v1_supported and len(errors) == 0 and line_17 is not None
 
     standard_amount = inputs.standard_deduction_reference.standard_deduction_amount
     if standard_amount is not None:
