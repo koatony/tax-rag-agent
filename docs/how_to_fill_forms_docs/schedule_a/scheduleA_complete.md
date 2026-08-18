@@ -450,7 +450,7 @@ SpecialCaseFlagsV1 = {
   has_form_2555_or_4563_or_puerto_rico_exclusion: bool
   has_other_tax_line_6: bool
 
-  has_multiple_mortgages: bool
+  has_multiple_schedule_a_mortgages: bool
   mortgage_proceeds_not_all_qualified: bool
   mortgage_limitation_required: bool
   has_shared_mortgage: bool

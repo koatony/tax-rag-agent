@@ -95,7 +95,7 @@ def detect_unsupported_cases(flags: SpecialCaseFlagsV1, errors: List[ValidationI
         "sales_tax_amount_requires_calculation": ("SALES_TAX_AMOUNT_NOT_RESOLVED", "General sales tax amount requires calculation/tables which is not supported in V1."),
         "has_tax_refund_or_rebate_adjustment": ("UNSUPPORTED_TAX_REFUND_ADJUSTMENT", "Tax refund or rebate adjustment is not supported in V1."),
         "has_other_tax_line_6": ("UNSUPPORTED_OTHER_TAX_LINE_6", "Schedule A Line 6 other taxes are not supported in V1."),
-        "has_multiple_mortgages": ("UNSUPPORTED_MULTIPLE_MORTGAGES", "Multiple mortgages or multiple properties are not supported in V1."),
+        "has_multiple_schedule_a_mortgages": ("UNSUPPORTED_MULTIPLE_MORTGAGES", "Multiple Schedule A home mortgages or multiple properties are not supported in V1."),
         "mortgage_proceeds_not_all_qualified": ("UNSUPPORTED_MORTGAGE_PROCEEDS_ALLOCATION", "Mortgage proceeds not fully used for buy/build/improve is not supported in V1."),
         "mortgage_limitation_required": ("UNSUPPORTED_MORTGAGE_LIMITATION", "Mortgage principal limit or FMV limit calculation is not supported in V1."),
         "has_shared_mortgage": ("UNSUPPORTED_SHARED_MORTGAGE", "Shared mortgage interest is not supported in V1."),

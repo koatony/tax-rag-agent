@@ -367,7 +367,7 @@ class SpecialCaseFlagsV1:
         has_tax_refund_or_rebate_adjustment: bool = False,
         has_form_2555_or_4563_or_puerto_rico_exclusion: bool = False,
         has_other_tax_line_6: bool = False,
-        has_multiple_mortgages: bool = False,
+        has_multiple_schedule_a_mortgages: bool = False,
         mortgage_proceeds_not_all_qualified: bool = False,
         mortgage_limitation_required: bool = False,
         has_shared_mortgage: bool = False,
@@ -392,7 +392,7 @@ class SpecialCaseFlagsV1:
         self.has_tax_refund_or_rebate_adjustment = has_tax_refund_or_rebate_adjustment
         self.has_form_2555_or_4563_or_puerto_rico_exclusion = has_form_2555_or_4563_or_puerto_rico_exclusion
         self.has_other_tax_line_6 = has_other_tax_line_6
-        self.has_multiple_mortgages = has_multiple_mortgages
+        self.has_multiple_schedule_a_mortgages = has_multiple_schedule_a_mortgages
         self.mortgage_proceeds_not_all_qualified = mortgage_proceeds_not_all_qualified
         self.mortgage_limitation_required = mortgage_limitation_required
         self.has_shared_mortgage = has_shared_mortgage
@@ -420,7 +420,7 @@ class SpecialCaseFlagsV1:
             has_tax_refund_or_rebate_adjustment=bool(raw_flags.get("has_tax_refund_or_rebate_adjustment", False)),
             has_form_2555_or_4563_or_puerto_rico_exclusion=bool(raw_flags.get("has_form_2555_or_4563_or_puerto_rico_exclusion", False)),
             has_other_tax_line_6=bool(raw_flags.get("has_other_tax_line_6", False)),
-            has_multiple_mortgages=bool(raw_flags.get("has_multiple_mortgages", False)),
+            has_multiple_schedule_a_mortgages=bool(raw_flags.get("has_multiple_schedule_a_mortgages") if raw_flags.get("has_multiple_schedule_a_mortgages") is not None else raw_flags.get("has_multiple_mortgages", False)),
             mortgage_proceeds_not_all_qualified=bool(raw_flags.get("mortgage_proceeds_not_all_qualified", False)),
             mortgage_limitation_required=bool(raw_flags.get("mortgage_limitation_required", False)),
             has_shared_mortgage=bool(raw_flags.get("has_shared_mortgage", False)),

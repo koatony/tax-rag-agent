@@ -252,7 +252,7 @@ def any_unsupported_case(flags: SpecialCaseFlagsV1) -> bool:
         "sales_tax_amount_requires_calculation",
         "has_tax_refund_or_rebate_adjustment",
         "has_other_tax_line_6",
-        "has_multiple_mortgages",
+        "has_multiple_schedule_a_mortgages",
         "mortgage_proceeds_not_all_qualified",
         "mortgage_limitation_required",
         "has_shared_mortgage",
