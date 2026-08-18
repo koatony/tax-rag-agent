@@ -75,8 +75,9 @@ class TestSchedule1CalculatorAndParser(unittest.TestCase):
         self.assertIn("UNCONFIRMED_DEDUCTIBILITY", warning_codes)
         self.assertTrue(any("IRC §219" in warn.message for warn in res.review_warnings))
 
-        # 驗證需要人工複查，can_file 為 False（不可直接提交）
+        # 驗證需要人工複查，can_file 為 False（不可直接提交），但 should_attach_schedule_1 為 True（正確檢附附表）
         self.assertFalse(res.can_file)
+        self.assertTrue(res.should_attach_schedule_1)
 
     def test_parser_custom_rules_and_example_json_format(self):
         """

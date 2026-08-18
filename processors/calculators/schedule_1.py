@@ -169,7 +169,7 @@ def calculate_schedule_1_v1(inputs: Schedule1InputsV1, allowed_years: Optional[S
 
     is_v1_supported = not has_special_case
     can_file = is_v1_supported and len(errors) == 0 and len(warnings) == 0
-    should_attach_schedule_1 = is_schedule_1_required and can_file
+    should_attach_schedule_1 = is_schedule_1_required and is_v1_supported and len(errors) == 0
 
     return Schedule1ResultV1(
         taxpayer_name=inputs.taxpayer_name,
