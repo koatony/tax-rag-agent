@@ -25,6 +25,7 @@ class W2ItemV1(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     employee_name: Optional[str] = None
+    employee_ssn: Optional[str] = None
     employer_name: Optional[str] = None
     tax_year: Optional[int] = None
     box_1_wages: Decimal = Decimal("0")
@@ -114,6 +115,7 @@ class IncomeAggregatorInputV1(BaseModel):
 
     tax_year: int
     filing_status: str
+    taxpayer_ssn: Optional[str] = None
     direct_income_input: DirectIncomeInputV1
     schedule_b_result: Optional[ScheduleBResultV1] = None
     schedule_d_result: Optional[ScheduleDResultV1] = None

@@ -28,7 +28,7 @@ class Form1040IncomeLLMParser(BaseLLMParser):
 
     def get_custom_rules(self) -> List[str]:
         return [
-            "請從上傳的 W-2 憑證中精確提取所有 W-2 納稅人姓名 (employee_name)、雇主名稱 (employer_name)、Box 1 工資 (box_1_wages)、Box 2 聯邦扣繳 (box_2_federal_withholding) 以及稅務年度 (tax_year)。",
+            "請從上傳的 W-2 憑證中精確提取所有 W-2 納稅人姓名 (employee_name)、員工社會安全號碼 (employee_ssn, 取自 Box a, 例如 '555-12-3456')、雇主名稱 (employer_name)、Box 1 工資 (box_1_wages)、Box 2 聯邦扣繳 (box_2_federal_withholding) 以及稅務年度 (tax_year)。",
             "若沒有相關的 IRA、Pension 或 Social Security 憑證，請將其 gross_amount 與 taxable_amount 設為 0.00。",
             "若有多張 W-2 憑證，請分別作為 w2_items 陣列中的獨立物件輸出。",
         ]
@@ -38,6 +38,7 @@ class Form1040IncomeLLMParser(BaseLLMParser):
             "w2_items": [
                 {
                     "employee_name": "Marcus Rivera",
+                    "employee_ssn": "555-12-3456",
                     "employer_name": "The Pet Shop Inc.",
                     "box_1_wages": 46000.00,
                     "box_2_federal_withholding": 5200.00,
@@ -45,6 +46,7 @@ class Form1040IncomeLLMParser(BaseLLMParser):
                 },
                 {
                     "employee_name": "Elena Rivera",
+                    "employee_ssn": "555-23-4567",
                     "employer_name": "Sacramento High School",
                     "box_1_wages": 54000.00,
                     "box_2_federal_withholding": 6100.00,

@@ -102,6 +102,7 @@ class Form1040Orchestrator:
         *,
         tax_year: int,
         filing_status: str,
+        taxpayer_ssn: Optional[str] = None,
         raw_llm_direct_income: Dict[str, Any],
         raw_schedule_a_input: Optional[Dict[str, Any]] = None,
         raw_schedule_b_input: Optional[Dict[str, Any]] = None,
@@ -270,6 +271,7 @@ class Form1040Orchestrator:
         income_input = IncomeAggregatorInputV1(
             tax_year=tax_year,
             filing_status=filing_status,
+            taxpayer_ssn=taxpayer_ssn,
             direct_income_input=direct_income_dto,
             schedule_b_result=schedule_b_result,
             schedule_d_result=schedule_d_result,
@@ -353,10 +355,18 @@ class Form1040Orchestrator:
         # 從 W-2 明細項目自動加總 Box 2 Federal Withholding
         w2_withholding = Decimal("0.00")
         if direct_income_dto and direct_income_dto.w2_items:
-            w2_withholding = sum(
-                (w2.box_2_federal_withholding or Decimal("0.00"))
-                for w2 in direct_income_dto.w2_items
-            )
+            from form1040.calculators.income_aggregator_calculator import sanitize_ssn, is_ssn_match
+            status_upper = str(filing_status or "").upper()
+            is_joint = status_upper in ["MFJ", "MARRIED_FILING_JOINTLY"]
+            taxpayer_ssn_clean = sanitize_ssn(taxpayer_ssn)
+
+            for w2 in direct_income_dto.w2_items:
+                if is_joint:
+                    w2_withholding += (w2.box_2_federal_withholding or Decimal("0.00"))
+                else:
+                    w2_ssn_clean = sanitize_ssn(w2.employee_ssn)
+                    if is_ssn_match(taxpayer_ssn_clean, w2_ssn_clean):
+                        w2_withholding += (w2.box_2_federal_withholding or Decimal("0.00"))
 
         withholding_res = {
             "status": "COMPLETE",
@@ -562,6 +572,7 @@ class Form1040Orchestrator:
         # 0. 讀取 API 必填之納稅人基本資料 (tax_year, filing_status)，由前端 UI/API 傳入
         tax_year = int(taxpayer_profile.get("tax_year") or taxpayer_profile.get("Tax Year") or 2025)
         filing_status = str(taxpayer_profile.get("filing_status") or taxpayer_profile.get("Filing Status") or "MFJ")
+        taxpayer_ssn = str(taxpayer_profile.get("ssn") or taxpayer_profile.get("SSN") or "")
 
         # 1. 格式化文件上下文 (將 taxpayer_profile 與 uploaded_documents 整合為單一純文字 context)
         payload = {
@@ -615,6 +626,7 @@ class Form1040Orchestrator:
         res = cls.assemble(
             tax_year=tax_year,
             filing_status=filing_status,
+            taxpayer_ssn=taxpayer_ssn,
             raw_llm_direct_income=raw_llm_direct_income,
             raw_schedule_a_input=raw_schedule_a_input,
             raw_schedule_b_input=raw_schedule_b_input,

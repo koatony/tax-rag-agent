@@ -30,7 +30,7 @@ class Form1040IncomeLLMParser(BaseLLMParser):
     def get_custom_rules(self) -> List[str]:
         return [
             "【重點指示】對於 w2_items 陣列：只要輸入文字中包含 'W-2', 'Wages', 'Box 1', 'Box 2', 'Federal income tax withheld', 或任何薪資扣繳紀錄，絕對不可以填寫 [] 空陣列！必須為每份 W-2 憑證建立一個完整的 JSON 物件並放入 w2_items 中！",
-            "請從上傳的 W-2 憑證中精確提取：納稅人姓名 (employee_name)、雇主名稱 (employer_name)、Box 1 工資金額 (box_1_wages, 數字)、Box 2 聯邦扣繳金額 (box_2_federal_withholding, 數字) 以及稅務年度 (tax_year, 數字, 預設 2025)。",
+            "請從上傳的 W-2 憑證中精確提取：納稅人姓名 (employee_name)、員工社會安全號碼 (employee_ssn, 取自 Box a, 例如 '555-12-3456')、雇主名稱 (employer_name)、Box 1 工資金額 (box_1_wages, 數字)、Box 2 聯邦扣繳金額 (box_2_federal_withholding, 數字) 以及稅務年度 (tax_year, 數字, 預設 2025)。",
             "若有多張 W-2 憑證 (例如 Marcus Rivera 與 Elena Rivera)，必須全部提取出來，各自作為 `w2_items` 中的獨立物件！",
             "若沒有相關的 IRA、Pension 或 Social Security 憑證，請將其 gross_amount 與 taxable_amount 設為 0.00。",
         ]
@@ -40,6 +40,7 @@ class Form1040IncomeLLMParser(BaseLLMParser):
             "w2_items": [
                 {
                     "employee_name": "Marcus Rivera",
+                    "employee_ssn": "555-12-3456",
                     "employer_name": "TechCorp",
                     "box_1_wages": 46000.00,
                     "box_2_federal_withholding": 5200.00,
@@ -47,6 +48,7 @@ class Form1040IncomeLLMParser(BaseLLMParser):
                 },
                 {
                     "employee_name": "Elena Rivera",
+                    "employee_ssn": "555-23-4567",
                     "employer_name": "EduCorp",
                     "box_1_wages": 54000.00,
                     "box_2_federal_withholding": 6100.00,

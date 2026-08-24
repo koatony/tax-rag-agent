@@ -50,6 +50,7 @@ class IncomeAggregatorDirectIncomeParser:
                 parsed_w2_items.append(
                     W2ItemV1(
                         employee_name=w2.get("employee_name"),
+                        employee_ssn=w2.get("employee_ssn") or w2.get("ssn"),
                         employer_name=w2.get("employer_name"),
                         tax_year=w2.get("tax_year"),
                         box_1_wages=Decimal(str(box1)) if box1 is not None else Decimal("0"),

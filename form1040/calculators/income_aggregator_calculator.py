@@ -1,8 +1,30 @@
+import re
+from typing import Optional
 from decimal import Decimal
 from form1040.models.income_aggregator_model import (
     IncomeAggregatorInputV1,
     IncomeSectionResultV1,
+    ProcessingIssueV1,
 )
+
+
+def sanitize_ssn(ssn: Optional[str]) -> Optional[str]:
+    if not ssn:
+        return None
+    cleaned = re.sub(r"[^\w*]", "", str(ssn)).strip()
+    return cleaned if cleaned else None
+
+
+def is_ssn_match(taxpayer_ssn_clean: Optional[str], w2_ssn_clean: Optional[str]) -> bool:
+    if not taxpayer_ssn_clean or not w2_ssn_clean:
+        return False
+    if taxpayer_ssn_clean == w2_ssn_clean:
+        return True
+    digits_taxpayer = re.sub(r"\D", "", taxpayer_ssn_clean)
+    digits_w2 = re.sub(r"\D", "", w2_ssn_clean)
+    if len(digits_taxpayer) >= 4 and len(digits_w2) >= 4:
+        return digits_taxpayer[-4:] == digits_w2[-4:]
+    return False
 
 
 class IncomeAggregatorCalculator:
@@ -20,9 +42,33 @@ class IncomeAggregatorCalculator:
 
         # Line 1a & Line 1z (W-2 Wages 加總)
         w2_wages_sum = Decimal("0")
+        review_warnings = []
+        status_upper = str(input_dto.filing_status or "").upper()
+        is_joint = status_upper in ["MFJ", "MARRIED_FILING_JOINTLY"]
+        taxpayer_ssn_clean = sanitize_ssn(input_dto.taxpayer_ssn)
+
         if direct_input and direct_input.w2_items:
-            for w2 in direct_input.w2_items:
-                w2_wages_sum += w2.box_1_wages
+            for idx, w2 in enumerate(direct_input.w2_items):
+                if is_joint:
+                    w2_wages_sum += w2.box_1_wages
+                else:
+                    w2_ssn_clean = sanitize_ssn(w2.employee_ssn)
+                    if is_ssn_match(taxpayer_ssn_clean, w2_ssn_clean):
+                        w2_wages_sum += w2.box_1_wages
+                    else:
+                        emp_label = w2.employer_name or w2.employee_name or f"W-2 #{idx + 1}"
+                        msg = (
+                            f"W-2 憑證 ({emp_label}) 員工 SSN ('{w2.employee_ssn or '未提供'}') "
+                            f"與納稅人 SSN ('{input_dto.taxpayer_ssn or '未提供'}') 不符，"
+                            f"在 {status_upper} 申報身分下未計入 Line 1a。"
+                        )
+                        review_warnings.append(
+                            ProcessingIssueV1(
+                                code="W2_SSN_MISMATCH",
+                                field=f"direct_income_input.w2_items[{idx}].employee_ssn",
+                                message=msg,
+                            )
+                        )
 
         line_1a = w2_wages_sum
         line_1z = line_1a
@@ -80,5 +126,5 @@ class IncomeAggregatorCalculator:
             status="COMPLETE",
             can_continue=True,
             blocking_errors=[],
-            review_warnings=[],
+            review_warnings=review_warnings,
         )

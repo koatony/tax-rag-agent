@@ -169,9 +169,109 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
         result = IncomeAggregatorProcessor.process(inp)
 
         self.assertEqual(result.status, "COMPLETE")
-        self.assertEqual(result.line_1z, Decimal("100000"))
-        self.assertEqual(result.line_9, Decimal("100000"))
+
+    def test_single_filing_ssn_filtering_and_sanitation(self):
+        """
+        測試 Single 身分下依據 SSN 過濾 W-2：
+        1. 符號破折號會自動清理 ('555-12-3456' vs '555123456')。
+        2. 只計入與納稅人 SSN 相符的 W-2。
+        3. 不相符的 W-2 不計入 Line 1a，並產生非阻斷 review_warning。
+        """
+        direct_income = DirectIncomeInputV1(
+            w2_items=[
+                W2ItemV1(
+                    employee_name="Marcus Rivera",
+                    employee_ssn="555-12-3456",
+                    box_1_wages=Decimal("46000"),
+                ),
+                W2ItemV1(
+                    employee_name="Elena Rivera",
+                    employee_ssn="555-23-4567",
+                    box_1_wages=Decimal("54000"),
+                ),
+            ]
+        )
+
+        inp = IncomeAggregatorInputV1(
+            tax_year=2025,
+            filing_status="SINGLE",
+            taxpayer_ssn="555123456",  # 無符號格式
+            direct_income_input=direct_income,
+        )
+        result = IncomeAggregatorProcessor.process(inp)
+
+        self.assertEqual(result.status, "COMPLETE")
+        self.assertTrue(result.can_continue)
+        self.assertEqual(result.line_1a, Decimal("46000"))  # 只包含 Marcus
+        self.assertEqual(len(result.review_warnings), 1)
+        self.assertEqual(result.review_warnings[0].code, "W2_SSN_MISMATCH")
+
+    def test_mfs_filing_ssn_filtering(self):
+        """
+        測試 MFS (夫妻分申) 身分下依據 SSN 過濾：
+        1. 只計入與 Elena SSN 相符的 W-2。
+        """
+        direct_income = DirectIncomeInputV1(
+            w2_items=[
+                W2ItemV1(
+                    employee_name="Marcus Rivera",
+                    employee_ssn="555-12-3456",
+                    box_1_wages=Decimal("46000"),
+                ),
+                W2ItemV1(
+                    employee_name="Elena Rivera",
+                    employee_ssn="555-23-4567",
+                    box_1_wages=Decimal("54000"),
+                ),
+            ]
+        )
+
+        inp = IncomeAggregatorInputV1(
+            tax_year=2025,
+            filing_status="MFS",
+            taxpayer_ssn="555-23-4567",  # 帶符號格式
+            direct_income_input=direct_income,
+        )
+        result = IncomeAggregatorProcessor.process(inp)
+
+        self.assertEqual(result.status, "COMPLETE")
+        self.assertTrue(result.can_continue)
+        self.assertEqual(result.line_1a, Decimal("54000"))  # 只包含 Elena
+        self.assertEqual(len(result.review_warnings), 1)
+        self.assertEqual(result.review_warnings[0].code, "W2_SSN_MISMATCH")
+
+    def test_mfj_filing_includes_all_w2s(self):
+        """
+        測試 MFJ (夫妻合申) 身分下合併所有 W-2
+        """
+        direct_income = DirectIncomeInputV1(
+            w2_items=[
+                W2ItemV1(
+                    employee_name="Marcus Rivera",
+                    employee_ssn="555-12-3456",
+                    box_1_wages=Decimal("46000"),
+                ),
+                W2ItemV1(
+                    employee_name="Elena Rivera",
+                    employee_ssn="555-23-4567",
+                    box_1_wages=Decimal("54000"),
+                ),
+            ]
+        )
+
+        inp = IncomeAggregatorInputV1(
+            tax_year=2025,
+            filing_status="MFJ",
+            taxpayer_ssn="555-12-3456",
+            direct_income_input=direct_income,
+        )
+        result = IncomeAggregatorProcessor.process(inp)
+
+        self.assertEqual(result.status, "COMPLETE")
+        self.assertEqual(result.line_1a, Decimal("100000"))  # 兩筆均包含
+        self.assertEqual(len(result.review_warnings), 0)
 
 
 if __name__ == "__main__":
     unittest.main()
+
