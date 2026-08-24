@@ -24,9 +24,12 @@ st.set_page_config(
 # 載入自訂 CSS 樣式以符合 Premium 設計質感
 schedule_a_ui_helper.inject_custom_css()
 
-# 載入核心模組與 LLM 封裝
-from adapter import PriorYearReturnAdapter
-from mapper import ScheduleDMapper
+try:
+    from adapter import PriorYearReturnAdapter
+    from mapper import ScheduleDMapper
+except ImportError:
+    PriorYearReturnAdapter = None
+    ScheduleDMapper = None
 
 # --- 預設測試資料 (Marcus and Elena Rivera 完整實驗資料) ---
 DEFAULT_RIVERA_DATA = {

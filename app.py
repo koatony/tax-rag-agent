@@ -40,19 +40,7 @@ from processors.processors.form_4562 import (
     extract_and_calculate_form_4562 as run_extract_and_calculate_form_4562
 )
 import concurrent.futures
-from adapter import (
-    W2Adapter,
-    ItemizedDeductionAdapter,
-    RentalIncomeAndExpenseAdapter,
-    PriorYearReturnAdapter
-)
-from mapper import (
-    Form1040WagesMapper,
-    ScheduleADeductionMapper,
-    ScheduleDMapper,
-    ScheduleEMapper,
-    aggregate_form_1040_line_1a
-)
+
 from Flag.analyzer_core_v2 import analyze as flag_analyze
 from Flag.form_status_analyzer import analyze_form_status as form_status_analyze
 

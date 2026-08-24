@@ -57,9 +57,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ─── 載入模組 ─────────────────────────────────────────────────────────────
-from adapter import RentalIncomeAndExpenseAdapter
-from mapper import ScheduleEMapper
+try:
+    from adapter import RentalIncomeAndExpenseAdapter
+    from mapper import ScheduleEMapper
+except ImportError:
+    RentalIncomeAndExpenseAdapter = None
+    ScheduleEMapper = None
 
 # ─── 預設 Rivera 出租收支測試資料 ─────────────────────────────────────────
 DEFAULT_RENTAL_INPUT = {

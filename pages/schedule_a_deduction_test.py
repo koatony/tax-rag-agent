@@ -67,9 +67,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ─── 載入模組 ─────────────────────────────────────────────────────────────
-from adapter import ItemizedDeductionAdapter
-from mapper import ScheduleADeductionMapper
+try:
+    from adapter import ItemizedDeductionAdapter
+    from mapper import ScheduleADeductionMapper
+except ImportError:
+    ItemizedDeductionAdapter = None
+    ScheduleADeductionMapper = None
 
 # ─── 預設 Rivera 扣除項目測試資料 ─────────────────────────────────────────
 # ─── 預設 Rivera 扣除項目測試資料 ─────────────────────────────────────────

@@ -78,9 +78,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ─── 載入模組 ─────────────────────────────────────────────────────────────
-from adapter import W2Adapter
-from mapper import Form1040WagesMapper, aggregate_form_1040_line_1a
+try:
+    from adapter import W2Adapter
+    from mapper import Form1040WagesMapper, aggregate_form_1040_line_1a
+except ImportError:
+    W2Adapter = None
+    Form1040WagesMapper = None
+    aggregate_form_1040_line_1a = None
 
 # ─── 預設 Rivera W-2 測試資料 ─────────────────────────────────────────────
 DEFAULT_W2_INPUT = {
