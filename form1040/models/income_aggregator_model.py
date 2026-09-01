@@ -85,7 +85,9 @@ class Schedule1ResultV1(BaseModel):
     line_26_adjustments_to_income: Decimal = Decimal("0")
     status: str = "COMPLETE"
     can_continue: bool = True
+    can_file: bool = True
     blocking_errors: List[ProcessingIssueV1] = Field(default_factory=list)
+    review_warnings: List[ProcessingIssueV1] = Field(default_factory=list)
 
 
 class ScheduleEResultV1(BaseModel):

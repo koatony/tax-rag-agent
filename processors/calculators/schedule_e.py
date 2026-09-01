@@ -399,10 +399,12 @@ def calculate_schedule_e_part1_v1(inputs: ScheduleEPart1InputsV1, allowed_years:
         for prop in inputs.properties if prop.depreciation_result
     ]
     reasons_4562 = [r for r in reasons_4562 if r]
-    if reasons_4562:
+    if len(inputs.properties) == 0:
+        requires_form_4562_attachment_reason = "No reportable rental property. Form 4562 not applicable."
+    elif reasons_4562:
         requires_form_4562_attachment_reason = " ； ".join(reasons_4562)
     elif requires_form_4562_attachment:
-        requires_form_4562_attachment_reason = "需要檢附 Form 4562。"
+        requires_form_4562_attachment_reason = f"需要檢附 Form 4562：根據申報資料包含須檢附 Form 4562 之折舊項目（待確認具體觸發條件）。"
     else:
         requires_form_4562_attachment_reason = f"無須檢附 Form 4562：所有出租房產均為往年 (早於 {inputs.tax_year}) 投入使用之常規住宅地產，折舊金額直接填入 Schedule E Line 18 申報即可。"
     requires_form_6198_attachment = any(

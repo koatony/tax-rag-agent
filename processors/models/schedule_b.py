@@ -223,6 +223,7 @@ class ScheduleBInputsV1:
         """
         self.taxpayer_name = str(kwargs.get("taxpayer_name", ""))
         self.taxpayer_ssn = str(kwargs.get("taxpayer_ssn", ""))
+        self.filing_status = str(kwargs.get("filing_status", "SINGLE")).upper()
         ty = kwargs.get("tax_year")
         try:
             self.tax_year = int(float(ty)) if ty is not None else None

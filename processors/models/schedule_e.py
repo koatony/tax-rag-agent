@@ -122,6 +122,7 @@ class ExternalDepreciationResultV1:
         self.form_4562_attachment_required = kwargs.get("form_4562_attachment_required")
         if self.form_4562_attachment_required is not None:
             self.form_4562_attachment_required = bool(self.form_4562_attachment_required)
+        self.form_4562_attachment_reason = str(kwargs.get("form_4562_attachment_reason", ""))
             
         # Support extracting line 22 total depreciation from Form 4562 processor result
         self.line_22_total_depreciation_and_amortization = kwargs.get("line_22_total_depreciation_and_amortization")

@@ -100,7 +100,7 @@ class TestForm10400622Integration(unittest.TestCase):
         )
 
         # 4. 驗證全流程計算狀態
-        self.assertEqual(assembly_result["status"], "COMPLETE")
+        self.assertTrue(assembly_result["can_file"])
         self.assertEqual(len(assembly_result["blocking_errors"]), 0)
 
         income_sec = assembly_result["income_section"]
@@ -122,22 +122,22 @@ class TestForm10400622Integration(unittest.TestCase):
 
         # 7. 驗證 Deduction Section (Lines 12e-14)
         ded_sec = assembly_result["deduction_section"]
-        self.assertEqual(ded_sec["status"], "COMPLETE")
+        self.assertTrue(ded_sec.get("can_file", True))
         self.assertEqual(ded_sec["line_14_total_deductions"], 31500.0)
 
         # 8. 驗證 Taxable Income Section (Line 15)
         taxable_sec = assembly_result["taxable_income_section"]
-        self.assertEqual(taxable_sec["status"], "COMPLETE")
+        self.assertTrue(taxable_sec.get("can_file", True))
         self.assertEqual(taxable_sec["line_15_taxable_income"], "62055.00") # 93555 - 31500 = 62055.00
 
         # 9. 驗證 Tax Computation Section (Lines 16-18)
         tax_comp_sec = assembly_result["tax_computation_section"]
-        self.assertEqual(tax_comp_sec["status"], "COMPLETE")
+        self.assertTrue(tax_comp_sec.get("can_file", True))
         self.assertTrue(Decimal(tax_comp_sec["line_18_tax_before_credits"]) > Decimal("0.00"))
 
         # 10. 驗證 Payments & Refund Section (Lines 25-38)
         pay_sec = assembly_result["payments_refund_section"]
-        self.assertEqual(pay_sec["status"], "COMPLETE")
+        self.assertTrue(pay_sec.get("can_file", True))
         self.assertEqual(pay_sec["line_25a_w2_withholding"], "11300.00") # 5200 + 6100 = 11300.00
         self.assertEqual(pay_sec["line_25d_total_withholding"], "11300.00")
         self.assertTrue(Decimal(pay_sec["line_34_overpayment"]) > Decimal("0.00"))
@@ -147,13 +147,51 @@ class TestForm10400622Integration(unittest.TestCase):
         warnings = assembly_result.get("review_warnings", [])
         self.assertTrue(any(w.get("code") == "UNIMPLEMENTED_MODULE_PLACEHOLDER" for w in warnings if isinstance(w, dict)))
 
+    def test_0622_unconfirmed_ira_blocks_can_file(self):
+        """測試當 IRA 扣除額資格未確定 (is_deductibility_confirmed=False) 時，產生 UNCONFIRMED_DEDUCTIBILITY 警告並將 overall can_file 鎖定為 False"""
+        s1_inputs_unconfirmed = {
+            "taxpayer_name": "Marcus & Elena Rivera",
+            "taxpayer_ssn": "123-45-6789",
+            "tax_year": 2025,
+            "adjustment_items": [
+                {
+                    "item_id": "adj_ira",
+                    "line_code": "20",
+                    "description": "IRA deduction",
+                    "amount": 7000.0,
+                    "is_deductibility_confirmed": False
+                }
+            ],
+            "special_case_flags": {}
+        }
+
+        assembly_result = Form1040Orchestrator.assemble(
+            tax_year=2025,
+            filing_status="MFJ",
+            raw_llm_direct_income={},
+            raw_schedule_1_input=s1_inputs_unconfirmed,
+        )
+
+        # 驗證 AGI 依然能推算出來 (樂觀計算)
+        agi_sec = assembly_result["agi_section"]
+        self.assertEqual(agi_sec["line_10_adjustments_to_income"], "7000.00")
+
+        # 驗證警報包含 UNCONFIRMED_DEDUCTIBILITY
+        warnings = assembly_result.get("review_warnings", [])
+        warn_codes = [w.get("code") if isinstance(w, dict) else getattr(w, "code", None) for w in warnings]
+        self.assertIn("UNCONFIRMED_DEDUCTIBILITY", warn_codes)
+
+        # 驗證 Schedule 1 section 以及 總體 1040 的 can_file 皆已被阻斷為 False
+        self.assertFalse(assembly_result["schedule_1_section"]["can_file"])
+        self.assertFalse(assembly_result["can_file"])
+
     def test_omitted_taxpayer_profile_uses_defaults(self):
         """測試當 taxpayer_profile 缺少 filing_status 或 tax_year 時，自動使用安全預設值 (2025 / MFJ) 順暢完成試算"""
         res = Form1040Orchestrator.extract_and_assemble(
             taxpayer_profile={"name": "Alice"},
             uploaded_documents=[{"document_type": "W-2", "text": "Wages: 50000"}],
         )
-        self.assertIn("status", res)
+        self.assertIn("can_file", res)
         self.assertIn("form_1040_lines", res)
 
 

@@ -263,6 +263,7 @@ class Form1040Orchestrator:
                 line_10_additional_income=_safe_decimal(s1_res_dict.get('line_10_additional_income')),
                 line_26_adjustments_to_income=_safe_decimal(s1_res_dict.get('line_26_adjustments_to_income')),
                 status=s1_status,
+                can_file=s1_res_dict.get("can_file", True),
                 blocking_errors=s1_blocking_issues,
                 review_warnings=s1_res_dict.get("review_warnings", [])
             )
@@ -419,12 +420,12 @@ class Form1040Orchestrator:
                 tax_comp_result,
                 credits_result,
                 payments_result,
+                schedule_1_result,
+                resolved_sa_result,
                 schedule_e_result,
             ] if sec is not None
         ]
 
-        overall_status = "BLOCKED" if any(getattr(sec, "status", "COMPLETE") == "BLOCKED" for sec in all_sections) else "COMPLETE"
-        
         # 收集所有阻斷錯誤
         all_blocking_errors = []
         for sec in all_sections:
@@ -436,7 +437,7 @@ class Form1040Orchestrator:
         # 收集 Review Warnings 並加入顯式 Placeholder 提醒
         all_review_warnings = []
         for sec in all_sections:
-            sec_warns = getattr(sec, "review_warnings", []) or []
+            sec_warns = (sec.get("review_warnings", []) if isinstance(sec, dict) else getattr(sec, "review_warnings", [])) or []
             for warn in sec_warns:
                 if warn not in all_review_warnings:
                     all_review_warnings.append(warn)
@@ -513,18 +514,14 @@ class Form1040Orchestrator:
             "line_31": _fmt_dec(payments_result.line_31_schedule3_total) or "0.00",
             "line_32": _fmt_dec(payments_result.line_32_other_payments_credits) or "0.00",
             "line_33": _fmt_dec(payments_result.line_33_total_payments) or "0.00",
-            # -----------------------------------------------------------------
-            # 依據 IRS Form 1040 申報規範：
-            # 1. 一般行次 (Lines 1-33) 無金額時補 "0.00"，方便前端面板/PDF渲染。
-            # 2. 互斥行次 (Line 34/35a 溢繳退稅 vs Line 37 欠稅補繳) 嚴格二選一；
-            #    未觸發的分支必須保持 None (null)，不可補 "0.00"，以免被稅局系統誤判。
-            # -----------------------------------------------------------------
             "line_34": _fmt_dec(payments_result.line_34_overpayment),
             "line_35a": _fmt_dec(payments_result.line_35a_refund_amount),
             "line_36": _fmt_dec(payments_result.line_36_applied_to_next_year),
             "line_37": _fmt_dec(payments_result.line_37_amount_owed),
             "line_38": _fmt_dec(payments_result.line_38_estimated_tax_penalty),
         }
+
+        overall_can_file = all(getattr(sec, "can_file", True) for sec in all_sections) and len(all_blocking_errors) == 0
 
         return {
             "form_1040_lines": form_1040_lines,
@@ -536,13 +533,13 @@ class Form1040Orchestrator:
             "credits_section": _make_json_safe(credits_result),
             "payments_refund_section": _make_json_safe(payments_result),
             
-            # --- 子表單計算結果 Section (對標 schedule_e_section 風格) ---
+            # --- 子表單計算結果 Section ---
             "schedule_a_section": _make_json_safe(sa_res_dict),
             "schedule_b_section": _make_json_safe(sb_res_dict),
             "schedule_e_section": _make_json_safe(se_res_dict) or (_make_json_safe(schedule_e_result) if schedule_e_result else None),
             "schedule_1_section": _make_json_safe(s1_res_dict),
             
-            "status": overall_status,
+            "can_file": overall_can_file,
             "blocking_errors": _make_json_safe([err.to_dict() if hasattr(err, "to_dict") else err for err in all_blocking_errors]),
             "review_warnings": _make_json_safe([warn.to_dict() if hasattr(warn, "to_dict") else warn for warn in all_review_warnings]),
         }
@@ -595,14 +592,23 @@ class Form1040Orchestrator:
 
         # (b) 提取 Schedule B 輸入
         raw_schedule_b_input, _, _ = extract_schedule_b_inputs_with_logs(doc_ctx_str, model_name=model_name)
+        if raw_schedule_b_input and isinstance(raw_schedule_b_input, dict):
+            raw_schedule_b_input.setdefault("filing_status", filing_status)
+            raw_schedule_b_input.setdefault("tax_year", tax_year)
 
         # (c) 提取 Schedule 1 輸入
         raw_schedule_1_input, _, _ = extract_schedule_1_inputs_with_logs(doc_ctx_str, model_name=model_name)
+        if raw_schedule_1_input and isinstance(raw_schedule_1_input, dict):
+            raw_schedule_1_input.setdefault("filing_status", filing_status)
+            raw_schedule_1_input.setdefault("tax_year", tax_year)
 
         # (d) 提取 Schedule A 輸入
         raw_schedule_a_input = None
         try:
             raw_schedule_a_input, _, _ = extract_schedule_a_inputs_with_logs(doc_ctx_str, model_name=model_name)
+            if raw_schedule_a_input and isinstance(raw_schedule_a_input, dict):
+                raw_schedule_a_input.setdefault("filing_status", filing_status)
+                raw_schedule_a_input.setdefault("tax_year", tax_year)
         except Exception:
             pass
 
@@ -610,6 +616,9 @@ class Form1040Orchestrator:
         raw_schedule_e_input = None
         try:
             raw_schedule_e_input, _, _ = extract_schedule_e_inputs_with_logs(doc_ctx_str, model_name=model_name)
+            if raw_schedule_e_input and isinstance(raw_schedule_e_input, dict):
+                raw_schedule_e_input.setdefault("filing_status", filing_status)
+                raw_schedule_e_input.setdefault("tax_year", tax_year)
         except Exception:
             pass
 

@@ -8,9 +8,17 @@ from .risk_scoring import compute_risk_score
 from .safety_nets import (
     RENTAL_ACTIVITY_KEYWORDS,
     W2_RETIREMENT_KEYWORDS,
+    check_charity_acknowledgment,
+    check_form1098_mip_nondeductible,
     check_prior_year_comparison,
+    check_rental_depreciation_arithmetic,
     check_rental_depreciation_omission,
     check_rental_documentation_completeness,
+    check_rental_repair_classification,
+    check_schedule_b_threshold_note,
+    check_w2_box12_box13_consistency,
+    check_w2_federal_state_wage_reconciliation,
+    check_w2_payroll_tax_math,
     check_w2_retirement_wage_reconciliation,
     enforce_required_missing_docs,
 )
@@ -81,9 +89,41 @@ async def analyze(
     if not already_has_w2_retirement_flag:
         flags.extend(check_w2_retirement_wage_reconciliation(extracted_data))
 
+    flags.extend(check_w2_payroll_tax_math(extracted_data))
+    flags.extend(check_w2_box12_box13_consistency(extracted_data))
+    flags.extend(check_w2_federal_state_wage_reconciliation(extracted_data))
+    flags.extend(check_form1098_mip_nondeductible(extracted_data))
+
+    rental_depreciation_math_gap = check_rental_depreciation_arithmetic(extracted_data)
+    if rental_depreciation_math_gap is not None:
+        flags.append(rental_depreciation_math_gap)
+
+    rental_repair_note = check_rental_repair_classification(extracted_data)
+    if rental_repair_note is not None:
+        flags.append(rental_repair_note)
+
+    charity_ack_issue = check_charity_acknowledgment(extracted_data)
+    if charity_ack_issue is not None:
+        flags.append(charity_ack_issue)
+
+    schedule_b_note = check_schedule_b_threshold_note(extracted_data)
+    if schedule_b_note is not None:
+        flags.append(schedule_b_note)
+
     # Materiality is relative to the largest amount_at_risk in THIS run, so
-    # it can only be computed once every flag's amount is known.
-    max_amount_at_risk = max((float(f.get("amount_at_risk") or 0) for f in flags), default=0.0)
+    # it can only be computed once every flag's amount is known. bright_line
+    # and informational flags are excluded since neither goes through the
+    # IR x CR x DR formula (see compute_risk_score) and neither should be
+    # able to inflate the denominator and dilute every other flag's
+    # materiality score.
+    max_amount_at_risk = max(
+        (
+            float(f.get("amount_at_risk") or 0)
+            for f in flags
+            if f.get("rule_deviation_type") not in ("bright_line", "informational")
+        ),
+        default=0.0,
+    )
 
     for flag in flags:
         flag["risk_score"], flag["risk_level"] = compute_risk_score(flag, max_amount_at_risk)
@@ -94,7 +134,7 @@ async def analyze(
     for i, flag in enumerate(flags):
         flag["flag_id"] = f"FLAG-{i + 1:03d}"
 
-    summary = {"high": 0, "medium": 0, "low": 0, "total": len(flags)}
+    summary = {"high": 0, "medium": 0, "low": 0, "info": 0, "total": len(flags)}
     for f in flags:
         lvl = f.get("risk_level", "").lower()
         if lvl in summary:

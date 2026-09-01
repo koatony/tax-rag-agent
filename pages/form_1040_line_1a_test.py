@@ -375,20 +375,20 @@ if st.session_state.form_1040_result:
     st.metric("總執行耗時", f"{latency:.2f} 秒")
 
     # ─── Form 1040 Line 1a 最終結果卡片 ───────────────────────────────
-    st.markdown("### 🧾 Form 1040 Line 1a — 最終結果")
-
     total_val = line_1a_result.get("total_value", 0.0)
-    calc_status = line_1a_result.get("calculation_status", "")
     needs_review = line_1a_result.get("needs_review", False)
     review_reasons = line_1a_result.get("review_reasons") or []
     source_items = line_1a_result.get("source_items") or []
     excluded_items = line_1a_result.get("excluded_review_items") or []
+    can_file = line_1a_result.get("can_file", not needs_review)
 
     # 計算狀態徽章
-    if calc_status == "completed":
-        status_badge = '<span style="background:#10b981;color:white;padding:2px 10px;border-radius:5px;font-size:0.85rem;font-weight:700;">✅ completed</span>'
+    if can_file and not needs_review:
+        status_badge = '<span style="background:#10b981;color:white;padding:2px 10px;border-radius:5px;font-size:0.85rem;font-weight:700;">✅ can_file</span>'
+    elif can_file:
+        status_badge = '<span style="background:#f59e0b;color:white;padding:2px 10px;border-radius:5px;font-size:0.85rem;font-weight:700;">⚠️ needs_review</span>'
     else:
-        status_badge = '<span style="background:#f59e0b;color:white;padding:2px 10px;border-radius:5px;font-size:0.85rem;font-weight:700;">⚠️ completed_with_review</span>'
+        status_badge = '<span style="background:#ef4444;color:white;padding:2px 10px;border-radius:5px;font-size:0.85rem;font-weight:700;">❌ blocked</span>'
 
     # 組合 taxpayer chips
     taxpayer_chips = "".join(
@@ -538,7 +538,7 @@ if st.session_state.form_1040_result:
     )
 
     # AC3: 系統加總所有映射至 Line 1a 的 wages
-    ac3_pass = calc_status in ("completed", "completed_with_review")
+    ac3_pass = can_file
     ac_rows.append(("系統自動加總 Line 1a wages", "✅ aggregate_form_1040_line_1a() 執行完成" if ac3_pass else "❌ 未執行", ac3_pass))
 
     # AC4: Line 1a 總額 = $100,000

@@ -95,6 +95,13 @@ def compute_risk_score(flag: dict, max_amount_at_risk: float) -> tuple[float, st
     if flag.get("rule_deviation_type") == "bright_line":
         return 100, "high"
 
+    # "informational" flags are facts worth surfacing to the CPA (e.g. a
+    # static rule that already has a known, non-actionable answer) but carry
+    # no compliance risk themselves — they never enter the IR x CR x DR
+    # formula and never block auto-approval.
+    if flag.get("rule_deviation_type") == "informational":
+        return 0, "info"
+
     w1, w2, w3 = RISK_WEIGHTS["w1"], RISK_WEIGHTS["w2"], RISK_WEIGHTS["w3"]
 
     category_base_rate = _category_base_rate(flag)

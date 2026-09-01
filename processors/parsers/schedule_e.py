@@ -104,8 +104,9 @@ class ScheduleELLMParser(BaseLLMParser):
                         "property_id": "prop_001",
                         "tax_year": 2025,
                         "calculation_status": "CALCULATED",
-                        "depreciation_amount":0.0,
+                        "depreciation_amount": 0.0,
                         "form_4562_attachment_required": False,
+                        "form_4562_attachment_reason": "包含當年度首次投入使用之折舊財產",
                         "source_result_id": "dep_res_01"
                     }
                 }
