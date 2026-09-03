@@ -531,15 +531,23 @@ def calculate_schedule_a_v1(inputs: ScheduleAInputsV1, allowed_years: Optional[S
             errors.append(ValidationIssue("STANDARD_DEDUCTION_REFERENCE_MISSING", field="standard_deduction_amount", message="Standard deduction amount is missing."))
     else:
         # 決定是否使用列舉扣除額 (Itemized Deduction)：
-        # 符合以下任一情況即為 True：
-        # 1. 夫妻分申 (MFS) 且配偶已選擇列舉扣除，依法本申報人也「強制必須列舉」。
-        # 2. 申報人主動選擇列舉扣除（即使列舉總額小於標準扣除額）。
-        # 3. 列舉扣除總額 (Line 17) 大於標準扣除額 (standard_amount)（常規最優選擇）。
-        is_itemizing = (
-            inputs.standard_deduction_reference.must_itemize_due_to_mfs_spouse is True
-            or inputs.standard_deduction_reference.elect_itemize_even_if_less is True
-            or line_17 > standard_amount
-        )
+        # 若 can_file 為 False (存在阻斷錯誤、不支援項目或無法申報)，無法使用 Schedule A，強制選用標準扣除額
+        if not can_file:
+            is_itemizing = False
+            if line_17 > standard_amount:
+                err_msgs = [e.message if hasattr(e, "message") else str(e) for e in errors]
+                msg_detail = f" (原因：{'; '.join(err_msgs)})" if err_msgs else ""
+                warnings.append(ValidationIssue(
+                    "SCHEDULE_A_UNUSABLE_FALLBACK_TO_STANDARD",
+                    field="is_itemizing",
+                    message=f"列舉扣除總額 (${line_17:.2f}) 雖大於標準扣除額 (${standard_amount:.2f})，但因 Schedule A 存在未通過之檢驗或阻斷錯誤 (can_file=False)，無法申報 Schedule A，系統已安全回退選用標準扣除額。{msg_detail}"
+                ))
+        else:
+            is_itemizing = (
+                inputs.standard_deduction_reference.must_itemize_due_to_mfs_spouse is True
+                or inputs.standard_deduction_reference.elect_itemize_even_if_less is True
+                or line_17 > standard_amount
+            )
 
     should_attach = can_file and (is_itemizing is True)
 

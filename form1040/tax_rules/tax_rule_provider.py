@@ -25,15 +25,25 @@ class TaxRuleProvider:
         rules_2025_path = os.path.join(base_dir, "2025", "tax_rules_2025.json")
         table_2025_path = os.path.join(base_dir, "2025", "tax_table_2025.json")
 
-        with open(rules_2025_path, "r", encoding="utf-8") as f:
-            self.rules_2025: Dict[str, Any] = json.load(f)
+        if os.path.exists(rules_2025_path):
+            with open(rules_2025_path, "r", encoding="utf-8") as f:
+                self.rules_2025: Dict[str, Any] = json.load(f)
+        else:
+            self.rules_2025 = {
+                "tax_year": 2025,
+                "filing_status_aliases": {"QSS": "MFJ", "QUALIFYING_SURVIVING_SPOUSE": "MFJ"},
+                "tax_brackets": {}
+            }
 
-        with open(table_2025_path, "r", encoding="utf-8") as f:
-            table_data = json.load(f)
-            if isinstance(table_data, dict) and "rows" in table_data:
-                self.table_2025: List[Dict[str, Any]] = table_data["rows"]
-            else:
-                self.table_2025 = table_data
+        if os.path.exists(table_2025_path):
+            with open(table_2025_path, "r", encoding="utf-8") as f:
+                table_data = json.load(f)
+                if isinstance(table_data, dict) and "rows" in table_data:
+                    self.table_2025: List[Dict[str, Any]] = table_data["rows"]
+                else:
+                    self.table_2025 = table_data
+        else:
+            self.table_2025 = []
 
 
     @classmethod

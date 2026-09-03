@@ -24,7 +24,7 @@ from form1040.models.tax_computation_model import (
     TaxComputationResultV1,
     OrdinaryTaxEligibilityV1,
     ApplicabilityStatus,
-    FilingStatus,
+    normalize_filing_status,
 )
 from form1040.models.credits_model import CreditsProcessorInputV1, CreditsProcessorResultV1
 from form1040.models.payments_refund_model import (
@@ -73,19 +73,23 @@ def _fmt_dec(val: Any) -> Optional[str]:
 
 def _make_json_safe(obj: Any) -> Any:
     """
-    遞迴將 dict / list / Tuple / DTO 中所有 Decimal 物件轉成 float，
+    遞迴將 dict / list / Tuple / DTO / Pydantic BaseModel 中所有 Decimal 物件轉成 float，
     保證回傳結構 100% 可直接被 JSON 序列化，避免 API 報錯。
     """
     if obj is None:
         return None
     if isinstance(obj, Decimal):
         return float(obj)
+    if hasattr(obj, "model_dump") and callable(getattr(obj, "model_dump")):
+        return _make_json_safe(obj.model_dump())
+    if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
+        return _make_json_safe(obj.dict())
+    if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
+        return _make_json_safe(obj.to_dict())
     if isinstance(obj, dict):
         return {k: _make_json_safe(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_make_json_safe(x) for x in obj]
-    if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
-        return _make_json_safe(obj.to_dict())
     return obj
 
 
@@ -237,6 +241,10 @@ class Form1040Orchestrator:
             raw_schedule_1_input["schedule_e_line_41"] = schedule_1_line_5_transfer_amount
             if "tax_year" not in raw_schedule_1_input:
                 raw_schedule_1_input["tax_year"] = tax_year
+            if "taxpayer_name" not in raw_schedule_1_input:
+                raw_schedule_1_input["taxpayer_name"] = "Taxpayer"
+            if "taxpayer_ssn" not in raw_schedule_1_input:
+                raw_schedule_1_input["taxpayer_ssn"] = taxpayer_ssn or "000-00-0000"
 
         schedule_1_result = None
         if raw_schedule_1_input:
@@ -245,6 +253,8 @@ class Form1040Orchestrator:
             
             s1_res_dict = calculate_schedule_1_dynamic(raw_schedule_1_input)
             s1_has_blocking = s1_res_dict.get("blocking_validation_error") or len(s1_res_dict.get("blocking_errors", [])) > 0
+            # Schedule 1 remains blocked for filing, but its already-computed
+            # supported lines may still feed provisional Form 1040 arithmetic.
             s1_status = "BLOCKED" if s1_has_blocking else "COMPLETE"
             
             s1_blocking_issues = [
@@ -263,7 +273,9 @@ class Form1040Orchestrator:
                 line_10_additional_income=_safe_decimal(s1_res_dict.get('line_10_additional_income')),
                 line_26_adjustments_to_income=_safe_decimal(s1_res_dict.get('line_26_adjustments_to_income')),
                 status=s1_status,
+                can_continue=True,
                 can_file=s1_res_dict.get("can_file", True),
+                is_v1_supported=s1_res_dict.get("is_v1_supported", True),
                 blocking_errors=s1_blocking_issues,
                 review_warnings=s1_res_dict.get("review_warnings", [])
             )
@@ -328,7 +340,7 @@ class Form1040Orchestrator:
             status=ApplicabilityStatus.APPLICABLE
         )
         
-        fs_enum = FilingStatus(filing_status) if filing_status in FilingStatus.__members__ else FilingStatus.SINGLE
+        fs_enum = normalize_filing_status(filing_status)
         tax_comp_input = TaxComputationInputV1(
             tax_year=tax_year,
             filing_status=fs_enum,
@@ -369,10 +381,17 @@ class Form1040Orchestrator:
                     if is_ssn_match(taxpayer_ssn_clean, w2_ssn_clean):
                         w2_withholding += (w2.box_2_federal_withholding or Decimal("0.00"))
 
+        # 從 1099 項目 (Pension/Annuity Form 1099-R Box 4, IRA, Social Security) 自動加總 Federal Withholding
+        form1099_withholding = Decimal("0.00")
+        if direct_income_dto:
+            for item in [direct_income_dto.pension_annuity, direct_income_dto.ira_distribution, direct_income_dto.social_security]:
+                if item and item.federal_withholding is not None:
+                    form1099_withholding += (item.federal_withholding or Decimal("0.00"))
+
         withholding_res = {
             "status": "COMPLETE",
             "w2_withholding": w2_withholding,
-            "form1099_withholding": Decimal("0.00"),
+            "form1099_withholding": form1099_withholding,
             "other_withholding": Decimal("0.00")
         }
 
@@ -428,10 +447,20 @@ class Form1040Orchestrator:
 
         # 收集所有阻斷錯誤
         all_blocking_errors = []
+        seen_blocking_errors = set()
         for sec in all_sections:
             sec_blocking = getattr(sec, "blocking_errors", []) or []
             for err in sec_blocking:
-                if err not in all_blocking_errors:
+                if isinstance(err, dict):
+                    error_key = (err.get("code"), err.get("field"), err.get("message"))
+                else:
+                    error_key = (
+                        getattr(err, "code", None),
+                        getattr(err, "field", None),
+                        getattr(err, "message", str(err)),
+                    )
+                if error_key not in seen_blocking_errors:
+                    seen_blocking_errors.add(error_key)
                     all_blocking_errors.append(err)
 
         # 收集 Review Warnings 並加入顯式 Placeholder 提醒

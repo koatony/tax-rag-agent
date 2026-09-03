@@ -119,7 +119,9 @@ class TestDeductionResolverProcessor(unittest.TestCase):
         """測試當 Schedule A 回傳 can_file=False 或含有 blocking_errors 時，安全回退至 Standard Deduction 並記錄 warning"""
         sa_res = ScheduleAResultV1(
             standard_deduction_amount=Decimal("15750.00"),
-            line_17_total_itemized_deductions=Decimal("10000.00"),
+            line_17_total_itemized_deductions=Decimal("20000.00"),
+            line_18_elect_itemize_surface=True,
+            should_attach_schedule_a=True,
             can_file=False,
             blocking_errors=[
                 ProcessingIssueV1(
@@ -141,7 +143,33 @@ class TestDeductionResolverProcessor(unittest.TestCase):
         self.assertTrue(res.can_continue)
         self.assertEqual(res.deduction_type_used, "STANDARD")
         self.assertEqual(res.line_12e_deduction, Decimal("15750.00"))
+        self.assertFalse(res.is_itemizing)
+        self.assertFalse(res.should_attach_schedule_a)
         self.assertTrue(len(res.review_warnings) >= 1)
+
+    def test_can_file_false_alone_forces_standard_deduction(self):
+        sa_res = ScheduleAResultV1(
+            standard_deduction_amount=Decimal("23625.00"),
+            line_17_total_itemized_deductions=Decimal("34800.00"),
+            can_file=False,
+            blocking_errors=[],
+        )
+
+        res = DeductionResolverProcessor.process(
+            DeductionResolverInputV1(
+                tax_year=2025,
+                filing_status="HOH",
+                schedule_a_result=sa_res,
+            )
+        )
+
+        self.assertEqual(res.line_12e_deduction, Decimal("23625.00"))
+        self.assertEqual(res.deduction_type_used, "STANDARD")
+        self.assertFalse(res.is_itemizing)
+        self.assertTrue(any(
+            warning.get("code") == "SCHEDULE_A_FALLBACK_TO_STANDARD"
+            for warning in res.review_warnings
+        ))
 
 
     def test_to_dict_formatting(self):

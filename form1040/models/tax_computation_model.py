@@ -15,6 +15,32 @@ class FilingStatus(str, Enum):
     QSS = "QSS"
 
 
+_FILING_STATUS_ALIASES = {
+    "SINGLE": FilingStatus.SINGLE,
+    "MFJ": FilingStatus.MFJ,
+    "MARRIED_FILING_JOINTLY": FilingStatus.MFJ,
+    "MFS": FilingStatus.MFS,
+    "MARRIED_FILING_SEPARATELY": FilingStatus.MFS,
+    "HOH": FilingStatus.HOH,
+    "HEAD_OF_HOUSEHOLD": FilingStatus.HOH,
+    "QSS": FilingStatus.QSS,
+    "QUALIFYING_SURVIVING_SPOUSE": FilingStatus.QSS,
+}
+
+
+def normalize_filing_status(value: str | FilingStatus) -> FilingStatus:
+    """Convert supported filing-status labels to the canonical IRS abbreviation."""
+    if isinstance(value, FilingStatus):
+        return value
+
+    normalized = str(value or "").strip().upper()
+    normalized = normalized.replace("-", "_").replace(" ", "_")
+    status = _FILING_STATUS_ALIASES.get(normalized)
+    if status is None:
+        raise ValueError(f"Unsupported filing status: {value!r}")
+    return status
+
+
 class ApplicabilityStatus(str, Enum):
     """
     適用性狀態列舉值

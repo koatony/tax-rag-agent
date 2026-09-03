@@ -60,6 +60,8 @@ class AGIProcessorResultV1(BaseModel):
 
     status: Literal["COMPLETE", "BLOCKED"]
     can_continue: bool
+    can_file: bool = True
+    is_v1_supported: bool = True
     blocking_errors: List[ProcessingIssueV1] = Field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -70,5 +72,7 @@ class AGIProcessorResultV1(BaseModel):
             "line_11_adjusted_gross_income": str(self.line_11_adjusted_gross_income) if self.line_11_adjusted_gross_income is not None else None,
             "status": self.status,
             "can_continue": self.can_continue,
+            "can_file": self.can_file,
+            "is_v1_supported": self.is_v1_supported,
             "blocking_errors": [e.to_dict() for e in self.blocking_errors]
         }

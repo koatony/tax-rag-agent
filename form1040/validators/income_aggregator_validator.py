@@ -120,7 +120,10 @@ class IncomeAggregatorValidator:
         # 5. 驗證 Schedule 1 結果
         s1 = input_dto.schedule_1_result
         if s1 is not None:
-            if s1.status == "BLOCKED" or not s1.can_continue:
+            # A Schedule 1 filing error may coexist with usable calculated
+            # lines. Only a result that cannot continue blocks unrelated
+            # income (for example, otherwise valid W-2 wages).
+            if not s1.can_continue:
                 if s1.blocking_errors:
                     errors.extend(s1.blocking_errors)
                 else:

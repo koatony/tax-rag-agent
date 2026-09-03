@@ -105,6 +105,13 @@ class IncomeAggregatorCalculator:
         # Line 9 (Total Income = 1z + 2b + 3b + 4b + 5b + 6b + 7a + 8)
         line_9 = line_1z + line_2b + line_3b + line_4b + line_5b + line_6b + line_7a + line_8
 
+        s1_is_unfileable = bool(s1 and (
+            not s1.can_file
+            or not s1.is_v1_supported
+            or s1.blocking_errors
+        ))
+        upstream_errors = list(s1.blocking_errors) if s1_is_unfileable else []
+
         return IncomeSectionResultV1(
             tax_year=input_dto.tax_year,
             filing_status=input_dto.filing_status,
@@ -125,6 +132,8 @@ class IncomeAggregatorCalculator:
             line_9=line_9,
             status="COMPLETE",
             can_continue=True,
-            blocking_errors=[],
+            can_file=not s1_is_unfileable,
+            is_v1_supported=not s1_is_unfileable,
+            blocking_errors=upstream_errors,
             review_warnings=review_warnings,
         )

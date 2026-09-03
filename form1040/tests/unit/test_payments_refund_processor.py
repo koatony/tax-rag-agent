@@ -218,6 +218,24 @@ class TestPaymentsAndRefundProcessor(unittest.TestCase):
         # Line 34 / 37 mutual exclusivity: exactly one is None
         self.assertNotEqual(result.line_34_overpayment is None, result.line_37_amount_owed is None)
 
+    def test_orchestrator_1099r_withholding(self):
+        """
+        測試 Orchestrator 能正確將 1099-R (pension_annuity) 的 federal_withholding 彙整進 Line 25b 與 Line 25d
+        """
+        from form1040.orchestrator import Form1040Orchestrator
+        res = Form1040Orchestrator.assemble(
+            tax_year=2025,
+            filing_status="MFJ",
+            raw_llm_direct_income={
+                "w2_items": [{"box_1_wages": 50000, "box_2_federal_withholding": 3000}],
+                "pension_annuity": {"gross_amount": 15000, "taxable_amount": 15000, "federal_withholding": 1100}
+            }
+        )
+        lines = res["form_1040_lines"]
+        self.assertEqual(lines["line_25a"], "3000.00")
+        self.assertEqual(lines["line_25b"], "1100.00")
+        self.assertEqual(lines["line_25d"], "4100.00")
+
 
 if __name__ == "__main__":
     unittest.main()

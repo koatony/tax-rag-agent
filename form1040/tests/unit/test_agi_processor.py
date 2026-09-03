@@ -134,6 +134,34 @@ class TestAGIProcessor(unittest.TestCase):
         self.assertFalse(result.can_continue)
         self.assertTrue(any(err.code == "SCHEDULE_1_MODULE_BLOCKED" for err in result.blocking_errors))
 
+    def test_agi_keeps_known_amounts_from_unfileable_schedule_1(self):
+        result = AGIProcessor.process(
+            AGIProcessorInputV1(
+                line_9_total_income=Decimal("33650"),
+                schedule_1_result={
+                    "line_26_adjustments_to_income": Decimal("0"),
+                    "status": "BLOCKED",
+                    "can_continue": True,
+                    "can_file": False,
+                    "is_v1_supported": False,
+                    "blocking_errors": [
+                        {
+                            "code": "UNSUPPORTED_FORM_4797_4684",
+                            "field": "line_4_other_gains_or_losses",
+                            "message": "Form 4684 is not supported in V1.",
+                        }
+                    ],
+                },
+            )
+        )
+
+        self.assertEqual(result.line_9_total_income, Decimal("33650"))
+        self.assertEqual(result.line_11_adjusted_gross_income, Decimal("33650"))
+        self.assertEqual(result.status, "COMPLETE")
+        self.assertTrue(result.can_continue)
+        self.assertFalse(result.can_file)
+        self.assertFalse(result.is_v1_supported)
+
 
 if __name__ == "__main__":
     unittest.main()

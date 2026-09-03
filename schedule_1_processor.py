@@ -42,8 +42,10 @@ SCHEMA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "docs", "h
 
 def load_schedule_1_schema() -> Dict[str, Any]:
     """載入外部的 Schedule 1 V1 欄位與計算規則設定檔 (schedule_1_schema.json)。"""
-    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    if os.path.exists(SCHEMA_PATH):
+        with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"supported_tax_years": [2024, 2025]}
 
 def extract_schedule_1_inputs_with_logs(
     document_context: str,

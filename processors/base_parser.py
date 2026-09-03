@@ -52,8 +52,10 @@ class BaseLLMParser(ABC):
     def load_schema(self) -> Dict[str, Any]:
         """載入子類別所指定的 Schema。"""
         path = self.get_schema_path()
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {"inputs": []}
 
     def generate_extraction_prompt(self, schema: Dict[str, Any]) -> str:
         """

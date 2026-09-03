@@ -53,7 +53,10 @@ class AGIValidator:
         else:
             # 檢查上游 Schedule 1 是否執行阻斷
             s1_status = getattr(s1_res, "status", None) or (s1_res.get("status") if isinstance(s1_res, dict) else None)
-            if s1_status == "BLOCKED":
+            s1_can_continue = getattr(s1_res, "can_continue", None)
+            if isinstance(s1_res, dict):
+                s1_can_continue = s1_res.get("can_continue", s1_can_continue)
+            if s1_status == "BLOCKED" and s1_can_continue is not True:
                 errors.append(
                     ProcessingIssueV1(
                         code="SCHEDULE_1_MODULE_BLOCKED",

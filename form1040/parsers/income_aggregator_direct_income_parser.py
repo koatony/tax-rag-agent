@@ -78,9 +78,13 @@ class IncomeAggregatorDirectIncomeParser:
             if isinstance(item_raw, dict):
                 gross = item_raw.get("gross_amount", "0")
                 taxable = item_raw.get("taxable_amount", "0")
+                withholding = item_raw.get("federal_withholding")
+                if withholding is None:
+                    withholding = item_raw.get("box_4_federal_withholding") or item_raw.get("federal_tax_withheld")
                 return DirectIncomeItemV1(
                     gross_amount=Decimal(str(gross)),
                     taxable_amount=Decimal(str(taxable)),
+                    federal_withholding=Decimal(str(withholding)) if withholding is not None else None,
                     status=item_raw.get("status", "EXPLICIT_VALUE"),
                 )
             return None

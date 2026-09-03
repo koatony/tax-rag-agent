@@ -41,8 +41,10 @@ SCHEMA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "docs", "h
 
 def load_form_4562_schema() -> Dict[str, Any]:
     """載入外部的 Form 4562 V1 欄位與計算規則設定檔 (form_4562_schema.json)。"""
-    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    if os.path.exists(SCHEMA_PATH):
+        with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"supported_tax_years": [2024, 2025]}
 
 def extract_form_4562_inputs_with_logs(
     document_context: str,

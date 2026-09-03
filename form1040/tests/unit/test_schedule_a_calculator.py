@@ -183,5 +183,45 @@ class TestScheduleACalculator(unittest.TestCase):
         # 驗證需要人工複查，can_file 為 False
         self.assertFalse(res.can_file)
 
+    def test_unusable_schedule_a_falls_back_to_standard_and_adds_warning(self):
+        """
+        測試當 Schedule A 列舉總額大於 Standard Deduction，但因 Blocking Error 導致 can_file 為 False 時：
+        1. is_itemizing 應為 False。
+        2. should_attach_schedule_a 應為 False。
+        3. review_warnings 中應包含 SCHEDULE_A_UNUSABLE_FALLBACK_TO_STANDARD 警告說明原因。
+        """
+        inputs_payload = {
+            "taxpayer_name": "Marcus Rivera",
+            "taxpayer_ssn": "123-45-6789",
+            "taxpayer_date_of_birth": "1980-01-01",
+            "tax_year": 2025,
+            "filing_status": "SINGLE",
+            "adjusted_gross_income": 50000.00, # AGI 50k
+            "line_5a_election": "INCOME_TAX",
+            "tax_items": [
+                {
+                    "item_id": "tax_01",
+                    "tax_category": "STATE_LOCAL_INCOME_TAX",
+                    "amount_paid": 30000.0,
+                    "paid_in_tax_year": True
+                }
+            ],
+            "special_case_flags": {
+                "has_ltc_premium": True
+            }
+        }
+
+        v1_inputs = ScheduleAInputsV1.from_dict(inputs_payload)
+        res = calculate_schedule_a_v1(v1_inputs, allowed_years={2024, 2025})
+
+        self.assertFalse(res.can_file)
+        self.assertFalse(res.is_itemizing)
+        self.assertFalse(res.should_attach_schedule_a)
+
+        warning_codes = [warn.code for warn in res.review_warnings]
+        self.assertIn("SCHEDULE_A_UNUSABLE_FALLBACK_TO_STANDARD", warning_codes)
+        warning_msg = next(w.message for w in res.review_warnings if w.code == "SCHEDULE_A_UNUSABLE_FALLBACK_TO_STANDARD")
+        self.assertIn("無法申報 Schedule A", warning_msg)
+
 if __name__ == "__main__":
     unittest.main()

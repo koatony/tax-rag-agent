@@ -150,6 +150,40 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
         self.assertEqual(result.status, "BLOCKED")
         self.assertFalse(result.can_continue)
 
+    def test_blocked_but_calculated_schedule_1_preserves_known_income(self):
+        issue = {
+            "code": "UNSUPPORTED_FORM_4797_4684",
+            "field": "line_4_other_gains_or_losses",
+            "message": "Form 4684 is not supported in V1.",
+        }
+        inp = IncomeAggregatorInputV1(
+            tax_year=2025,
+            filing_status="MFJ",
+            direct_income_input=DirectIncomeInputV1(
+                w2_items=[W2ItemV1(box_1_wages=Decimal("32000"), tax_year=2025)]
+            ),
+            schedule_1_result=Schedule1ResultV1(
+                line_10_additional_income=Decimal("1650"),
+                line_26_adjustments_to_income=Decimal("0"),
+                status="BLOCKED",
+                can_continue=True,
+                can_file=False,
+                is_v1_supported=False,
+                blocking_errors=[issue],
+            ),
+        )
+
+        result = IncomeAggregatorProcessor.process(inp)
+
+        self.assertEqual(result.line_1a, Decimal("32000"))
+        self.assertEqual(result.line_8, Decimal("1650"))
+        self.assertEqual(result.line_9, Decimal("33650"))
+        self.assertEqual(result.status, "COMPLETE")
+        self.assertTrue(result.can_continue)
+        self.assertFalse(result.can_file)
+        self.assertFalse(result.is_v1_supported)
+        self.assertEqual(result.blocking_errors[0].code, "UNSUPPORTED_FORM_4797_4684")
+
     def test_dict_input_parsing(self):
         """
         測試以 Raw Dictionary 傳入時的解析與算術
@@ -271,7 +305,22 @@ class TestIncomeAggregatorProcessor(unittest.TestCase):
         self.assertEqual(result.line_1a, Decimal("100000"))  # 兩筆均包含
         self.assertEqual(len(result.review_warnings), 0)
 
+    def test_parse_1099r_federal_withholding(self):
+        """
+        測試 DirectIncomeItemV1 解析器能精確提取 1099-R / Pension / IRA 之 federal_withholding
+        """
+        from form1040.parsers.income_aggregator_direct_income_parser import IncomeAggregatorDirectIncomeParser
+        raw = {
+            "pension_annuity": {
+                "gross_amount": 15000.0,
+                "taxable_amount": 15000.0,
+                "federal_withholding": 1100.0
+            }
+        }
+        res = IncomeAggregatorDirectIncomeParser.parse_dict(raw)
+        self.assertIsNotNone(res.pension_annuity)
+        self.assertEqual(res.pension_annuity.federal_withholding, Decimal("1100.0"))
+
 
 if __name__ == "__main__":
     unittest.main()
-

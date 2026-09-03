@@ -35,11 +35,14 @@ class W2ItemV1(BaseModel):
 
 
 class DirectIncomeItemV1(BaseModel):
-    """Direct Income 明細項目 DTO (Lines 4-6)"""
+    """Direct Income 明細項目 DTO (Lines 4-6)
+    TODO: [PLACEHOLDER] 未來擴充 Form 1099-R Box 4 / Form 1099-SSA Box 6 預扣稅欄位 (federal_withholding)
+    """
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     gross_amount: Decimal = Decimal("0")
     taxable_amount: Decimal = Decimal("0")
+    federal_withholding: Optional[Decimal] = None
     status: str = "EXPLICIT_VALUE"
 
 
@@ -86,6 +89,7 @@ class Schedule1ResultV1(BaseModel):
     status: str = "COMPLETE"
     can_continue: bool = True
     can_file: bool = True
+    is_v1_supported: bool = True
     blocking_errors: List[ProcessingIssueV1] = Field(default_factory=list)
     review_warnings: List[ProcessingIssueV1] = Field(default_factory=list)
 
@@ -149,6 +153,8 @@ class IncomeSectionResultV1(BaseModel):
 
     status: Literal["COMPLETE", "BLOCKED"]
     can_continue: bool
+    can_file: bool = True
+    is_v1_supported: bool = True
     blocking_errors: List[ProcessingIssueV1] = Field(default_factory=list)
     review_warnings: List[ProcessingIssueV1] = Field(default_factory=list)
 
@@ -183,6 +189,8 @@ class IncomeSectionResultV1(BaseModel):
             "line_9": str(self.line_9) if self.line_9 is not None else None,
             "status": self.status,
             "can_continue": self.can_continue,
+            "can_file": self.can_file,
+            "is_v1_supported": self.is_v1_supported,
             "blocking_errors": [e.to_dict() for e in self.blocking_errors],
             "review_warnings": [e.to_dict() for e in self.review_warnings],
         }

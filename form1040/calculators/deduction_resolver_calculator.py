@@ -41,7 +41,13 @@ class DeductionResolverCalculator:
             is_v1_supported = getattr(sa_res, "is_v1_supported", True)
             sa_errors = getattr(sa_res, "blocking_errors", []) or []
 
-            if is_v1_supported is False or len(sa_errors) > 0:
+            schedule_a_failed = (
+                can_file is False
+                or is_v1_supported is False
+                or len(sa_errors) > 0
+            )
+
+            if schedule_a_failed:
                 err_msgs = [err.message if hasattr(err, "message") else str(err) for err in sa_errors]
                 msg_detail = f" (原因：{'; '.join(err_msgs)})" if err_msgs else ""
                 from form1040.models.agi_model import ProcessingIssueV1
@@ -51,6 +57,14 @@ class DeductionResolverCalculator:
                     message=f"Schedule A 檢驗未通過，系統已安全回退選用標準扣除額供人工審核。{msg_detail}"
                 )
                 review_warnings.append(issue.to_dict() if hasattr(issue, "to_dict") else issue)
+
+                # A failed Schedule A is not a reliable source for an itemized
+                # deduction. Preserve its standard-deduction reference, but
+                # prevent the failed itemized result or Line 18 election from
+                # being selected below.
+                item_amount = Decimal("0.00")
+                elect_itemize = False
+                should_attach_sa = False
 
 
         # 若未能從 sa_res 計算出標準扣除額 (std_amount == 0.00)，統一交由 Schedule A 引擎計算出精確標準扣除額 (包含盲人/老人加計金額)
@@ -120,4 +134,3 @@ class DeductionResolverCalculator:
             blocking_errors=[],
             review_warnings=review_warnings,
         )
-
